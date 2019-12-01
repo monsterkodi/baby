@@ -11,6 +11,7 @@
 { Engine, Scene, Color3, Vector3, Mesh, DirectionalLight, AmbientLight, ShadowGenerator, StandardMaterial, MeshBuilder, HemisphericLight, SpotLight, ArcRotateCamera, FlyCamera } = require 'babylonjs'
 
 poly = require './poly'
+PolyGen = require './polygen'
 
 class World
     
@@ -90,7 +91,8 @@ class World
         z = 0
         x = 0
         # for k,v of poly
-        for k in ['Cuboctahedron', 'TruncatedCuboctahedron']
+        # for k in ['Cuboctahedron', 'TruncatedCuboctahedron']
+        for k in ['Tetrahedron' 'Cube' 'Octahedron' 'Dodecahedron' 'Icosahedron']
             p = Mesh.CreatePolyhedron "sap" {custom: poly[k]}, @scene
             # p.receiveShadows = true
             shadowGenerator.addShadowCaster p
@@ -107,12 +109,63 @@ class World
             
             p.position.x = x
             p.position.z = z
+            p.position.y = -3
             x += 3
             i++
             if i > 9
                 i = 0
                 x = 0
                 z += 3
+
+        p = Mesh.CreatePolyhedron "sap" {custom:PolyGen.tetrahedron}, @scene
+        p.receiveShadows = true
+        shadowGenerator.addShadowCaster p
+        p.material = new StandardMaterial 'mat' @scene
+        p.material.diffuseColor = new Color3 1 1 0
+
+        p = Mesh.CreatePolyhedron "sap" {custom:PolyGen.cube}, @scene
+        p.receiveShadows = true
+        p.position.x = 3
+        shadowGenerator.addShadowCaster p
+        p.material = new StandardMaterial 'mat' @scene
+        p.material.diffuseColor = new Color3 1 1 0
+
+        p = Mesh.CreatePolyhedron "sap" {custom:PolyGen.octahedron}, @scene
+        p.receiveShadows = true
+        p.position.x = 6
+        shadowGenerator.addShadowCaster p
+        p.material = new StandardMaterial 'mat' @scene
+        p.material.diffuseColor = new Color3 1 1 0
+
+        p = Mesh.CreatePolyhedron "sap" {custom:PolyGen.dodecahedron()}, @scene
+        p.receiveShadows = true
+        p.position.x = 9
+        shadowGenerator.addShadowCaster p
+        p.material = new StandardMaterial 'mat' @scene
+        p.material.diffuseColor = new Color3 1 1 0
+
+        p = Mesh.CreatePolyhedron "sap" {custom:PolyGen.dodecahedron(0)}, @scene
+        p.receiveShadows = true
+        p.position.x = 9
+        p.position.z = -3
+        shadowGenerator.addShadowCaster p
+        p.material = new StandardMaterial 'mat' @scene
+        p.material.diffuseColor = new Color3 1 1 0
+
+        p = Mesh.CreatePolyhedron "sap" {custom:PolyGen.dodecahedron(1)}, @scene
+        p.receiveShadows = true
+        p.position.x = 9
+        p.position.z = 3
+        shadowGenerator.addShadowCaster p
+        p.material = new StandardMaterial 'mat' @scene
+        p.material.diffuseColor = new Color3 1 1 0
+
+        p = Mesh.CreatePolyhedron "sap" {custom:PolyGen.icosahedron()}, @scene
+        p.receiveShadows = true
+        p.position.x = 12
+        shadowGenerator.addShadowCaster p
+        p.material = new StandardMaterial 'mat' @scene
+        p.material.diffuseColor = new Color3 1 1 0
         
         @engine.runRenderLoop @animate
     
