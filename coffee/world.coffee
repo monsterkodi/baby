@@ -6,7 +6,7 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ prefs, elem, klog, _ } = require 'kxk'
+{ prefs, elem, klog } = require 'kxk'
 
 { Engine, Scene, Color3, Vector3, FramingBehavior, Mesh, SimplificationType, DirectionalLight, AmbientLight, ShadowGenerator, StandardMaterial, MeshBuilder, HemisphericLight, SpotLight, ArcRotateCamera, FlyCamera } = require 'babylonjs'
 
@@ -43,6 +43,7 @@ class World
             FramingBehavior.radiusScale = 4
         else
             @camera = new FlyCamera "FlyCamera", new Vector3(0, 0, -10), @scene
+            
         @camera.attachControl @canvas, false
         @camera.wheelDeltaPercentage = 0.02
         @camera.inertia = 0.7
@@ -67,43 +68,11 @@ class World
         ground.material.diffuseColor = new Color3 a, a, a
         ground.receiveShadows = true
         ground.position.y = -4
-
-        if 0
-            sphere = MeshBuilder.CreateSphere 'sphere' { diameter: 1 }, @scene
-            sphere.material = new StandardMaterial "mat", @scene
-            sphere.material.diffuseColor = new Color3 1 1 0
-            sphere.material.specularPower = 6
-            sphere.translate new Vector3(0 1 0), 2
-            sphere.receiveShadows = true
-            shadowGenerator.addShadowCaster sphere
-            
-            box = MeshBuilder.CreateBox 'box' {}, @scene
-            box.material = new StandardMaterial "boxMat", @scene
-            box.material.diffuseColor = new Color3 1 0 0
-            box.translate new Vector3(1 1 0), 2
-            box.receiveShadows = true        
-            shadowGenerator.addShadowCaster box
-    
-            box = MeshBuilder.CreateBox 'box' {}, @scene
-            box.material = new StandardMaterial "boxMat", @scene
-            box.material.diffuseColor = new Color3 0 1 0
-            box.translate new Vector3(0 2 0), 2
-            box.receiveShadows = true        
-            shadowGenerator.addShadowCaster box
-            
-            box = MeshBuilder.CreateBox 'box' {}, @scene
-            box.material = new StandardMaterial "boxMat", @scene
-            box.material.diffuseColor = new Color3 0 0 1
-            box.translate new Vector3(0 1 1), 2
-            box.receiveShadows = true                
-            shadowGenerator.addShadowCaster box
              
         i = 0
         z = 0
         x = 0
         for k,v of poly
-        # for k in ['Cuboctahedron', 'TruncatedCuboctahedron']
-        # for k in ['Tetrahedron' 'Cube' 'Octahedron' 'Dodecahedron' 'Icosahedron']
             p = Mesh.CreatePolyhedron k, {custom: poly[k]}, @scene
             p.receiveShadows = true
             shadowGenerator.addShadowCaster p
@@ -128,70 +97,37 @@ class World
                 x = 0
                 z += 3
 
-        p = Mesh.CreatePolyhedron "tetrahedron" {custom:PolyGen.tetrahedron}, @scene
+        test = PolyGen.test()
+        klog test
+        test.face.splice 0, 16
+        p = Mesh.CreatePolyhedron "tets" {custom:test}, @scene
+        p.convertToFlatShadedMesh()
         p.receiveShadows = true
+        p.position.x =  -3
         shadowGenerator.addShadowCaster p
         p.material = new StandardMaterial 'mat' @scene
-        p.material.diffuseColor = new Color3 1 1 0
-
-        p = Mesh.CreatePolyhedron "cube" {custom:PolyGen.cube}, @scene
-        p.receiveShadows = true
-        p.position.x = 3
-        shadowGenerator.addShadowCaster p
-        p.material = new StandardMaterial 'mat' @scene
-        p.material.diffuseColor = new Color3 1 1 0
-
-        p = Mesh.CreatePolyhedron "octahedron" {custom:PolyGen.octahedron}, @scene
-        p.receiveShadows = true
-        p.position.x = 6
-        shadowGenerator.addShadowCaster p
-        p.material = new StandardMaterial 'mat' @scene
-        p.material.diffuseColor = new Color3 1 1 0
-
-        p = Mesh.CreatePolyhedron "dodecahedron" {custom:PolyGen.dodecahedron()}, @scene
-        p.receiveShadows = true
-        p.position.x = 9
-        shadowGenerator.addShadowCaster p
-        p.material = new StandardMaterial 'mat' @scene
-        p.material.diffuseColor = new Color3 1 1 0
-
-        if 0
-            p = Mesh.CreatePolyhedron "dodecahedron0" {custom:PolyGen.dodecahedron(0)}, @scene
-            p.receiveShadows = true
-            p.position.x = 9
-            p.position.z = -3
-            shadowGenerator.addShadowCaster p
-            p.material = new StandardMaterial 'mat' @scene
-            p.material.diffuseColor = new Color3 1 1 0
-    
-            p = Mesh.CreatePolyhedron "dodecahedron1" {custom:PolyGen.dodecahedron(1)}, @scene
-            p.receiveShadows = true
-            p.position.x = 9
-            p.position.z = 3
-            shadowGenerator.addShadowCaster p
-            p.material = new StandardMaterial 'mat' @scene
-            p.material.diffuseColor = new Color3 1 1 0
-
-        p = Mesh.CreatePolyhedron "icosahedron" {custom:PolyGen.icosahedron()}, @scene
-        p.receiveShadows = true
-        p.position.x = 12
-        shadowGenerator.addShadowCaster p
-        p.material = new StandardMaterial 'mat' @scene
-        p.material.diffuseColor = new Color3 1 1 0
-        
+        p.material.alpha = 0.8
+        p.material.diffuseColor = new Color3 1 1 1
+                
         @engine.runRenderLoop @animate
      
-        if 0
-            PolyGen.neighbors PolyGen.tetrahedron
-            PolyGen.neighbors PolyGen.cube
-            PolyGen.neighbors PolyGen.octahedron
-            PolyGen.neighbors PolyGen.dodecahedron()
-            PolyGen.neighbors PolyGen.icosahedron()
-            return
-
+        for i in [0..10]
+             
+            truncated = PolyGen.truncate PolyGen.cuboctahedron(), i*0.1
+            # klog i*0.1, truncated.face
+            p = Mesh.CreatePolyhedron "cuboctahedron" {custom:truncated}, @scene
+            p.convertToFlatShadedMesh()
+            p.receiveShadows = true
+            p.position.x =  15
+            p.position.z = -3*(i-0)
+            shadowGenerator.addShadowCaster p
+            p.material = new StandardMaterial 'mat' @scene
+            p.material.alpha = 0.8
+            p.material.diffuseColor = new Color3 0 1 0
+        
         for i in [0..10]
             
-            truncated = PolyGen.truncate _.cloneDeep(PolyGen.tetrahedron), i*0.1
+            truncated = PolyGen.truncate PolyGen.tetrahedron(), i*0.1
     
             p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
             p.convertToFlatShadedMesh()
@@ -199,14 +135,12 @@ class World
             p.position.z = -3*(i-0)
             shadowGenerator.addShadowCaster p
             p.material = new StandardMaterial 'mat' @scene
+            p.material.alpha = 0.8
             p.material.diffuseColor = new Color3 0 1 1
-            
-            if prefs.get 'inspector'
-                @toggleInspector()
             
         for i in [0..10]
             
-            truncated = PolyGen.truncate _.cloneDeep(PolyGen.cube), i*0.1
+            truncated = PolyGen.truncate PolyGen.cube(), i*0.1
     
             p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
             p.convertToFlatShadedMesh()
@@ -215,14 +149,12 @@ class World
             p.position.z = -3*(i-0)
             shadowGenerator.addShadowCaster p
             p.material = new StandardMaterial 'mat' @scene
+            p.material.alpha = 0.8
             p.material.diffuseColor = new Color3 1 0 1
             
-            if prefs.get 'inspector'
-                @toggleInspector()
-
         for i in [0..10]
             
-            truncated = PolyGen.truncate _.cloneDeep(PolyGen.octahedron), i*0.1
+            truncated = PolyGen.truncate PolyGen.octahedron(), i*0.1
     
             p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
             p.convertToFlatShadedMesh()
@@ -231,11 +163,9 @@ class World
             p.position.z = -3*(i-0)
             shadowGenerator.addShadowCaster p
             p.material = new StandardMaterial 'mat' @scene
+            p.material.alpha = 0.8
             p.material.diffuseColor = new Color3 1 1 0
             
-            if prefs.get 'inspector'
-                @toggleInspector()
-
         for i in [0..10]
             
             truncated = PolyGen.truncate PolyGen.dodecahedron(), i*0.1
@@ -247,28 +177,25 @@ class World
             p.position.z = -3*(i-0)
             shadowGenerator.addShadowCaster p
             p.material = new StandardMaterial 'mat' @scene
+            p.material.alpha = 0.8
             p.material.diffuseColor = new Color3 0 0 1
             
-            if prefs.get 'inspector'
-                @toggleInspector()
-
         for i in [0..10]
             
             truncated = PolyGen.truncate PolyGen.icosahedron(), i*0.1
     
             p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
             p.convertToFlatShadedMesh()
-            # p.simplify {quality:0.9 distance:1.0 optimizeMesh:true}, false, SimplificationType.QUADRATIC, (m) ->
-                
             p.receiveShadows = true
             p.position.x =  12
             p.position.z = -3*(i-0)
             shadowGenerator.addShadowCaster p
             p.material = new StandardMaterial 'mat' @scene
+            p.material.alpha = 0.8
             p.material.diffuseColor = new Color3 1 0 0
             
-            if prefs.get 'inspector'
-                @toggleInspector()
+        if prefs.get 'inspector'
+            @toggleInspector()
                
     onMouseDown: (event) =>
         
