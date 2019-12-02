@@ -6,9 +6,9 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ elem, klog } = require 'kxk'
+{ prefs, elem, klog, _ } = require 'kxk'
 
-{ Engine, Scene, Color3, Vector3, Mesh, DirectionalLight, AmbientLight, ShadowGenerator, StandardMaterial, MeshBuilder, HemisphericLight, SpotLight, ArcRotateCamera, FlyCamera } = require 'babylonjs'
+{ Engine, Scene, Color3, Vector3, Mesh, SimplificationType, DirectionalLight, AmbientLight, ShadowGenerator, StandardMaterial, MeshBuilder, HemisphericLight, SpotLight, ArcRotateCamera, FlyCamera } = require 'babylonjs'
 
 poly = require './poly'
 PolyGen = require './polygen'
@@ -37,6 +37,9 @@ class World
         else
             camera = new FlyCamera "FlyCamera", new Vector3(0, 0, -10), @scene
         camera.attachControl @canvas, true
+        camera.wheelDeltaPercentage = 0.02
+        camera.inertia = 0.7
+        camera.speed = 1
 
         light0 = new HemisphericLight 'light1' new Vector3(0, 1, 0), @scene
         light0.intensity = 1
@@ -90,11 +93,11 @@ class World
         i = 0
         z = 0
         x = 0
-        # for k,v of poly
+        for k,v of poly
         # for k in ['Cuboctahedron', 'TruncatedCuboctahedron']
-        for k in ['Tetrahedron' 'Cube' 'Octahedron' 'Dodecahedron' 'Icosahedron']
-            p = Mesh.CreatePolyhedron "sap" {custom: poly[k]}, @scene
-            # p.receiveShadows = true
+        # for k in ['Tetrahedron' 'Cube' 'Octahedron' 'Dodecahedron' 'Icosahedron']
+            p = Mesh.CreatePolyhedron k, {custom: poly[k]}, @scene
+            p.receiveShadows = true
             shadowGenerator.addShadowCaster p
             p.material = new StandardMaterial "mat", @scene
             c = switch poly[k].category
@@ -117,50 +120,51 @@ class World
                 x = 0
                 z += 3
 
-        p = Mesh.CreatePolyhedron "sap" {custom:PolyGen.tetrahedron}, @scene
+        p = Mesh.CreatePolyhedron "tetrahedron" {custom:PolyGen.tetrahedron}, @scene
         p.receiveShadows = true
         shadowGenerator.addShadowCaster p
         p.material = new StandardMaterial 'mat' @scene
         p.material.diffuseColor = new Color3 1 1 0
 
-        p = Mesh.CreatePolyhedron "sap" {custom:PolyGen.cube}, @scene
+        p = Mesh.CreatePolyhedron "cube" {custom:PolyGen.cube}, @scene
         p.receiveShadows = true
         p.position.x = 3
         shadowGenerator.addShadowCaster p
         p.material = new StandardMaterial 'mat' @scene
         p.material.diffuseColor = new Color3 1 1 0
 
-        p = Mesh.CreatePolyhedron "sap" {custom:PolyGen.octahedron}, @scene
+        p = Mesh.CreatePolyhedron "octahedron" {custom:PolyGen.octahedron}, @scene
         p.receiveShadows = true
         p.position.x = 6
         shadowGenerator.addShadowCaster p
         p.material = new StandardMaterial 'mat' @scene
         p.material.diffuseColor = new Color3 1 1 0
 
-        p = Mesh.CreatePolyhedron "sap" {custom:PolyGen.dodecahedron()}, @scene
+        p = Mesh.CreatePolyhedron "dodecahedron" {custom:PolyGen.dodecahedron()}, @scene
         p.receiveShadows = true
         p.position.x = 9
         shadowGenerator.addShadowCaster p
         p.material = new StandardMaterial 'mat' @scene
         p.material.diffuseColor = new Color3 1 1 0
 
-        p = Mesh.CreatePolyhedron "sap" {custom:PolyGen.dodecahedron(0)}, @scene
-        p.receiveShadows = true
-        p.position.x = 9
-        p.position.z = -3
-        shadowGenerator.addShadowCaster p
-        p.material = new StandardMaterial 'mat' @scene
-        p.material.diffuseColor = new Color3 1 1 0
+        if 0
+            p = Mesh.CreatePolyhedron "dodecahedron0" {custom:PolyGen.dodecahedron(0)}, @scene
+            p.receiveShadows = true
+            p.position.x = 9
+            p.position.z = -3
+            shadowGenerator.addShadowCaster p
+            p.material = new StandardMaterial 'mat' @scene
+            p.material.diffuseColor = new Color3 1 1 0
+    
+            p = Mesh.CreatePolyhedron "dodecahedron1" {custom:PolyGen.dodecahedron(1)}, @scene
+            p.receiveShadows = true
+            p.position.x = 9
+            p.position.z = 3
+            shadowGenerator.addShadowCaster p
+            p.material = new StandardMaterial 'mat' @scene
+            p.material.diffuseColor = new Color3 1 1 0
 
-        p = Mesh.CreatePolyhedron "sap" {custom:PolyGen.dodecahedron(1)}, @scene
-        p.receiveShadows = true
-        p.position.x = 9
-        p.position.z = 3
-        shadowGenerator.addShadowCaster p
-        p.material = new StandardMaterial 'mat' @scene
-        p.material.diffuseColor = new Color3 1 1 0
-
-        p = Mesh.CreatePolyhedron "sap" {custom:PolyGen.icosahedron()}, @scene
+        p = Mesh.CreatePolyhedron "icosahedron" {custom:PolyGen.icosahedron()}, @scene
         p.receiveShadows = true
         p.position.x = 12
         shadowGenerator.addShadowCaster p
@@ -168,7 +172,100 @@ class World
         p.material.diffuseColor = new Color3 1 1 0
         
         @engine.runRenderLoop @animate
+     
+        if 0
+            PolyGen.neighbors PolyGen.tetrahedron
+            PolyGen.neighbors PolyGen.cube
+            PolyGen.neighbors PolyGen.octahedron
+            PolyGen.neighbors PolyGen.dodecahedron()
+            PolyGen.neighbors PolyGen.icosahedron()
+            return
+
+        for i in [0..10]
+            
+            truncated = PolyGen.truncate _.cloneDeep(PolyGen.tetrahedron), 0.7 #, i*0.1
     
+            p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
+            p.receiveShadows = true
+            p.position.z = -3*(i-0)
+            shadowGenerator.addShadowCaster p
+            p.material = new StandardMaterial 'mat' @scene
+            p.material.diffuseColor = new Color3 1 1 1
+            
+            if prefs.get 'inspector'
+                @toggleInspector()
+            
+        for i in [0..10]
+            
+            truncated = PolyGen.truncate _.cloneDeep(PolyGen.cube) #, i*0.1
+    
+            p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
+            p.receiveShadows = true
+            p.position.x =  3
+            p.position.z = -3*(i-0)
+            shadowGenerator.addShadowCaster p
+            p.material = new StandardMaterial 'mat' @scene
+            p.material.diffuseColor = new Color3 1 1 1
+            
+            if prefs.get 'inspector'
+                @toggleInspector()
+
+        for i in [0..10]
+            
+            truncated = PolyGen.truncate _.cloneDeep(PolyGen.octahedron) #, i*0.1
+    
+            p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
+            p.receiveShadows = true
+            p.position.x =  6
+            p.position.z = -3*(i-0)
+            shadowGenerator.addShadowCaster p
+            p.material = new StandardMaterial 'mat' @scene
+            p.material.diffuseColor = new Color3 1 1 1
+            
+            if prefs.get 'inspector'
+                @toggleInspector()
+
+        for i in [0..10]
+            
+            truncated = PolyGen.truncate PolyGen.dodecahedron() #, i*0.1
+    
+            p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
+            p.receiveShadows = true
+            p.position.x =  9
+            p.position.z = -3*(i-0)
+            shadowGenerator.addShadowCaster p
+            p.material = new StandardMaterial 'mat' @scene
+            p.material.diffuseColor = new Color3 1 1 1
+            
+            if prefs.get 'inspector'
+                @toggleInspector()
+
+        for i in [0..10]
+            
+            truncated = PolyGen.truncate PolyGen.icosahedron() #, i*0.1
+    
+            p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
+            p.simplify {quality:0.9 distance:1.0 optimizeMesh:true}, false, SimplificationType.QUADRATIC, (m) ->
+                
+            p.receiveShadows = true
+            p.position.x =  12
+            p.position.z = -3*(i-0)
+            shadowGenerator.addShadowCaster p
+            p.material = new StandardMaterial 'mat' @scene
+            p.material.diffuseColor = new Color3 1 1 1
+            
+            if prefs.get 'inspector'
+                @toggleInspector()
+                
+    toggleInspector: ->
+        
+        if @scene.debugLayer.isVisible()
+            @scene.debugLayer.hide()
+            prefs.set 'inspector' false
+        else
+            @scene.debugLayer.show overlay:true showInspector:true
+            prefs.set 'inspector' true
+        
     start: -> @view.focus()
 
     animate: =>
@@ -177,7 +274,7 @@ class World
             @scene.render()
     
     resized: => 
-        klog 'resized' @view.clientWidth, @view.clientHeight
+        # klog 'resized' @view.clientWidth, @view.clientHeight
         @canvas.width = @view.clientWidth
         @canvas.height = @view.clientHeight
     

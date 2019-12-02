@@ -55,6 +55,15 @@ class MainWin extends win
             else
                 @world.modKeyComboEventUp '' key, key
 
+    onMenuAction: (action, args) =>
+        
+        # klog "menuAction #{action}" args, @world.scene.debugLayer.isVisible()
+        
+        switch action
+            when 'Inspector' then return @world.toggleInspector()
+            
+        super
+                
     onPadAxis: (state) => 
 
         klog 'onPadAxis' state
