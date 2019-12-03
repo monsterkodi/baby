@@ -6,6 +6,7 @@
  00000 00   0000000   000   000     000   
 ###
 
+{ deg2rad, rad2deg } = require 'kxk'
 { Quaternion, Vector3 } = require 'babylonjs'
 { cos, sin, sqrt, atan2, asin, acos } = Math
 Vect = require './vect'

@@ -8,7 +8,7 @@
 
 { randRange, rad2deg } = require 'kxk'
 { Vector3 } = require 'babylonjs'
-{ round, acos, abs, sqrt } = Math 
+{ round, acos, atan2, abs, sqrt } = Math 
 
 class Vect extends Vector3
 
@@ -27,6 +27,8 @@ class Vect extends Vector3
             super x, y, z ? 0
         if Number.isNaN @x
             throw new Error
+            
+    toString: -> "#{@x} #{@y} #{@z}"
             
     clone: -> new Vect @
     copy: (v) -> 
@@ -54,7 +56,14 @@ class Vect extends Vector3
         @
 
     crossed: (v) -> @clone().cross(v)
-    cross: (v) -> @crossVectors @, v
+    cross: (v) ->
+        ax = @x 
+        ay = @y 
+        az = @z
+        @x = ay * v.z - az * v.y
+        @y = az * v.x - ax * v.z
+        @z = ax * v.y - ay * v.x
+        @
     
     normal: -> @clone().normalize()
     normalize: ->
@@ -141,7 +150,16 @@ class Vect extends Vector3
         @set randRange(-1,1),randRange(-1,1),randRange(-1,1)
         @normalize()
         @
-    
+        
+    polarize: ->
+        radius = @length()
+        theta = atan2 @y, @x
+        phi   = acos @z / radius
+        @x = theta
+        @y = phi
+        @z = radius
+        @
+        
     @random: -> new Vect().randomize()
             
     @rayPlaneIntersection: (rayPos, rayDirection, planePos, planeNormal) ->
@@ -180,7 +198,7 @@ class Vect extends Vector3
     @minusZ = new Vect  0  0 -1
     
     @normals = [Vect.unitX, Vect.unitY, Vect.unitZ, Vect.minusX, Vect.minusY, Vect.minusZ]
-    
+        
     @perpNormals: (v) -> 
         i = @normalIndex(v)
         switch i

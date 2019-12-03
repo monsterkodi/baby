@@ -11,6 +11,7 @@
 { Engine, Scene, Color3, Vector3, FramingBehavior, Mesh, SimplificationType, DirectionalLight, AmbientLight, ShadowGenerator, StandardMaterial, MeshBuilder, HemisphericLight, SpotLight, ArcRotateCamera, FlyCamera } = require 'babylonjs'
 
 Poly = require './poly'
+Vect = require './vect'
 
 class World
     
@@ -33,24 +34,24 @@ class World
         @scene.clearColor = new Color3 a, a, a
 
         if 1
-            @camera = new ArcRotateCamera "Camera", 0 0 0 Vector3.Zero(), @scene
+            @camera = new ArcRotateCamera "Camera" 0 0 0 Vect.Zero(), @scene
             @camera.lowerRadiusLimit = 2
             @camera.upperRadiusLimit = 100
-            @camera.setPosition new Vector3 0 0, -10
+            @camera.setPosition new Vect 0 0 -10
             @camera.useFramingBehavior = true
             FramingBehavior.mode = FramingBehavior.FitFrustumSidesMode
             FramingBehavior.radiusScale = 4
         else
-            @camera = new FlyCamera "FlyCamera", new Vector3(0, 0, -10), @scene
+            @camera = new FlyCamera "FlyCamera" new Vect(0 0 -10), @scene
             
         @camera.attachControl @canvas, false
         @camera.wheelDeltaPercentage = 0.02
         @camera.inertia = 0.7
         @camera.speed = 1
 
-        light0 = new HemisphericLight 'light1' new Vector3(0, 1, 0), @scene
+        light0 = new HemisphericLight 'light1' new Vect(0 1 0), @scene
         light0.intensity = 1
-        light = new DirectionalLight 'light' new Vector3(0, -1, 0), @scene
+        light = new DirectionalLight 'light' new Vect(0 -1 0), @scene
         light.position.y = 100
         light.intensity = 0.1
         
@@ -61,7 +62,7 @@ class World
         shadowGenerator.useContactHardeningShadow = true
         
         ground = MeshBuilder.CreateGround "ground" {width:1000 height:1000 subdivisions: 4}, @scene
-        ground.material = new StandardMaterial "mat", @scene
+        ground.material = new StandardMaterial "mat" @scene
         ground.material.specularColor = new Color3 0.05 0.05 0.05
         a = 0.05
         ground.material.diffuseColor = new Color3 a, a, a
@@ -72,6 +73,9 @@ class World
         if prefs.get 'inspector'
             @toggleInspector()
              
+        # Poly.dumpNeighbors Poly.cube().neighbors
+        # Poly.dump Poly.truncate Poly.cube(), 0.5
+            
         for i in [0..10]
              
             truncated = Poly.truncate Poly.cuboctahedron(), i*0.1

@@ -7,7 +7,9 @@
 ###
 
 { klog } = require 'kxk'
-{ Vector3 } = require 'babylonjs'
+
+Vect = require './vect'
+Quat = require './quat'
 
 sqrt = Math.sqrt
 ϕ = (sqrt(5)-1)/2
@@ -16,9 +18,14 @@ class Poly
     
     @dump: (poly) ->
         
-        klog 'neighbors: [' + poly.neighbors.map((n) -> '[' + n.map((d)->"#{d}").join(' ') + ']').join(' ') + ']'
+        # klog 'neighbors: [' + poly.neighbors.map((n) -> '[' + n.map((d)->"#{d}").join(' ') + ']').join(' ') + ']'
+        @dumpNeighbors poly.neighbors
         klog 'face: [' + poly.face.map((n) -> '[' + n.map((d)->"#{d}").join(' ') + ']').join(' ') + ']'
         klog 'vertex: ['  + poly.vertex.map((n) -> '[' + n.map((d)->"#{d}").join(' ') + ']').join(' ') + ']'
+        
+    @dumpNeighbors: (neighbors) ->
+        
+        klog 'neighbors: [' + neighbors.map((n) -> '[' + n.map((d)->"#{d}").join(' ') + ']').join(' ') + ']'
     
     @neighbors: (poly) ->
 
@@ -30,31 +37,34 @@ class Poly
                     neighbors[face[vi]].push face[ni]
                 if face[vi] not in neighbors[face[ni]]
                     neighbors[face[ni]].push face[vi]          
-        # klog 'neighbors: [' + neighbors.map((n) -> '[' + n.map((d)->"#{d}").join(' ') + ']').join(' ') + ']'
+              
+        for vi in [0...neighbors.length]
+            toVertex = new Vect poly.vertex[vi]
+            toVertex.normalize()
+            toN0 = new Vect poly.vertex[neighbors[vi][0]]
+            perp = toVertex.crossed toN0
+            neighbors[vi].sort (a,b) ->
+                aa = Vect.GetAngleBetweenVectors perp, new Vect(poly.vertex[a]), toVertex
+                bb = Vect.GetAngleBetweenVectors perp, new Vect(poly.vertex[b]), toVertex
+                aa - bb
+                    
         neighbors
                 
     @vertex: (poly, vi) ->
         
-        new Vector3 poly.vertex[vi][0], poly.vertex[vi][1], poly.vertex[vi][2]
+        new Vect poly.vertex[vi][0], poly.vertex[vi][1], poly.vertex[vi][2]
         
     @edge: (poly, v1, v2) ->
         
         @vertex(poly, v2).subtract @vertex(poly, v1)
         
-    @vertexNormal: (poly, vertexIndex) ->
-        
-        sum = new Vector3 0 0 0
-        for ni in poly.neighbors[vertexIndex]
-            sum.addInPlace @edge poly, vertexIndex, ni
-        sum.normalize()
-        sum
-        
-    @calcDepth: (poly, factor, vertexIndex) ->
-        
-        norm = @vertexNormal poly, vertexIndex
-        edge = @edge poly, vertexIndex, poly.neighbors[0][0]
-        
-        edge.length() * 0.5 * factor
+    # @vertexNormal: (poly, vertexIndex) ->
+#         
+        # sum = new Vector3 0 0 0
+        # for ni in poly.neighbors[vertexIndex]
+            # sum.addInPlace @edge poly, vertexIndex, ni
+        # sum.normalize()
+        # sum
         
     # 000000000  00000000   000   000  000   000   0000000   0000000   000000000  00000000  
     #    000     000   000  000   000  0000  000  000       000   000     000     000       
@@ -67,10 +77,11 @@ class Poly
         edgeMap = {}
         
         numFaces = poly.face.length
-        
-        depth = @calcDepth poly, factor, 0
-        
         numVertices = poly.vertex.length
+        
+        edge0 = @edge poly, 0, poly.neighbors[0][0]
+        depth = 0.5 * factor * edge0.length() 
+        
         for vertexIndex in [0...numVertices]
             
             edgeMap[vertexIndex] ?= {}
@@ -98,7 +109,12 @@ class Poly
                 if factor < 1
                     newFace.push edgeMap[face[ni]][face[vi]]
             poly.face[fi] = newFace
-                        
+          
+        poly.vertex.splice 0, numVertices
+        for face in poly.face
+            for i in [0...face.length]
+                face[i] -= numVertices
+            
         poly.neighbors = @neighbors poly
         poly
         
@@ -127,7 +143,7 @@ class Poly
     
     @cube: ->
         
-        neighbors:  [[4 1 3] [2 0 7] [6 3 1] [5 0 2] [5 7 0] [6 4 3] [7 5 2] [1 4 6]]
+        neighbors:  [[1 3 4] [0 7 2] [1 6 3] [2 5 0] [5 7 0] [4 3 6] [5 2 7] [6 1 4]]
         face:       [[0 1 2 3] [4 5 6 7] [1 0 4 7] [0 3 5 4] [3 2 6 5] [2 1 7 6]]
         vertex:     [[1 1 -1] [1 -1 -1] [-1 -1 -1] [-1 1 -1] [1 1 1] [-1 1 1] [-1 -1 1] [1 -1 1]]
         
@@ -139,7 +155,7 @@ class Poly
     
     @octahedron: ->
         
-        neighbors:  [[1 2 3 4] [5 2 0 4] [3 0 1 5] [4 0 2 5] [1 0 3 5] [4 3 2 1]]        
+        neighbors:  [[4 1 2 3] [2 0 4 5] [0 1 5 3] [0 2 5 4] [0 3 5 1] [3 2 1 4]]
         face:       [[0 1 2] [0 2 3] [0 3 4] [0 4 1] [5 2 1] [5 3 2] [5 4 3] [5 1 4]]
         vertex:     [[0 1 0] [-1 0 0] [0 0 1] [1 0 0] [0 0 -1] [0 -1 0]]
         
@@ -155,7 +171,7 @@ class Poly
         b = ϕ*(1+h)
         a = ϕ*(1-h*h)
 
-        neighbors: [[12 8 16] [19 9 12] [15 9 18] [17 8 15] [13 16 11] [10 19 13] [14 18 10] [11 17 14] [0 9 3] [2 8 1] [11 6 5] [4 7 10] [13 1 0] [5 12 4] [7 15 6] [3 2 14] [0 17 4] [7 16 3] [2 19 6] [5 18 1]]        
+        neighbors: [[12 8 16] [12 19 9] [9 18 15] [15 17 8] [11 13 16] [19 13 10] [10 14 18] [17 14 11] [9 3 0] [1 2 8] [5 11 6] [7 10 4] [0 13 1] [12 4 5] [15 6 7] [2 14 3] [17 4 0] [3 7 16] [19 6 2] [1 5 18]]
         face:  [[0 12 1 9 8] [8 9 2 15 3] 
                 [9 1 19 18 2] [18 19 5 10 6] [8 3 17 16 0] [16 17 7 11 4]
                 [14 15 2 18 6] [17 3 15 14 7] [12 13 5 19 1] [0 16 4 13 12]
@@ -192,7 +208,7 @@ class Poly
     
     @icosahedron: ->
                 
-        neighbors: [[4 1 7 9 8] [0 4 11 10 7] [3 6 10 11 5] [2 5 8 9 6] [5 11 1 0 8] [8 3 2 11 4] [7 10 2 3 9] [9 0 1 10 6] [4 0 9 3 5] [6 3 8 0 7] [7 1 11 2 6] [5 2 10 1 4]]        
+        neighbors: [[8 4 1 7 9] [0 4 11 10 7] [5 3 6 10 11] [6 2 5 8 9] [1 0 8 5 11] [3 2 11 4 8] [2 3 9 7 10] [0 1 10 6 9] [0 9 3 5 4] [8 0 7 6 3] [1 11 2 6 7] [10 1 4 5 2]]
         face: [
             [0 4 1] [0 1 7] [1 11 10] [0 9 8]
             [1 10 7] [0 7 9] [0 8 4] [1 4 11]   
@@ -223,7 +239,7 @@ class Poly
 
     @cuboctahedron: ->
         
-        neighbors:  [[3 1 8 11] [0 2 9 8] [1 3 10 9] [0 11 10 2] [5 7 11 8] [6 4 8 9] [7 5 9 10] [4 6 10 11] [4 0 1 5] [5 1 2 6] [6 2 3 7] [0 4 7 3]]
+        neighbors:  [[1 8 11 3] [2 9 8 0] [3 10 9 1] [10 2 0 11] [8 5 7 11] [4 8 9 6] [5 9 10 7] [6 10 11 4] [0 1 5 4] [1 2 6 5] [2 3 7 6] [4 7 3 0]]
         face:       [[3 2 1 0] [4 5 6 7] [0 8 4 11] [1 9 5 8] [2 10 6 9] [3 11 7 10] [0 11 3] [0 1 8] [1 2 9] [2 3 10] [4 8 5] [5 9 6] [6 10 7] [7 11 4]]
         vertex:     [[1 1 0] [0 1 1] [-1 1 0] [0 1 -1] [1 -1 0] [0 -1 1] [-1 -1 0] [0 -1 -1] [1 0 1] [-1 0 1] [-1 0 -1] [1 0 -1]]
                 
