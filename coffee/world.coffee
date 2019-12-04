@@ -8,10 +8,11 @@
 
 { prefs, elem, klog } = require 'kxk'
 
-{ Engine, Scene, Color3, Vector3, FramingBehavior, Mesh, SimplificationType, DirectionalLight, AmbientLight, ShadowGenerator, StandardMaterial, MeshBuilder, HemisphericLight, SpotLight, ArcRotateCamera, FlyCamera } = require 'babylonjs'
+{ ArcRotateCamera, FramingBehavior, Engine, Scene, Color3, Vector3, Mesh, SimplificationType, DirectionalLight, AmbientLight, ShadowGenerator, StandardMaterial, MeshBuilder, HemisphericLight, SpotLight } = require 'babylonjs'
 
-Poly = require './poly'
-Vect = require './vect'
+Poly   = require './poly'
+Vect   = require './vect'
+Camera = require './camera'
 
 class World
     
@@ -33,21 +34,23 @@ class World
         a = 0.06
         @scene.clearColor = new Color3 a, a, a
 
-        if 1
-            @camera = new ArcRotateCamera "Camera" 0 0 0 Vect.Zero(), @scene
-            @camera.lowerRadiusLimit = 2
-            @camera.upperRadiusLimit = 100
-            @camera.setPosition new Vect 0 0 -10
-            @camera.useFramingBehavior = true
-            FramingBehavior.mode = FramingBehavior.FitFrustumSidesMode
-            FramingBehavior.radiusScale = 4
-        else
-            @camera = new FlyCamera "FlyCamera" new Vect(0 0 -10), @scene
-            
-        @camera.attachControl @canvas, false
-        @camera.wheelDeltaPercentage = 0.02
-        @camera.inertia = 0.7
-        @camera.speed = 1
+        @camera = new Camera @scene, @view, @canvas
+        
+        # if 1
+            # @camera = new ArcRotateCamera "Camera" 0 0 0 Vect.Zero(), @scene
+            # @camera.lowerRadiusLimit = 2
+            # @camera.upperRadiusLimit = 100
+            # @camera.setPosition new Vect 0 0 -10
+            # @camera.useFramingBehavior = true
+            # FramingBehavior.mode = FramingBehavior.FitFrustumSidesMode
+            # FramingBehavior.radiusScale = 4
+        # # else
+            # # @camera = new FlyCamera "FlyCamera" new Vect(0 0 -10), @scene
+#             
+        # @camera.attachControl @canvas, false
+        # @camera.wheelDeltaPercentage = 0.02
+        # @camera.inertia = 0.7
+        # @camera.speed = 1
 
         light0 = new HemisphericLight 'light1' new Vect(0 1 0), @scene
         light0.intensity = 1
@@ -168,7 +171,8 @@ class World
         result = @scene.pick @scene.pointerX, @scene.pointerY
         if mesh = result.pickedMesh
             if mesh.name != 'ground' and mesh == @mouseDownMesh
-                @camera.setTarget mesh
+                @camera.setTarget mesh.getAbsolutePosition()
+                # @camera.setTarget mesh
                 
     toggleInspector: ->
         

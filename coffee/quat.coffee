@@ -30,16 +30,10 @@ class Quat extends Quaternion
             super x, y, z, w
         if Number.isNaN @x
             throw new Error
-        
-    @unitVectors: (n1, n2) -> 
-        
-        Quat.tmp.setFromUnitVectors n1, n2
-        Quat.tmp
-            
+                    
     @axisAngle: (axis, angle) -> 
         
-        Quat.tmp.setFromAxisAngle axis, deg2rad angle
-        Quat.tmp
+        Quaternion.RotationAxis axis, deg2rad angle
             
     rotateAxisAngle: (axis, angle) ->
         

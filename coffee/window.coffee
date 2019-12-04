@@ -4,7 +4,7 @@
 # 000   000  000  000  0000  000   000  000   000  000   000
 # 00     00  000  000   000  0000000     0000000   00     00
 
-{ gamepad, win, klog, $ } = require 'kxk'
+{ gamepad, win, $ } = require 'kxk'
 
 World = require './world'
 
@@ -34,7 +34,7 @@ class MainWin extends win
         
     onPadButton: (button, value) =>
         
-        klog 'onPadButton' button, value
+        # klog 'onPadButton' button, value
         key = switch button
             when 'Menu'  then 'esc'
             when 'Back'  then 'q'
@@ -66,6 +66,6 @@ class MainWin extends win
                 
     onPadAxis: (state) => 
 
-        klog 'onPadAxis' state
+        # klog 'onPadAxis' state
         
 new MainWin            
