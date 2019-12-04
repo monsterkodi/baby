@@ -6,7 +6,7 @@
  0000000  000   000  000   000  00000000  000   000  000   000
 ###
 
-{ reduce, clamp } = require 'kxk'
+{ reduce, clamp, klog } = require 'kxk'
 { UniversalCamera, ArcRotateCamera, FlyCamera, FramingBehavior } = require 'babylonjs'
 
 Vect = require './vect'
@@ -19,58 +19,59 @@ class Camera extends UniversalCamera
 
     @: (@scene, view, canvas) ->
         
-        # width  = view.clientWidth
-        # height = view.clientHeight
-        
-        # super 70 width/height, 0.01 300 # fov, aspect, near, far
-        
-        # @size       = vec width, height
-        # @elem       = view
-        # @dist       = 10
-        # @maxDist    = @far/4
-        # @minDist    = 0.9
-        # @center     = vec 0 0 0
-        # @degree     = 60
-        # @rotate     = 0
-        # @wheelInert = 0
-        # @pivotX     = 0
-        # @pivotY     = 0
-        # @moveX      = 0
-        # @moveY      = 0
-        # @quat       = quat()
+        width  = view.clientWidth
+        height = view.clientHeight
+                
+        @size       = vec width, height
+        @elem       = view
+        @dist       = 10
+        @maxDist    = @far/4
+        @minDist    = 0.9
+        @center     = vec 0 0 0
+        @degree     = 60
+        @rotate     = 0
+        @wheelInert = 0
+        @pivotX     = 0
+        @pivotY     = 0
+        @moveX      = 0
+        @moveY      = 0
+        @quat       = quat()
 
-        # @elem.addEventListener 'mousewheel' @onMouseWheel
-        # @elem.addEventListener 'mousedown'  @onMouseDown
+        @elem.addEventListener 'mousewheel' @onMouseWheel
+        @elem.addEventListener 'mousedown'  @onMouseDown
         # @elem.addEventListener 'keypress'   @onKeyPress
         # @elem.addEventListener 'keyrelease' @onKeyRelease
-        # @elem.addEventListener 'dblclick'   @onDblClick
+        @elem.addEventListener 'dblclick'   @onDblClick
         
         super 'Camera' vec(0 0 -10), @scene
         # super 'Camera' 0 0 0 Vect.Zero(), @scene
         
         @attachControl canvas, false
-        @wheelDeltaPercentage = 0.02
-        @inertia = 0.7
-        @speed = 1
+        # @wheelDeltaPercentage = 0.02
+        @inertia = 0.8
+        # @speed = 1
         
-        @lowerRadiusLimit = 2
-        @upperRadiusLimit = 100
+        # @lowerRadiusLimit = 2
+        # @upperRadiusLimit = 100
         # @setPosition vec 0 0 -40
-        @useFramingBehavior = true
-        FramingBehavior.mode = FramingBehavior.FitFrustumSidesMode
-        FramingBehavior.radiusScale = 4
+        # @useFramingBehavior = true
+        # FramingBehavior.mode = FramingBehavior.FitFrustumSidesMode
+        # FramingBehavior.radiusScale = 4
+        
+        @keysLeft = @keysLeft.concat [64]
+        klog 'keysLeft' @keysLeft
         
         # @update()
 
-    # getPosition: -> vec @getFrontPosition 0
-    # getDir:      -> quat(@rotationQuaternion).rotate Vect.minusZ
-    # getUp:       -> quat(@rotationQuaternion).rotate Vect.unitY
-    # getRight:    -> quat(@rotationQuaternion).rotate Vect.unitX
+    getPosition: -> vec @getFrontPosition 0
+    getDir:      -> quat(@rotationQuaternion).rotate Vect.minusZ
+    getUp:       -> quat(@rotationQuaternion).rotate Vect.unitY
+    getRight:    -> quat(@rotationQuaternion).rotate Vect.unitX
 
     del: =>
         
-        @elem.removeEventListener  'keypress'   @onKeyPress
-        @elem.removeEventListener  'keyrelease' @onKeyRelease
+        # @elem.removeEventListener  'keypress'   @onKeyPress
+        # @elem.removeEventListener  'keyrelease' @onKeyRelease
         @elem.removeEventListener  'mousewheel' @onMouseWheel
         @elem.removeEventListener  'mousedown'  @onMouseDown
         @elem.removeEventListener  'dblclick'   @onDblClick
@@ -292,6 +293,7 @@ class Camera extends UniversalCamera
     
     onMouseWheel: (event) => 
     
+        klog 'wheel' event.wheelDelta
         if @wheelInert > 0 and event.wheelDelta < 0
             @wheelInert = 0
             return

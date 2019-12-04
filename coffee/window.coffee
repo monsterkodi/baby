@@ -4,7 +4,7 @@
 # 000   000  000  000  0000  000   000  000   000  000   000
 # 00     00  000  000   000  0000000     0000000   00     00
 
-{ gamepad, win, $ } = require 'kxk'
+{ gamepad, keyinfo, win, klog, $ } = require 'kxk'
 
 World = require './world'
 
@@ -22,7 +22,7 @@ class MainWin extends win
             prefsSeperator: '▸'
             context: false
             onLoad: @onLoad
-            
+                        
     onLoad: =>
 
         @world = new World $ '#main'
@@ -54,7 +54,18 @@ class MainWin extends win
                 @world.modKeyComboEventDown '' key, key
             else
                 @world.modKeyComboEventUp '' key, key
-
+                
+    onKeyDown: (event) =>
+        klog 'key down'
+        { mod, key, combo } = keyinfo.forEvent event
+        @world.modKeyComboEventDown mod, key, combo, event
+        super
+        
+    onKeyUp: (event) =>
+        { mod, key, combo } = keyinfo.forEvent event
+        @world.modKeyComboEventUp mod, key, combo, event
+        super
+        
     onMenuAction: (action, args) =>
         
         # klog "menuAction #{action}" args, @world.scene.debugLayer.isVisible()
