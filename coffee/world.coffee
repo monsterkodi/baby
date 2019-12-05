@@ -60,28 +60,15 @@ class World
              
         window.addEventListener 'pointerdown' @onMouseDown
         window.addEventListener 'pointerup'   @onMouseUp
-            
-        for i in [0..10]
-             
-            truncated = Poly.truncate Poly.cuboctahedron(), i*0.1
-            p = Mesh.CreatePolyhedron "cuboctahedron" {custom:truncated}, @scene
-            p.convertToFlatShadedMesh()
-            p.receiveShadows = true
-            p.position.x =  15
-            p.position.z = -3*(i-0)
-            shadowGenerator.addShadowCaster p
-            p.material = new StandardMaterial 'mat' @scene
-            p.material.alpha = 0.8
-            p.material.diffuseColor = new Color3 0 1 0
-        
+                    
         for i in [0..10]
             
             truncated = Poly.truncate Poly.tetrahedron(), i*0.1
     
             p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
-            p.convertToFlatShadedMesh()
+            # p.convertToFlatShadedMesh()
             p.receiveShadows = true
-            p.position.z = -3*(i-0)
+            p.position.z = -3*i
             shadowGenerator.addShadowCaster p
             p.material = new StandardMaterial 'mat' @scene
             p.material.alpha = 0.8
@@ -92,10 +79,10 @@ class World
             truncated = Poly.truncate Poly.cube(), i*0.1
     
             p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
-            p.convertToFlatShadedMesh()
+            # p.convertToFlatShadedMesh()
             p.receiveShadows = true
             p.position.x =  3
-            p.position.z = -3*(i-0)
+            p.position.z = -3*i
             shadowGenerator.addShadowCaster p
             p.material = new StandardMaterial 'mat' @scene
             p.material.alpha = 0.8
@@ -106,10 +93,10 @@ class World
             truncated = Poly.truncate Poly.octahedron(), i*0.1
     
             p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
-            p.convertToFlatShadedMesh()
+            # p.convertToFlatShadedMesh()
             p.receiveShadows = true
             p.position.x =  6
-            p.position.z = -3*(i-0)
+            p.position.z = -3*i
             shadowGenerator.addShadowCaster p
             p.material = new StandardMaterial 'mat' @scene
             p.material.alpha = 0.8
@@ -120,10 +107,10 @@ class World
             truncated = Poly.truncate Poly.dodecahedron(), i*0.1
     
             p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
-            p.convertToFlatShadedMesh()
+            # p.convertToFlatShadedMesh()
             p.receiveShadows = true
             p.position.x =  9
-            p.position.z = -3*(i-0)
+            p.position.z = -3*i
             shadowGenerator.addShadowCaster p
             p.material = new StandardMaterial 'mat' @scene
             p.material.alpha = 0.8
@@ -134,15 +121,54 @@ class World
             truncated = Poly.truncate Poly.icosahedron(), i*0.1
     
             p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
-            p.convertToFlatShadedMesh()
+            # p.convertToFlatShadedMesh()
             p.receiveShadows = true
             p.position.x =  12
-            p.position.z = -3*(i-0)
+            p.position.z = -3*i
             shadowGenerator.addShadowCaster p
             p.material = new StandardMaterial 'mat' @scene
             p.material.alpha = 0.8
             p.material.diffuseColor = new Color3 1 0 0
-                           
+                 
+        for i in [0..10]
+             
+            truncated = Poly.truncate Poly.cuboctahedron(), i*0.1
+            p = Mesh.CreatePolyhedron "cuboctahedron" {custom:truncated}, @scene
+            # p.convertToFlatShadedMesh()
+            p.receiveShadows = true
+            p.position.x =  15
+            p.position.z = -3*i
+            shadowGenerator.addShadowCaster p
+            p.material = new StandardMaterial 'mat' @scene
+            p.material.alpha = 0.8
+            p.material.diffuseColor = new Color3 0 1 0
+            
+        for i in [0..10]
+             
+            truncated = Poly.truncate Poly.icosidodecahedron(), i*0.1
+     
+            p = Mesh.CreatePolyhedron "icosidodecahedron" {custom:truncated}, @scene
+            # p.convertToFlatShadedMesh()
+            p.receiveShadows = true
+            p.position.x =  18
+            p.position.z = -3*i
+            shadowGenerator.addShadowCaster p
+            p.material = new StandardMaterial 'mat' @scene
+            p.material.alpha = 0.8
+            p.material.diffuseColor = new Color3 1 1 0
+            
+        for m,j in ['truncatedicosidodecahedron' 'rhombicosidodecahedron' 'rhombicubocahedron' 'snubicosidodecahedron' 'snubcuboctahedron']
+            for i in [0..10]
+                truncated = Poly.truncate Poly[m](), i*0.1
+                p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
+                p.receiveShadows = true
+                p.position.x =  21 + j*3
+                p.position.z = -3*i
+                shadowGenerator.addShadowCaster p
+                p.material = new StandardMaterial 'mat' @scene
+                p.material.alpha = 0.8
+                p.material.diffuseColor = new Color3 1 1 1
+            
     onMouseDown: (event) =>
         
         window.addEventListener 'pointermove' @onMouseMove
