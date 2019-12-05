@@ -6,77 +6,67 @@
  0000000  000   000  000   000  00000000  000   000  000   000
 ###
 
-{ reduce, clamp, klog } = require 'kxk'
-{ UniversalCamera, ArcRotateCamera, FlyCamera, FramingBehavior } = require 'babylonjs'
+{ deg2rad, reduce, clamp } = require 'kxk'
+{ TargetCamera, UniversalCamera } = require 'babylonjs'
 
 Vect = require './vect'
 Quat = require './quat'
+
+animate = require './animate'
 
 vec = (x,y,z) -> new Vect x, y, z
 quat = (x, y, z, w) -> new Quat x, y, z, w
 
 class Camera extends UniversalCamera
 
-    @: (@scene, view, canvas) ->
+    @: (@scene, @view, @canvas) ->
         
-        width  = view.clientWidth
-        height = view.clientHeight
+        width  = @view.clientWidth
+        height = @view.clientHeight
                 
         @size       = vec width, height
-        @elem       = view
         @dist       = 10
-        @maxDist    = @far/4
-        @minDist    = 0.9
+        @maxDist    = 100
+        @minDist    = 3
         @center     = vec 0 0 0
-        @degree     = 60
+        @moveFade   = vec 0 0 0
+        @degree     = 90
         @rotate     = 0
         @wheelInert = 0
         @pivotX     = 0
         @pivotY     = 0
         @moveX      = 0
         @moveY      = 0
+        @moveZ      = 0
         @quat       = quat()
 
-        @elem.addEventListener 'mousewheel' @onMouseWheel
-        @elem.addEventListener 'mousedown'  @onMouseDown
-        # @elem.addEventListener 'keypress'   @onKeyPress
-        # @elem.addEventListener 'keyrelease' @onKeyRelease
-        @elem.addEventListener 'dblclick'   @onDblClick
-        
         super 'Camera' vec(0 0 -10), @scene
-        # super 'Camera' 0 0 0 Vect.Zero(), @scene
-        
-        @attachControl canvas, false
-        # @wheelDeltaPercentage = 0.02
+
+        @rotationQuaternion = new Quat()
+        @setTarget @center
+                
         @inertia = 0.8
-        # @speed = 1
+                
+        @keysLeft   = @keysLeft.concat [65]
+        @keysRight  = @keysRight.concat [68]
+        @keysUp     = @keysUp.concat [87]
+        @keysDown   = @keysDown.concat [83]
         
-        # @lowerRadiusLimit = 2
-        # @upperRadiusLimit = 100
-        # @setPosition vec 0 0 -40
-        # @useFramingBehavior = true
-        # FramingBehavior.mode = FramingBehavior.FitFrustumSidesMode
-        # FramingBehavior.radiusScale = 4
-        
-        @keysLeft = @keysLeft.concat [64]
-        klog 'keysLeft' @keysLeft
-        
-        # @update()
+        @view.addEventListener 'mousewheel' @onMouseWheel
+        @navigate()
 
-    getPosition: -> vec @getFrontPosition 0
-    getDir:      -> quat(@rotationQuaternion).rotate Vect.minusZ
-    getUp:       -> quat(@rotationQuaternion).rotate Vect.unitY
-    getRight:    -> quat(@rotationQuaternion).rotate Vect.unitX
+    getDir:    -> @rotationQuaternion.rotated Vect.unitZ
+    getUp:     -> @rotationQuaternion.rotated Vect.unitY
+    getRight:  -> @rotationQuaternion.rotated Vect.unitX
 
+    setCenter: (p) ->
+
+        @center = vec p
+        @navigate()
+    
     del: =>
         
-        # @elem.removeEventListener  'keypress'   @onKeyPress
-        # @elem.removeEventListener  'keyrelease' @onKeyRelease
-        @elem.removeEventListener  'mousewheel' @onMouseWheel
-        @elem.removeEventListener  'mousedown'  @onMouseDown
-        @elem.removeEventListener  'dblclick'   @onDblClick
-        window.removeEventListener 'mouseup'    @onMouseUp
-        window.removeEventListener 'mousemove'  @onMouseDrag 
+        @view.removeEventListener  'mousewheel' @onMouseWheel
         
     # 00     00   0000000   000   000   0000000  00000000  
     # 000   000  000   000  000   000  000       000       
@@ -94,21 +84,13 @@ class Camera extends UniversalCamera
         
         @downPos = vec @mouseX, @mouseY
         
-        window.addEventListener 'mousemove' @onMouseDrag
-        window.addEventListener 'mouseup'   @onMouseUp
-        
-    onMouseUp: (event) => 
+    onMouseUp: (event) => #klog 'up'
 
-        window.removeEventListener 'mousemove' @onMouseDrag
-        window.removeEventListener 'mouseup'   @onMouseUp
-        
-    onDblClick: (event) =>
-        
     onMouseDrag: (event) =>
 
         x = event.clientX-@mouseX
         y = event.clientY-@mouseY
-        
+
         @mouseX = event.clientX
         @mouseY = event.clientY
         
@@ -119,8 +101,8 @@ class Camera extends UniversalCamera
             s = @dist
             @pan x*2*s/@size.x, y*s/@size.y
             
-        if event.buttons & 2
-            @pivot 4000*x/@size.x, 2000*y/@size.y
+        if event.buttons & 3
+            @pivot 4000*x/@size.x, 2000*y/@size.y            
             
     # 00000000   000  000   000   0000000   000000000  
     # 000   000  000  000   000  000   000     000     
@@ -129,52 +111,12 @@ class Camera extends UniversalCamera
     # 000        000      0       0000000      000     
     
     pivot: (x,y) ->
-                
-        @rotate += -0.1*x
-        @degree += -0.1*y
-        
-        @update()
+         
+        @rotate += 0.1*x
+        @degree += 0.1*y
+                 
+        @navigate()
            
-    startPivotLeft: ->
-        
-        @pivotX = 20
-        @startPivot()
-        
-    startPivotRight: ->
-        
-        @pivotX = -20
-        @startPivot()
-
-    startPivotUp: ->
-        
-        @pivotY = -10
-        @startPivot()
-        
-    startPivotDown: ->
-        
-        @pivotY = 10
-        @startPivot()
-        
-    stopPivot: ->
-        
-        @pivoting = false
-        @pivotX = 0
-        @pivotY = 0
-       
-    startPivot: -> 
-        
-        if not @pivoting
-            # rts.animate @pivotCenter
-            @pivoting = true
-            
-    pivotCenter: (deltaSeconds) =>
-        
-        return if not @pivoting
-
-        @pivot @pivotX, @pivotY
-        
-        # rts.animate @pivotCenter
-        
     # 00000000    0000000   000   000  
     # 000   000  000   000  0000  000  
     # 00000000   000000000  000 0 000  
@@ -189,9 +131,9 @@ class Camera extends UniversalCamera
         up = vec 0, y, 0 
         up.applyQuaternion @rotationQuaternion
         
-        @center.add right.add up
+        @center.add right.plus up
         @centerTarget?.copy @center
-        @update()
+        @navigate()
             
     # 00000000   0000000    0000000  000   000   0000000  
     # 000       000   000  000       000   000  000       
@@ -199,12 +141,6 @@ class Camera extends UniversalCamera
     # 000       000   000  000       000   000       000  
     # 000        0000000    0000000   0000000   0000000   
                      
-    focusOnPos: (v) ->
-        
-        @centerTarget = vec v
-        @center = vec v
-        @update()
-         
     fadeToPos: (v) -> 
         
         @centerTarget = vec v
@@ -213,7 +149,7 @@ class Camera extends UniversalCamera
     startFadeCenter: -> 
         
         if not @fading
-            # rts.animate @fadeCenter
+            animate @fadeCenter
             @fading = true
             
     fadeCenter: (deltaSeconds) =>
@@ -221,10 +157,10 @@ class Camera extends UniversalCamera
         return if not @fading
         
         @center.fade @centerTarget, deltaSeconds
-        @update()
+        @navigate()
         
         if @center.dist(@centerTarget) > 0.00001
-            # rts.animate @fadeCenter
+            animate @fadeCenter
             true
         else
             delete @fading
@@ -235,55 +171,59 @@ class Camera extends UniversalCamera
     # 000 0 000  000   000     000     000       
     # 000   000   0000000       0      00000000  
     
-    moveFactor: -> @dist/2
-    
-    startMoveLeft: ->
-        
-        @moveX = -@moveFactor()
-        @startMove()
-        
-    startMoveRight: ->
-        
-        @moveX = @moveFactor()
-        @startMove()
+    moveForward:  -> @startMove @moveZ = 1
+    moveRight:    -> @startMove @moveX = 1
+    moveUp:       -> @startMove @moveY = 1
+    moveLeft:     -> @startMove @moveX = -1
+    moveDown:     -> @startMove @moveY = -1
+    moveBackward: -> @startMove @moveZ = -1          
 
-    startMoveUp: ->
-        
-        @moveY = @moveFactor()
-        @startMove()
-        
-    startMoveDown: ->
-        
-        @moveY = -@moveFactor()
-        @startMove()
+    stopRight:    -> @moveX = clamp -1 0 @moveX
+    stopLeft:     -> @moveX = clamp  0 1 @moveX
+    stopUp:       -> @moveY = clamp -1 0 @moveY
+    stopDown:     -> @moveY = clamp  0 1 @moveY
+    stopForward:  -> @moveZ = clamp -1 0 @moveZ
+    stopBackward: -> @moveZ = clamp  0 1 @moveZ
         
     stopMoving: ->
         
         @moving = false
         @moveX = 0
         @moveY = 0
+        @moveZ = 0
        
     startMove: -> 
         
         @fading = false
         if not @moving
-            rts.animate @moveCenter
+            @dist = @minDist
+            @center = @position.plus @getDir().mul @dist
+            animate @moveCenter
             @moving = true
             
     moveCenter: (deltaSeconds) =>
         
         return if not @moving
-        
+                
         dir = vec()
-        dir.add Vect.unitX.mul @moveX
-        dir.add Vect.unitY.mul @moveY
+        dir.add Vect.unitX.mul 10 * (@moveX or @moveFade.x)
+        dir.add Vect.unitY.mul 10 * (@moveY or @moveFade.y)
+        dir.add Vect.unitZ.mul 10 * (@moveZ or @moveFade.z)
+        
         dir.scale deltaSeconds
-        dir.applyQuaternion @rotationQuaternion
+        @rotationQuaternion.rotate dir
         
         @center.add dir
-        @update()
+        @navigate()
         
-        rts.animate @moveCenter
+        @moveFade.x = @moveX or reduce @moveFade.x, deltaSeconds
+        @moveFade.y = @moveY or reduce @moveFade.y, deltaSeconds
+        @moveFade.z = @moveZ or reduce @moveFade.z, deltaSeconds
+        
+        if @moveFade.length() > 0.001
+            animate @moveCenter
+        else
+            @stopMoving()
         
     # 000   000  000   000  00000000  00000000  000      
     # 000 0 000  000   000  000       000       000      
@@ -292,8 +232,7 @@ class Camera extends UniversalCamera
     # 00     00  000   000  00000000  00000000  0000000  
     
     onMouseWheel: (event) => 
-    
-        klog 'wheel' event.wheelDelta
+            
         if @wheelInert > 0 and event.wheelDelta < 0
             @wheelInert = 0
             return
@@ -325,7 +264,7 @@ class Camera extends UniversalCamera
     startZoom: -> 
         
         if not @zooming
-            # rts.animate @inertZoom
+            animate @inertZoom
             @zooming = true
             
     stopZoom: -> 
@@ -335,20 +274,19 @@ class Camera extends UniversalCamera
     
     inertZoom: (deltaSeconds) =>
 
-        @setDistFactor 1 - clamp -0.02 0.02 @wheelInert
-        @wheelInert = reduce @wheelInert, deltaSeconds*0.3
-        
+        @setDist 1 - clamp -0.02 0.02 @wheelInert
+        @wheelInert = reduce @wheelInert, deltaSeconds*0.2
         if Math.abs(@wheelInert) > 0.00000001
-            # rts.animate @inertZoom
+            animate @inertZoom
             true
         else
             delete @zooming
             @wheelInert = 0
     
-    setDistFactor: (factor) =>
+    setDist: (factor) =>
         
         @dist = clamp @minDist, @maxDist, @dist*factor
-        @update()
+        @navigate()
         
     setFov: (fov) -> @fov = Math.max(2.0 Math.min fov, 175.0)
     
@@ -358,17 +296,14 @@ class Camera extends UniversalCamera
     # 000   000  000        000   000  000   000     000     000       
     #  0000000   000        0000000    000   000     000     00000000  
     
-    # update: -> 
-#         
-        # @degree = clamp 0 180 @degree
+    navigate: -> 
         
-        # @quat.reset()
-        # @quat.rotateAxisAngle Vect.unitZ, @rotate
-        # @quat.rotateAxisAngle Vect.unitX, @degree
+        @degree = clamp 1 179 @degree
         
-        # @position.copy @center.plus vec(0 0 @dist).applyQuaternion @quat
-        # @rotationQuaternion.copy @quat
+        yaw = deg2rad @rotate
+        pitch = deg2rad @degree
+        @rotationQuaternion.copyFrom Quat.RotationYawPitchRoll yaw, pitch, 0
+        @position.copyFrom @center.plus @rotationQuaternion.rotate vec(0 0 -@dist)
+        @setTarget @center
         
-        # log "camera:", @dist, @rotate, @degree
-
 module.exports = Camera

@@ -28,6 +28,10 @@ class Vect extends Vector3
         if Number.isNaN @x
             throw new Error
             
+    applyQuaternion: (quaternion) ->
+        
+        @rotateByQuaternionAroundPointToRef quaternion, Vect.Zero, @
+            
     toString: -> "#{@x} #{@y} #{@z}"
             
     clone: -> new Vect @
@@ -113,6 +117,7 @@ class Vect extends Vector3
     length:    -> sqrt @x*@x + @y*@y + @z*@z
     dot:   (v) -> @x*v.x + @y*v.y + @z*v.z
     
+    add:   (v) -> @addInPlace v
     mul:   (f) -> new Vect @x*f, @y*f, @z*f
     div:   (d) -> new Vect @x/d, @y/d, @z/d
     plus:  (v) -> new Vect(v).add @
@@ -189,7 +194,8 @@ class Vect extends Vector3
     @NX = 3
     @NY = 4
     @NZ = 5
-        
+    
+    @Zero   = new Vect  0  0  0
     @unitX  = new Vect  1  0  0
     @unitY  = new Vect  0  1  0
     @unitZ  = new Vect  0  0  1

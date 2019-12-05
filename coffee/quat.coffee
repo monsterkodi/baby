@@ -37,7 +37,7 @@ class Quat extends Quaternion
             
     rotateAxisAngle: (axis, angle) ->
         
-        @multiply Quat.axisAngle axis, angle
+        @multiplyInPlace Quat.axisAngle axis, angle
         @
             
     clone: -> new Quat @
@@ -113,7 +113,8 @@ class Quat extends Quaternion
 
     dot: (q) -> @x*q.x + @y*q.y + @z*q.z + @w*q.w
 
-    rotate: (v) -> vec(v).applyQuaternion @
+    rotate: (v) -> v.applyQuaternion @
+    rotated: (v) -> new Vect(v).applyQuaternion @
                 
     normalize: ->
         l = sqrt @w*@w + @x*@x + @y*@y + @z*@z 

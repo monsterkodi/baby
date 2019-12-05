@@ -6,13 +6,14 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ prefs, elem, klog } = require 'kxk'
+{ prefs, elem } = require 'kxk'
 
 { ArcRotateCamera, FramingBehavior, Engine, Scene, Color3, Vector3, Mesh, SimplificationType, DirectionalLight, AmbientLight, ShadowGenerator, StandardMaterial, MeshBuilder, HemisphericLight, SpotLight } = require 'babylonjs'
 
-Poly   = require './poly'
-Vect   = require './vect'
-Camera = require './camera'
+Poly    = require './poly'
+Vect    = require './vect'
+Camera  = require './camera'
+animate = require './animate'
 
 class World
     
@@ -23,9 +24,6 @@ class World
         
         @canvas = elem 'canvas' class:'babylon' parent:@view
         
-        window.addEventListener 'pointerdown' @onMouseDown
-        window.addEventListener 'pointerup'   @onMouseUp
-
         @resized()
         @engine = new Engine @canvas, true
         
@@ -36,22 +34,6 @@ class World
 
         @camera = new Camera @scene, @view, @canvas
         
-        # if 1
-            # @camera = new ArcRotateCamera "Camera" 0 0 0 Vect.Zero(), @scene
-            # @camera.lowerRadiusLimit = 2
-            # @camera.upperRadiusLimit = 100
-            # @camera.setPosition new Vect 0 0 -10
-            # @camera.useFramingBehavior = true
-            # FramingBehavior.mode = FramingBehavior.FitFrustumSidesMode
-            # FramingBehavior.radiusScale = 4
-        # # else
-            # # @camera = new FlyCamera "FlyCamera" new Vect(0 0 -10), @scene
-#             
-        # @camera.attachControl @canvas, false
-        # @camera.wheelDeltaPercentage = 0.02
-        # @camera.inertia = 0.7
-        # @camera.speed = 1
-
         light0 = new HemisphericLight 'light1' new Vect(0 1 0), @scene
         light0.intensity = 1
         light = new DirectionalLight 'light' new Vect(0 -1 0), @scene
@@ -76,8 +58,8 @@ class World
         if prefs.get 'inspector'
             @toggleInspector()
              
-        # Poly.dumpNeighbors Poly.cube().neighbors
-        # Poly.dump Poly.truncate Poly.cube(), 0.5
+        window.addEventListener 'pointerdown' @onMouseDown
+        window.addEventListener 'pointerup'   @onMouseUp
             
         for i in [0..10]
              
@@ -163,16 +145,27 @@ class World
                            
     onMouseDown: (event) =>
         
+        window.addEventListener 'pointermove' @onMouseMove
+        
         result = @scene.pick @scene.pointerX, @scene.pointerY
-        @mouseDownMesh = result.pickedMesh            
+        if event.buttons & 2
+            @mouseDownMesh = result.pickedMesh         
+        @camera.onMouseDown event
 
+    onMouseMove: (event) =>
+        
+        @camera.onMouseDrag event
+        
     onMouseUp: (event) =>                
 
+        window.removeEventListener 'pointermove' @onMouseMove
+         
         result = @scene.pick @scene.pointerX, @scene.pointerY
         if mesh = result.pickedMesh
             if mesh.name != 'ground' and mesh == @mouseDownMesh
-                @camera.setTarget mesh.getAbsolutePosition()
-                # @camera.setTarget mesh
+                @camera.fadeToPos mesh.getAbsolutePosition()
+                
+        @camera.onMouseUp event
                 
     toggleInspector: ->
         
@@ -189,6 +182,8 @@ class World
 
         if not @paused
             @scene.render()
+            
+            animate.tick @engine.getDeltaTime()/1000
     
     resized: => 
 
@@ -197,10 +192,26 @@ class World
     
     modKeyComboEventDown: (mod, key, combo, event) ->
         
-        klog 'modKeyComboEventDown' mod, key, combo, event
+        # klog 'modKeyComboEventDown' mod, key, combo, event.which
+        switch key
+            when 'e' then @camera.moveUp()
+            when 'q' then @camera.moveDown()
+            when 'a' then @camera.moveLeft()
+            when 'd' then @camera.moveRight()
+            when 'w' then @camera.moveForward()
+            when 's' then @camera.moveBackward()
+            when 'x' 'esc' then @camera.stopMoving()
         
     modKeyComboEventUp: (mod, key, combo, event) ->
+
+        switch key
+            when 'e' then @camera.stopUp()
+            when 'q' then @camera.stopDown()
+            when 'a' then @camera.stopLeft()
+            when 'd' then @camera.stopRight()
+            when 'w' then @camera.stopForward()
+            when 's' then @camera.stopBackward()
         
-        klog 'modKeyComboEventUp' mod, key, combo, event
+        # klog 'modKeyComboEventUp' mod, key, combo, event.code
         
 module.exports = World
