@@ -19,80 +19,6 @@
 #
 #===================================================================================================
     
-# Polyhedron Flag Construct
-#
-# A Flag is an associative triple of a face index and two adjacent vertex vertidxs,
-# listed in geometric clockwise order (staring into the normal)
-#
-# Face_i -> V_i -> V_j
-#
-# They are a useful abstraction for defining topological transformations of the polyhedral mesh, as
-# one can refer to vertices and faces that don't yet exist or haven't been traversed yet in the
-# transformation code.
-#
-# A flag is similar in concept to a directed halfedge in halfedge data structures.
-
-{ kerror, klog } = require 'kxk'
-{ intersect } = require './geo'
-{ Polyhedron } = require './polyhedron'
-
-# 00000000  000       0000000    0000000   
-# 000       000      000   000  000        
-# 000000    000      000000000  000  0000  
-# 000       000      000   000  000   000  
-# 000       0000000  000   000   0000000   
-
-class Flag
-    
-    @: ->
-        @flags    = {} # flags[face][vertex] = next vertex
-        @vertidxs = {} # [symbolic names] holds vertex index
-        @vertices = {} # XYZ coordinates
-  
-    newV: (vertName, coordinates) ->
-        
-        if not @vertidxs[vertName]
-            @vertidxs[vertName] = 0
-            @vertices[vertName] = coordinates
-  
-    newFlag: (faceName, vertName1, vertName2) ->
-        
-        @flags[faceName] ?= {}
-        @flags[faceName][vertName1] = vertName2
-  
-    topoly: (name='polyhedron') ->
-
-        poly = new Polyhedron name
-    
-        klog 'topoly' @
-        
-        ctr = 0 
-        for i,v of @vertidxs 
-            poly.vertices[ctr] = @vertices[i]
-            @vertidxs[i] = ctr # number the vertices
-            ctr++
-            
-        ctr = 0
-        for i,face of @flags
-            newFace = []
-            for j,v0 of face
-                v = v0 # any vertex as starting point
-                break
-            # klog 'v0' v, v0
-            newFace.push @vertidxs[v] # record index
-            v = @flags[i][v] # goto next vertex
-            faceCount = 0
-            while v != v0 # loop until back to start
-                newFace.push @vertidxs[v]
-                v = @flags[i][v]
-                if faceCount++ > 100 # prevent infinite loop on badly formed flagsets
-                    kerror "Bad flag with neverending face:" i, @flags[i]
-                    break
-            poly.faces[ctr] = newFace
-            ctr++
-        klog 'poly' poly
-        poly
-
 # Polyhedron Operators
 #
 # for each vertex of new polyhedron
@@ -107,6 +33,11 @@ class Flag
 # call topoly() to assemble flags into polyhedron structure by following the orbits
 # of the vertex mapping stored in the flagset for each new face
 
+{ klog } = require 'kxk'
+{ add, mult, intersect } = require './math'
+Polyhedron = require './polyhedron'
+Flag = require './flag'
+
 midName = (v1, v2) -> v1<v2 and "#{v1}_#{v2}" or "#{v2}_#{v1}" # unique names of midpoints
 
 # 0000000    000   000   0000000   000      
@@ -117,7 +48,7 @@ midName = (v1, v2) -> v1<v2 and "#{v1}_#{v2}" or "#{v2}_#{v1}" # unique names of
 
 dual = (poly) ->
 
-    klog "dual of #{poly.name}" #poly
+    # klog "dual #{poly.name}" 
   
     flag = new Flag()
   
@@ -169,12 +100,12 @@ dual = (poly) ->
 # Kis (abbreviated from triakis) transforms an N-sided face into an N-pyramid rooted at the
 # same base vertices. only kis n-sided faces, but n==0 means kis all.
 
-kisN = (poly, n, apexdist) ->
+kis = (poly, n, apexdist) ->
 
     n ?= 0
     apexdist ?= 0.1
 
-    klog "kis of #{n and "#{n}-sided" or 'all'} faces of #{poly.name}" poly
+    klog "kis of #{n and "#{n}-sided faces of " or ''}#{poly.name}"
 
     flag = new Flag()
     for i in [0...poly.vertices.length]
@@ -492,7 +423,7 @@ quinto = (poly) -> # creates a pentagon for every point in the original face, as
 # 000  000  0000       000  000          000     000  0000  
 # 000  000   000  0000000   00000000     000     000   000  
 
-insetN = (poly, n, inset_dist, popout_dist) ->
+inset = (poly, n, inset_dist, popout_dist) ->
 
     n ?= 0
     inset_dist ?= 0.5
@@ -544,8 +475,8 @@ insetN = (poly, n, inset_dist, popout_dist) ->
 # 000        000 000      000     000   000  000   000  000   000  000       000  0000  
 # 00000000  000   000     000     000   000   0000000   0000000    00000000  000   000  
 
-extrudeN = (poly, n) ->
-    newpoly = insetN poly, n, 0.0, 0.3
+extrude = (poly, n) ->
+    newpoly = inset poly, n, 0.0, 0.3
     newpoly.name = "x#{n}#{poly.name}"
     newpoly
 
@@ -556,7 +487,7 @@ extrudeN = (poly, n) ->
 # 0000000   0000000   000          000     
 
 loft = (poly, n, alpha) ->
-    newpoly = insetN poly, n, alpha, 0.0
+    newpoly = inset poly, n, alpha, 0.0
     newpoly.name = "l#{n}#{poly.name}"
     newpoly
 
@@ -624,7 +555,7 @@ hollow = (poly, inset_dist, thickness) ->
 # 000        000       000   000       000  000        000       000          000     000     000     000   000     000  
 # 000        00000000  000   000  0000000   000        00000000   0000000     000     000      0      000   000     000  
 
-perspectiva1 = (poly) -> # an operation reverse-engineered from Perspectiva Corporum Regularium
+perspectiva = (poly) -> # an operation reverse-engineered from Perspectiva Corporum Regularium
 
     klog "stella of #{poly.name}"
   
@@ -745,8 +676,8 @@ trisub = (poly, n) ->
 module.exports =
     dual:           dual
     trisub:         trisub
-    perspectiva1:   perspectiva1
-    kisN:           kisN
+    perspectiva:    perspectiva
+    kis:            kis
     ambo:           ambo
     gyro:           gyro
     propellor:      propellor
@@ -754,8 +685,8 @@ module.exports =
     chamfer:        chamfer
     whirl:          whirl
     quinto:         quinto
-    insetN:         insetN
-    extrudeN:       extrudeN
+    inset:          inset
+    extrude:        extrude
     loft:           loft
     hollow:         hollow
     

@@ -6,12 +6,12 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ prefs, elem, klog } = require 'kxk'
+{ prefs, elem } = require 'kxk'
 
 { ArcRotateCamera, FramingBehavior, Engine, Scene, Color3, Vector3, Mesh, SimplificationType, DirectionalLight, AmbientLight, ShadowGenerator, StandardMaterial, MeshBuilder, HemisphericLight, SpotLight } = require 'babylonjs'
 
 { generate } = require './poly/parser'
-Poly    = require './poly/poly'
+Poly    = require './poly/polyold'
 Vect    = require './vect'
 Camera  = require './camera'
 animate = require './animate'
@@ -91,13 +91,14 @@ class World
                 p.material.diffuseColor = new Color3 i/12 (j/6)%1 1-j/12
             
         j = 0
-        for code in ['C' 'dC' 'ddC' 'T' 'dT']
-            klog 'code' code
+        # for code in ['T' 'tT' 'C' 'tC' 'O' 'tO' 'D' 'tD' 'I' 'tI' 'P3' 'P4' 'P5']
+        # for code in ['A3''A4''A5''A6''A7''A8''A9''A10''A11''A12']
+        # for code in ['P3''P4''P5''P6''P7''P8''P9''P10''P11''P12''P13''P14']
+        for code in ['Y3''Y4''Y5''Y6''Y7''Y8''Y9''Y10''Y11''Y12''Y13''Y14']
             poly = generate code
-            klog 'poly'
+            # klog poly
             p = Mesh.CreatePolyhedron m, {custom:poly}, @scene
             p.receiveShadows = true
-            p.convertToFlatShadedMesh()
             p.position.x =  3*j++
             p.position.z = -3
             shadowGenerator.addShadowCaster p

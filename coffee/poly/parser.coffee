@@ -18,7 +18,7 @@
 { klog } = require 'kxk'
 { add, recenter, rescale } = require './geo'
 
-polyhedron = require './polyhedron'
+poly = require './poly'
 topo = require './topo'
 PEG  = require 'pegjs'
     
@@ -41,35 +41,34 @@ parser = PEG.generate """
     """
 
 basemap = 
-    T: polyhedron.tetrahedron
-    O: polyhedron.octahedron
-    C: polyhedron.cube
-    I: polyhedron.icosahedron
-    D: polyhedron.dodecahedron
-    P: polyhedron.prism      # n
-    A: polyhedron.antiprism  # n
-    Y: polyhedron.pyramid    # n
-    J: polyhedron.johnson    # n
-    U: polyhedron.cupola     # n
-    V: polyhedron.anticupola # n
+    T: poly.tetrahedron
+    O: poly.octahedron
+    C: poly.cube
+    I: poly.icosahedron
+    D: poly.dodecahedron
+    P: poly.prism      # n
+    A: poly.antiprism  # n
+    Y: poly.pyramid    # n
+    J: poly.johnson    # n
+    U: poly.cupola     # n
+    V: poly.anticupola # n
         
 opmap =
     d: topo.dual
     a: topo.ambo
-    k: topo.kisN
+    k: topo.kis
     g: topo.gyro
     p: topo.propellor
     r: topo.reflect
     c: topo.chamfer
     w: topo.whirl
-    n: topo.insetN
-    x: topo.extrudeN
+    n: topo.inset
+    x: topo.extrude
     l: topo.loft
-    P: topo.perspectiva1
+    P: topo.perspectiva
     q: topo.quinto
     u: topo.trisub
     H: topo.hollow
-    Z: topo.triangulate
     C: topo.canonicalize
     A: topo.adjustXY
 
@@ -103,7 +102,7 @@ generate = (notation) -> # create polyhedron from notation
     expanded = notation
     for [orig,equiv] in replacements
         expanded = expanded.replace orig, equiv
-    klog "#{notation} -> #{expanded}"
+    # klog "#{notation} -> #{expanded}"
     
     oplist = parser.parse(expanded).reverse()
   
@@ -117,15 +116,12 @@ generate = (notation) -> # create polyhedron from notation
         opargs = [poly].concat op['args']
         poly   = dispatch opfunc, opargs
   
-    poly.vertices = recenter poly.vertices, poly.edges()
-    poly.vertices = rescale  poly.vertices
+    # poly.vertices = recenter poly.vertices, poly.edges()
+    # poly.vertices = rescale  poly.vertices
   
     poly.vertex = poly.vertices
     poly.face   = poly.faces
-    klog poly
-    poly.colorize()
+    poly #.colorize()
 
-generate 'dC'
-    
 module.exports = 
     generate:generate
