@@ -5,29 +5,18 @@
 000       000      000   000  000   000
 000       0000000  000   000   0000000 
 ###
+#
+# Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
 { kerror } = require 'kxk'
 Polyhedron = require './polyhedron'
 
-# Polyhedron Flag Construct
-#
-# A Flag is an associative triple of a face index and two adjacent vertex vertidxs,
-# listed in geometric clockwise order (staring into the normal)
-#
-# Face_i -> V_i -> V_j
-#
-# They are a useful abstraction for defining topological transformations of the polyhedral mesh, as
-# one can refer to vertices and faces that don't yet exist or haven't been traversed yet in the
-# transformation code.
-#
-# A flag is similar in concept to a directed halfedge in halfedge data structures.
-
 class Flag
     
     @: ->
-        @flags    = {} # flags[face][vertex] = next vertex
-        @vertidxs = {} # [symbolic names] holds vertex index
-        @vertices = {} # XYZ coordinates
+        @flags    = {} # [face][vertex] -> next vertex
+        @vertidxs = {} # [name] -> vertex index
+        @vertices = {} # [name] -> coordinates
   
     newV: (vertName, coordinates) ->
         
@@ -65,7 +54,7 @@ class Flag
             while v != v0 # loop until back to start
                 newFace.push @vertidxs[v]
                 v = @flags[i][v]
-                if faceCount++ > 100 # prevent infinite loop on badly formed flagsets
+                if faceCount++ > 100 # prevent infinite loop
                     kerror "Bad flag with neverending face:" i, @flags[i]
                     break
             poly.faces[ctr] = newFace

@@ -5,20 +5,9 @@
    000     000   000  000        000   000    
    000      0000000   000         0000000     
 ###
-# Polyhédronisme
-#===================================================================================================
 #
-# A toy for constructing and manipulating polyhedra and other meshes
+# Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 #
-# Includes implementation of the conway polyhedral operators derived
-# from code by mathematician and mathematical sculptor
-# George W. Hart http:#www.georgehart.com/
-#
-# Copyright 2019, Anselm Levskaya
-# Released under the MIT License
-#
-#===================================================================================================
-    
 # Polyhedron Operators
 #
 # for each vertex of new polyhedron
@@ -33,10 +22,12 @@
 # call topoly() to assemble flags into polyhedron structure by following the orbits
 # of the vertex mapping stored in the flagset for each new face
 
-{ klog } = require 'kxk'
-{ add, mult, intersect } = require './math'
-Polyhedron = require './polyhedron'
+{ klog, _ } = require 'kxk'
+{ add, mult, mag, sub, unit, oneThird, tween, intersect, midpoint, calcCentroid, copyVecArray } = require './math'
+{ tangentify, reciprocalC, reciprocalN, recenter, planarize } = require './geo'
+
 Flag = require './flag'
+Polyhedron = require './polyhedron'
 
 midName = (v1, v2) -> v1<v2 and "#{v1}_#{v2}" or "#{v2}_#{v1}" # unique names of midpoints
 
@@ -103,9 +94,9 @@ dual = (poly) ->
 kis = (poly, n, apexdist) ->
 
     n ?= 0
-    apexdist ?= 0.1
+    apexdist ?= 0
 
-    klog "kis of #{n and "#{n}-sided faces of " or ''}#{poly.name}"
+    # klog "kis of #{n and "#{n}-sided faces of " or ''}#{poly.name}"
 
     flag = new Flag()
     for i in [0...poly.vertices.length]
@@ -151,7 +142,7 @@ kis = (poly, n, apexdist) ->
 
 ambo = (poly) ->
     
-    klog "ambo of #{poly.name}"
+    # klog "ambo of #{poly.name}"
     
     flag = new Flag()
   
@@ -207,41 +198,6 @@ gyro = (poly) ->
             [v1, v2] = [v2, v3] # shift over one
   
     flag.topoly "g#{poly.name}"
-
-# 00000000   00000000    0000000   00000000   00000000  000      000       0000000   00000000   
-# 000   000  000   000  000   000  000   000  000       000      000      000   000  000   000  
-# 00000000   0000000    000   000  00000000   0000000   000      000      000   000  0000000    
-# 000        000   000  000   000  000        000       000      000      000   000  000   000  
-# 000        000   000   0000000   000        00000000  0000000  0000000   0000000   000   000  
-
-# builds a new 'skew face' by making new points along edges, 1/3rd the distance from v1->v2,
-# then connecting these into a new inset face.  This breaks rotational symmetry about the
-# faces, whirling them into gyres
-
-propellor = (poly) ->
-
-    klog "propellor of #{poly.name}"
-  
-    flag = new Flag()
-  
-    for i in [0...poly.vertices.length] # each old vertex is a new vertex
-        flag.newV "v#{i}" unit poly.vertices[i]
-  
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
-        [v1, v2] = f.slice(-2)
-        for v in f
-            v3 = "#{v}"
-            flag.newV(v1+"~"+v2, oneThird(poly.vertices[v1], poly.vertices[v2]));  # new v in face, 1/3rd along edge
-            fname = "#{i}f#{v2}";
-            flag.newFlag("v#{i}", v1+"~"+v2,  v2+"~"+v3); # five new flags
-            flag.newFlag(fname,   v1+"~"+v2,  v2+"~"+v1);
-            flag.newFlag(fname,   v2+"~"+v1,     "v#{v2}");
-            flag.newFlag(fname,      "v#{v2}",  v2+"~"+v3);
-            flag.newFlag(fname,   v2+"~"+v3,  v1+"~"+v2);
-            [v1, v2] = [v2, v3]
-    
-    flag.topoly "p#{poly.name}"
 
 # 00000000   00000000  00000000  000      00000000   0000000  000000000  
 # 000   000  000       000       000      000       000          000     
@@ -385,7 +341,7 @@ whirl = (poly, n) ->
 
 quinto = (poly) -> # creates a pentagon for every point in the original face, as well as one new inset face.
     
-    klog("quinto of #{poly.name}")
+    # klog "quinto of #{poly.name}"
     flag = new Flag()
   
     # For each face f in the original poly
@@ -393,15 +349,15 @@ quinto = (poly) -> # creates a pentagon for every point in the original face, as
         f = poly.faces[i]
         centroid = calcCentroid f.map (idx) -> poly.vertices[idx]
         # walk over face vertex-triplets
-        [v1, v2] = f.slice(-2)
+        [v1, v2] = f.slice -2
         for v3 in f
             # for each face-corner, we make two new points:
-            midpt = midpoint(poly.vertices[v1], poly.vertices[v2])
-            innerpt = midpoint(midpt, centroid)
-            flag.newV(midName(v1,v2), midpt)
-            flag.newV("inner_#{i}_" + midName(v1,v2), innerpt)
+            midpt = midpoint poly.vertices[v1], poly.vertices[v2]
+            innerpt = midpoint midpt, centroid
+            flag.newV midName(v1,v2), midpt
+            flag.newV "inner_#{i}_" + midName(v1,v2), innerpt
             # and add the old corner-vertex
-            flag.newV("#{v2}", poly.vertices[v2])
+            flag.newV "#{v2}" poly.vertices[v2]
           
             # pentagon for each vertex in original face
             flag.newFlag("f#{i}_#{v2}", "inner_#{i}_"+midName(v1, v2), midName(v1, v2))
@@ -417,11 +373,11 @@ quinto = (poly) -> # creates a pentagon for every point in the original face, as
   
     flag.topoly "q#{poly.name}"
 
-# 000  000   000   0000000  00000000  000000000  000   000  
-# 000  0000  000  000       000          000     0000  000  
-# 000  000 0 000  0000000   0000000      000     000 0 000  
-# 000  000  0000       000  000          000     000  0000  
-# 000  000   000  0000000   00000000     000     000   000  
+# 000  000   000   0000000  00000000  000000000
+# 000  0000  000  000       000          000   
+# 000  000 0 000  0000000   0000000      000   
+# 000  000  0000       000  000          000   
+# 000  000   000  0000000   00000000     000   
 
 inset = (poly, n, inset_dist, popout_dist) ->
 
@@ -469,11 +425,11 @@ inset = (poly, n, inset_dist, popout_dist) ->
   
     flag.topoly "n#{n}#{poly.name}"
 
-# 00000000  000   000  000000000  00000000   000   000  0000000    00000000  000   000  
-# 000        000 000      000     000   000  000   000  000   000  000       0000  000  
-# 0000000     00000       000     0000000    000   000  000   000  0000000   000 0 000  
-# 000        000 000      000     000   000  000   000  000   000  000       000  0000  
-# 00000000  000   000     000     000   000   0000000   0000000    00000000  000   000  
+# 00000000  000   000  000000000  00000000   000   000  0000000    00000000
+# 000        000 000      000     000   000  000   000  000   000  000     
+# 0000000     00000       000     0000000    000   000  000   000  0000000 
+# 000        000 000      000     000   000  000   000  000   000  000     
+# 00000000  000   000     000     000   000   0000000   0000000    00000000
 
 extrude = (poly, n) ->
     newpoly = inset poly, n, 0.0, 0.3
@@ -549,15 +505,15 @@ hollow = (poly, inset_dist, thickness) ->
   
     flag.topoly "H#{poly.name}"
 
-# 00000000   00000000  00000000    0000000  00000000   00000000   0000000  000000000  000  000   000   0000000      000  
-# 000   000  000       000   000  000       000   000  000       000          000     000  000   000  000   000   00000  
-# 00000000   0000000   0000000    0000000   00000000   0000000   000          000     000   000 000   000000000  000000  
-# 000        000       000   000       000  000        000       000          000     000     000     000   000     000  
-# 000        00000000  000   000  0000000   000        00000000   0000000     000     000      0      000   000     000  
+# 00000000   00000000  00000000    0000000  00000000   00000000   0000000  000000000  000  000   000   0000000 
+# 000   000  000       000   000  000       000   000  000       000          000     000  000   000  000   000
+# 00000000   0000000   0000000    0000000   00000000   0000000   000          000     000   000 000   000000000
+# 000        000       000   000       000  000        000       000          000     000     000     000   000
+# 000        00000000  000   000  0000000   000        00000000   0000000     000     000      0      000   000
 
 perspectiva = (poly) -> # an operation reverse-engineered from Perspectiva Corporum Regularium
 
-    klog "stella of #{poly.name}"
+    # klog "stella of #{poly.name}"
   
     centers = poly.centers() # calculate face centers
   
@@ -565,7 +521,7 @@ perspectiva = (poly) -> # an operation reverse-engineered from Perspectiva Corpo
     for i in [0...poly.vertices.length]
         flag.newV "v#{i}" poly.vertices[i]
   
-    for i in [0...poly.faces.length] # iterate over triplets of faces v1,v2,v3
+    for i in [0...poly.faces.length]
         
         f = poly.faces[i]
         v1 = "v#{f[f.length-2]}"
@@ -575,7 +531,7 @@ perspectiva = (poly) -> # an operation reverse-engineered from Perspectiva Corpo
         for v in f
             v3 = "v#{v}"
             vert3 = poly.vertices[v]
-            v12 = v1+"~"+v2 # names for "oriented" midpoints
+            v12 = v1+"~"+v2
             v21 = v2+"~"+v1
             v23 = v2+"~"+v3
       
@@ -667,6 +623,56 @@ trisub = (poly, n) ->
   
     new Polyhedron "u#{n}#{poly.name}" faces, uniqVs
 
+# combines above three constraint adjustments in iterative cycle
+canonicalize = (poly, Niter) ->
+
+    Niter ?= 1
+    # klog "canonicalize #{poly.name}"
+    faces = poly.faces
+    edges = poly.edges()
+    newVs = poly.vertices
+    maxChange = 1.0 # convergence tracker
+    for i in [0..Niter]
+        oldVs = copyVecArray newVs #copy vertices
+        newVs = tangentify newVs, edges
+        newVs = recenter newVs, edges
+        newVs = planarize newVs, faces
+        maxChange = _.max _.map _.zip(newVs, oldVs), ([x, y]) -> mag sub x, y
+        if maxChange < 1e-8
+            break
+    # one should now rescale, but not rescaling here makes for very interesting numerical
+    # instabilities that make interesting mutants on multiple applications...
+    # more experience will tell what to do
+    #newVs = rescale(newVs)
+    # klog "[canonicalization done, last |deltaV|=#{maxChange}]"
+    newpoly = new Polyhedron poly.name, poly.faces, newVs
+    # klog "canonicalize" newpoly
+    newpoly
+    
+canonicalXYZ = (poly, nIterations) ->
+
+    nIterations ?= 1
+    dpoly = dual poly
+    # klog "canonicalXYZ #{poly.name}"
+  
+    for count in [0...nIterations] # reciprocate face normals
+        dpoly.vertices = reciprocalN poly
+        poly.vertices  = reciprocalN dpoly
+  
+    new Polyhedron poly.name, poly.faces, poly.vertices
+
+flatten = (poly, nIterations) -> # quick planarization
+    
+    nIterations ?= 1
+    dpoly = dual poly # v's of dual are in order of arg's f's
+    # klog "flatten #{poly.name}"
+  
+    for count in [0...nIterations] # reciprocate face centers
+        dpoly.vertices = reciprocalC poly
+        poly.vertices  = reciprocalC dpoly
+  
+    new Polyhedron poly.name, poly.faces, poly.vertices
+    
 # 00000000  000   000  00000000    0000000   00000000   000000000   0000000  
 # 000        000 000   000   000  000   000  000   000     000     000       
 # 0000000     00000    00000000   000   000  0000000       000     0000000   
@@ -680,7 +686,6 @@ module.exports =
     kis:            kis
     ambo:           ambo
     gyro:           gyro
-    propellor:      propellor
     reflect:        reflect
     chamfer:        chamfer
     whirl:          whirl
@@ -689,4 +694,7 @@ module.exports =
     extrude:        extrude
     loft:           loft
     hollow:         hollow
+    flatten:        flatten
+    canonicalize:   canonicalize
+    canonicalXYZ:   canonicalXYZ
     

@@ -7,7 +7,7 @@
 ###
 
 { deg2rad, reduce, clamp } = require 'kxk'
-{ TargetCamera, UniversalCamera } = require 'babylonjs'
+{ TargetCamera, UniversalCamera, PointLight } = require 'babylonjs'
 
 Vect = require './vect'
 Quat = require './quat'
@@ -15,7 +15,7 @@ Quat = require './quat'
 animate = require './animate'
 
 vec = (x,y,z) -> new Vect x, y, z
-quat = (x, y, z, w) -> new Quat x, y, z, w
+quat = (x,y,z,w) -> new Quat x, y, z, w
 
 class Camera extends UniversalCamera
 
@@ -40,18 +40,16 @@ class Camera extends UniversalCamera
         @moveZ      = 0
         @quat       = quat()
 
-        super 'Camera' vec(0 0 -10), @scene
+        super 'Camera' vec(0 -10 0), @scene
 
         @rotationQuaternion = new Quat()
         @setTarget @center
                 
         @inertia = 0.8
-                
-        @keysLeft   = @keysLeft.concat [65]
-        @keysRight  = @keysRight.concat [68]
-        @keysUp     = @keysUp.concat [87]
-        @keysDown   = @keysDown.concat [83]
         
+        @light = new PointLight 'spot' @position, @scene
+        @light.intensity = 0.5
+                        
         @view.addEventListener 'mousewheel' @onMouseWheel
         @navigate()
 
@@ -300,7 +298,7 @@ class Camera extends UniversalCamera
         
         @degree = clamp 1 179 @degree
         
-        yaw = deg2rad @rotate
+        yaw   = deg2rad @rotate
         pitch = deg2rad @degree
         @rotationQuaternion.copyFrom Quat.RotationYawPitchRoll yaw, pitch, 0
         @position.copyFrom @center.plus @rotationQuaternion.rotate vec(0 0 -@dist)

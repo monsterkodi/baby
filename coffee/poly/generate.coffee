@@ -1,19 +1,12 @@
 ###
-00000000    0000000   00000000    0000000  00000000  00000000   
-000   000  000   000  000   000  000       000       000   000  
-00000000   000000000  0000000    0000000   0000000   0000000    
-000        000   000  000   000       000  000       000   000  
-000        000   000  000   000  0000000   00000000  000   000  
+ 0000000   00000000  000   000  00000000  00000000    0000000   000000000  00000000  
+000        000       0000  000  000       000   000  000   000     000     000       
+000  0000  0000000   000 0 000  0000000   0000000    000000000     000     0000000   
+000   000  000       000  0000  000       000   000  000   000     000     000       
+ 0000000   00000000  000   000  00000000  000   000  000   000     000     00000000  
 ###
-# Polyhédronisme
-#===================================================================================================
 #
-# A toy for constructing and manipulating polyhedra and other meshes
-#
-# Copyright 2019, Anselm Levskaya
-# Released under the MIT License
-#
-#===================================================================================================
+# Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
     
 { klog } = require 'kxk'
 { add, recenter, rescale } = require './geo'
@@ -42,14 +35,13 @@ parser = PEG.generate """
 
 basemap = 
     T: poly.tetrahedron
-    O: poly.octahedron
     C: poly.cube
-    I: poly.icosahedron
+    O: poly.octahedron
     D: poly.dodecahedron
+    I: poly.icosahedron
     P: poly.prism      # n
     A: poly.antiprism  # n
     Y: poly.pyramid    # n
-    J: poly.johnson    # n
     U: poly.cupola     # n
     V: poly.anticupola # n
         
@@ -58,19 +50,18 @@ opmap =
     a: topo.ambo
     k: topo.kis
     g: topo.gyro
-    p: topo.propellor
     r: topo.reflect
     c: topo.chamfer
     w: topo.whirl
     n: topo.inset
     x: topo.extrude
     l: topo.loft
-    P: topo.perspectiva
+    p: topo.perspectiva
     q: topo.quinto
     u: topo.trisub
-    H: topo.hollow
-    C: topo.canonicalize
-    A: topo.adjustXY
+    h: topo.hollow
+    f: topo.flatten
+    v: topo.canonicalize
 
 replacements = [
     [/e/g,      'aa']    # e    -> aa   explode
@@ -95,7 +86,7 @@ replacements = [
 # 000   000  000       000  0000  000       000   000  000   000     000     000     
 #  0000000   00000000  000   000  00000000  000   000  000   000     000     00000000
 
-generate = (notation) -> # create polyhedron from notation
+generate = (notation, normalize=true) ->
   
     dispatch = (fn, arg) -> fn.apply fn, arg or []
     
@@ -116,12 +107,12 @@ generate = (notation) -> # create polyhedron from notation
         opargs = [poly].concat op['args']
         poly   = dispatch opfunc, opargs
   
-    # poly.vertices = recenter poly.vertices, poly.edges()
-    # poly.vertices = rescale  poly.vertices
+    if normalize
+        poly.vertices = recenter poly.vertices, poly.edges()
+        poly.vertices = rescale  poly.vertices
   
     poly.vertex = poly.vertices
     poly.face   = poly.faces
     poly #.colorize()
 
-module.exports = 
-    generate:generate
+module.exports = generate

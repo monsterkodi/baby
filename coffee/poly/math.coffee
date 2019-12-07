@@ -5,18 +5,9 @@
 000 0 000  000   000     000     000   000
 000   000  000   000     000     000   000
 ###
-
-# Polyhédronisme
-#==================================================================================================
-# A toy for constructing and manipulating polyhedra and other meshes
-#    
-# Includes implementation of the conway polyhedral operators derived
-# from code by mathematician and mathematical sculptor George W. Hart http:#www.georgehart.com/
 #
-# Copyright 2019, Anselm Levskaya
-# Released under the MIT License
+# Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 #
-#==================================================================================================
     
 { _ } = require 'kxk'
 { random, round, floor, sqrt, sin, cos, tan, asin, acos, atan, abs, pow, log, PI, LN10 } = Math
@@ -166,9 +157,14 @@ module.exports =
     add:            add
     sub:            sub
     dot:            dot
+    mag:            mag
     mult:           mult
     unit:           unit
+    tween:          tween
     normal:         normal
+    oneThird:       oneThird
+    midpoint:       midpoint
+    calcCentroid:   calcCentroid
     copyVecArray:   copyVecArray
     reciprocal:     reciprocal
     edgeDist:       edgeDist

@@ -5,8 +5,12 @@
 000        000   000  000         000   
 000         0000000   0000000     000   
 ###
+#
+# Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
+#
 
-{ add, mult, normal, adjustXYZ, canonicalXYZ } = require './geo'
+{ add, mult, normal } = require './geo'
+{ flatten, canonicalXYZ } = require './topo'
 { sqrt, sin, cos, pow, PI } = Math
 Polyhedron = require './polyhedron'
 
@@ -103,7 +107,7 @@ prism = (n) ->
     poly.faces.push [n...2*n] # bottom
     for i in [0...n] #n square sides
         poly.faces.push [i, (i+1)%n, ((i+1)%n)+n, i+n]
-    adjustXYZ poly, 1
+    flatten poly, 1
 
 #  0000000   000   000  000000000  000  00000000   00000000   000   0000000  00     00  
 # 000   000  0000  000     000     000  000   000  000   000  000  000       000   000  
@@ -133,7 +137,7 @@ antiprism = (n) ->
       poly.faces.push [i, (i+1)%n, i+n]
       poly.faces.push [i, i+n, ((((n+i)-1)%n)+n)]
   
-    adjustXYZ poly,1 
+    flatten poly,1 
 
 # 00000000   000   000  00000000    0000000   00     00  000  0000000    
 # 000   000   000 000   000   000  000   000  000   000  000  000   000  
