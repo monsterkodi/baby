@@ -39,7 +39,7 @@ mag      = (vec) -> sqrt dot vec, vec
 mag2     = (vec) -> dot vec, vec
 unit     = (vec) -> mult 1/sqrt(mag2(vec)), vec
 tween    = (v1, v2, t) -> [((1-t)*v1[0]) + (t*v2[0]), ((1-t)*v1[1]) + (t*v2[1]), ((1-t)*v1[2]) + (t*v2[2])]
-midpoint = (v1, v2) -> mult 1/2.0, add v1, v2
+midpoint = (v1, v2) -> mult 0.5, add v1, v2
 oneThird = (v1, v2) -> tween v1, v2, 1/3.0
 
 reciprocal = (vec) -> mult 1.0/mag2(vec), vec # reflect in unit sphere
@@ -71,6 +71,11 @@ linePointDist2 = (v1, v2, v3) ->
         # closest in-between v1, v2
         result = mag2(cross d21, d13)/m2
     result
+    
+rayPlane = (rayPos, rayDirection, planePos, planeNormal) ->
+    
+    x = dot(sub(planePos, rayPos), planeNormal) / dot(rayDirection, planeNormal)
+    add rayPos, mult x, rayDirection
   
 # find vector orthogonal to plane of 3 pts
 orthogonal = (v1,v2,v3) -> cross sub(v2, v1), sub(v3, v2)
@@ -160,6 +165,7 @@ module.exports =
     mag:            mag
     mult:           mult
     unit:           unit
+    cross:          cross
     tween:          tween
     normal:         normal
     oneThird:       oneThird
@@ -171,4 +177,5 @@ module.exports =
     intersect:      intersect
     orthogonal:     orthogonal
     tangentPoint:   tangentPoint
+    rayPlane:       rayPlane
     

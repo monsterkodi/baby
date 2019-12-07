@@ -47,6 +47,7 @@ class Scene extends babylon.Scene
                 v1 = v2
             
         system = MeshBuilder.CreateLineSystem 'faces' lines:lines
+        system.scaling = new Vector3 1.005 1.005 1.005
         system.color = color
         mesh.addChild system
         system

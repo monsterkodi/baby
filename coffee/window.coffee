@@ -76,7 +76,7 @@ class MainWin extends win
     onKeyDown: (event) =>
 
         { mod, key, combo } = keyinfo.forEvent event
-        @world.modKeyComboEventDown mod, key, combo, event
+        @world?.modKeyComboEventDown mod, key, combo, event
         super
         
     onKeyUp: (event) =>

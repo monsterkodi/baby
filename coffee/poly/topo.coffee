@@ -23,17 +23,49 @@
 # of the vertex mapping stored in the flagset for each new face
 
 { klog, _ } = require 'kxk'
-{ add, mult, mag, sub, unit, oneThird, tween, intersect, midpoint, calcCentroid, copyVecArray } = require './math'
-{ tangentify, reciprocalC, reciprocalN, recenter, planarize } = require './geo'
-
+{ add, mult, mag, sub, unit, cross, oneThird, tween, intersect, rayPlane, midpoint, calcCentroid, copyVecArray } = require './math'
+{ tangentify, reciprocalC, reciprocalN, recenter, rescale, planarize } = require './geo'
+{ abs } = Math
 Flag = require './flag'
 Polyhedron = require './polyhedron'
 
 midName = (v1, v2) -> v1<v2 and "#{v1}_#{v2}" or "#{v2}_#{v1}" # unique names of midpoints
 
-zirkularize = (poly) ->
+# 0000000  000  00000000   000   000  000   000  000       0000000   00000000   000  0000000  00000000  
+#    000   000  000   000  000  000   000   000  000      000   000  000   000  000     000   000       
+#   000    000  0000000    0000000    000   000  000      000000000  0000000    000    000    0000000   
+#  000     000  000   000  000  000   000   000  000      000   000  000   000  000   000     000       
+# 0000000  000  000   000  000   000   0000000   0000000  000   000  000   000  000  0000000  00000000  
+
+zirkularize = (poly, n) ->
     
-    poly
+    n ?= 0
+    vertices = []
+    
+    for i in [0...poly.faces.length]
+        f = poly.faces[i]
+        if f.length == n or n == 0
+            [v1, v2] = f.slice -2
+            for v3 in f
+                v12 = sub poly.vertices[v2], poly.vertices[v1]
+                v32 = sub poly.vertices[v2], poly.vertices[v3]
+                if abs(mag(v12) - mag(v32)) > 0.001
+                    m12 = midpoint poly.vertices[v1], poly.vertices[v2]
+                    m32 = midpoint poly.vertices[v3], poly.vertices[v2]
+                    u12 = unit m12
+                    u32 = unit m32
+                    nc = add u12, u32
+                    pn = cross nc, cross poly.vertices[v1], poly.vertices[v3]
+                    if mag(v12) > mag(v32)
+                        r = rayPlane poly.vertices[v3], v32, [0 0 0], pn
+                    else
+                        r = rayPlane poly.vertices[v1], v12, [0 0 0], pn
+                    vertices[v2] = r
+                [v1, v2] = [v2, v3]
+  
+    verts = [0...poly.vertices.length].map (i) -> vertices[i] ? poly.vertices[i]
+    
+    new Polyhedron "z#{poly.name}" poly.faces, verts
 
 # 0000000    000   000   0000000   000      
 # 000   000  000   000  000   000  000      
@@ -174,7 +206,7 @@ ambo = (poly) ->
 
 gyro = (poly) ->
 
-    klog "gyro of #{poly.name}"
+    # klog "gyro of #{poly.name}"
   
     flag = new Flag()
   
@@ -199,7 +231,7 @@ gyro = (poly) ->
             flag.newFlag fname, v2+"~"+v1,  "v#{v2}"
             flag.newFlag fname, "v#{v2}"     v2+"~"+v3
             flag.newFlag fname, v2+"~"+v3,  "center#{i}"
-            [v1, v2] = [v2, v3] # shift over one
+            [v1, v2] = [v2, v3]
   
     flag.topoly "g#{poly.name}"
 
@@ -233,7 +265,7 @@ reflect = (poly) -> # geometric reflection through origin
 # original edge.
 # A polyhedron with e edges will have a chamfered form containing 2e new vertices,
 # 3e new edges, and e new hexagonal faces. -- Wikipedia
-# See also http:#dmccooey.com/polyhedra/Chamfer.html
+# See also http://dmccooey.com/polyhedra/Chamfer.html
 #
 # The dist parameter could control how deeply to chamfer.
 # But I'm not sure about implementing that yet.
@@ -245,16 +277,12 @@ reflect = (poly) -> # geometric reflection through origin
 # cC = t4daC = t4jC, cO = t3daO, cD = t5daD, cI = t3daI
 # But it doesn't work for cases like T.
 
-chamfer = (poly, dist) ->
-    klog "chamfer of #{poly.name}"
-  
-    dist ?= 0.5
-  
+chamfer = (poly, dist=0.5) ->
+    
     flag = new Flag()
   
     normals = poly.normals()
   
-    # For each face f in the original poly
     for i in [0...poly.faces.length]
         f = poly.faces[i]
         v1 = f[f.length-1]
@@ -262,19 +290,14 @@ chamfer = (poly, dist) ->
     
         for v2 in f
           # TODO: figure out what distances will give us a planar hex face.
-          # Move each old vertex further from the origin.
-          flag.newV(v2, mult(1.0 + dist, poly.vertices[v2]))
-          # Add a new vertex, moved parallel to normal.
+          flag.newV v2, mult 1.0 + dist, poly.vertices[v2]
           v2new = i + "_" + v2
-          flag.newV(v2new, add(poly.vertices[v2], mult(dist*1.5, normals[i])))
-          # Four new flags:
-          # One whose face corresponds to the original face:
-          flag.newFlag("orig#{i}", v1new, v2new)
-          # And three for the edges of the new hexagon:
-          facename = (v1<v2 ? "hex#{v1}_#{v2}" : "hex#{v2}_#{v1}")
-          flag.newFlag(facename, v2, v2new)
-          flag.newFlag(facename, v2new, v1new)
-          flag.newFlag(facename, v1new, v1)
+          flag.newV v2new, add poly.vertices[v2], mult dist*1.5, normals[i]
+          flag.newFlag "orig#{i}" v1new, v2new
+          facename = (v1<v2 and "hex#{v1}_#{v2}" or "hex#{v2}_#{v1}")
+          flag.newFlag facename, v2, v2new
+          flag.newFlag facename, v2new, v1new
+          flag.newFlag facename, v1new, v1
           v1 = v2;
           v1new = v2new
 
@@ -302,36 +325,30 @@ whirl = (poly, n) ->
     
     flag = new Flag()
   
-    # each old vertex is a new vertex
     for i in [0...poly.vertices.length]
         flag.newV "v#{i}" unit poly.vertices[i]
 
-    # new vertices around center of each face
     centers = poly.centers()
   
     for i in [0...poly.faces.length]
         f = poly.faces[i]
-        [v1, v2] = f.slice(-2)
+        [v1, v2] = f.slice -2
         for j in [0...f.length]
             v = f[j]
             v3 = v
-            # New vertex along edge
-            v1_2 = oneThird(poly.vertices[v1],poly.vertices[v2])
+            v1_2 = oneThird poly.vertices[v1], poly.vertices[v2]
             flag.newV(v1+"~"+v2, v1_2)
-            # New vertices near center of face
             cv1name = "center#{i}~#{v1}"
             cv2name = "center#{i}~#{v2}"
-            flag.newV(cv1name, unit(oneThird(centers[i], v1_2)))
+            flag.newV cv1name, unit oneThird centers[i], v1_2
             fname = i+"f"+v1
-            # New hexagon for each original edge
-            flag.newFlag(fname, cv1name,   v1+"~"+v2)
-            flag.newFlag(fname, v1+"~"+v2, v2+"~"+v1) #*
-            flag.newFlag(fname, v2+"~"+v1, "v#{v2}")  #*
-            flag.newFlag(fname, "v#{v2}",  v2+"~"+v3) #*
-            flag.newFlag(fname, v2+"~"+v3, cv2name)
-            flag.newFlag(fname, cv2name,   cv1name)
-            # New face in center of each old face      
-            flag.newFlag("c#{i}", cv1name, cv2name)
+            flag.newFlag fname, cv1name,   v1+"~"+v2
+            flag.newFlag fname, v1+"~"+v2, v2+"~"+v1 
+            flag.newFlag fname, v2+"~"+v1, "v#{v2}"  
+            flag.newFlag fname, "v#{v2}",  v2+"~"+v3 
+            flag.newFlag fname, v2+"~"+v3, cv2name
+            flag.newFlag fname, cv2name,   cv1name
+            flag.newFlag "c#{i}", cv1name, cv2name
             
             [v1, v2] = [v2, v3] # shift over one
   
@@ -364,14 +381,14 @@ quinto = (poly) -> # creates a pentagon for every point in the original face, as
             flag.newV "#{v2}" poly.vertices[v2]
           
             # pentagon for each vertex in original face
-            flag.newFlag("f#{i}_#{v2}", "inner_#{i}_"+midName(v1, v2), midName(v1, v2))
-            flag.newFlag("f#{i}_#{v2}", midName(v1, v2), "#{v2}")
-            flag.newFlag("f#{i}_#{v2}", "#{v2}", midName(v2, v3))
-            flag.newFlag("f#{i}_#{v2}", midName(v2, v3), "inner_#{i}_"+midName(v2, v3))
-            flag.newFlag("f#{i}_#{v2}", "inner_#{i}_"+midName(v2, v3), "inner_#{i}_"+midName(v1, v2))
+            flag.newFlag "f#{i}_#{v2}", "inner_#{i}_"+midName(v1, v2), midName(v1, v2)
+            flag.newFlag "f#{i}_#{v2}", midName(v1, v2), "#{v2}"
+            flag.newFlag "f#{i}_#{v2}", "#{v2}", midName(v2, v3)
+            flag.newFlag "f#{i}_#{v2}", midName(v2, v3), "inner_#{i}_"+midName(v2, v3)
+            flag.newFlag "f#{i}_#{v2}", "inner_#{i}_"+midName(v2, v3), "inner_#{i}_"+midName(v1, v2)
       
             # inner rotated face of same vertex-number as original
-            flag.newFlag("f_in_#{i}", "inner_#{i}_"+midName(v1, v2), "inner_#{i}_"+midName(v2, v3))
+            flag.newFlag "f_in_#{i}", "inner_#{i}_"+midName(v1, v2), "inner_#{i}_"+midName(v2, v3)
       
             [v1, v2] = [v2, v3] # shift over one
   
@@ -388,8 +405,6 @@ inset = (poly, n, inset_dist, popout_dist) ->
     n ?= 0
     inset_dist ?= 0.5
     popout_dist ?= -0.2
-  
-    klog "inset of #{n and "#{n}-sided" or 'all'} faces of #{poly.name}"
   
     flag = new Flag()
     for i in [0...poly.vertices.length]
@@ -435,20 +450,9 @@ inset = (poly, n, inset_dist, popout_dist) ->
 # 000        000 000      000     000   000  000   000  000   000  000     
 # 00000000  000   000     000     000   000   0000000   0000000    00000000
 
-extrude = (poly, n) ->
-    newpoly = inset poly, n, 0.0, 0.3
+extrude = (poly, n, popout=1, insetf=0.5) ->
+    newpoly = inset poly, n, insetf, popout
     newpoly.name = "x#{n}#{poly.name}"
-    newpoly
-
-# 000       0000000   00000000  000000000  
-# 000      000   000  000          000     
-# 000      000   000  000000       000     
-# 000      000   000  000          000     
-# 0000000   0000000   000          000     
-
-loft = (poly, n, alpha) ->
-    newpoly = inset poly, n, alpha, 0.0
-    newpoly.name = "l#{n}#{poly.name}"
     newpoly
 
 # 000   000   0000000   000      000       0000000   000   000  
@@ -461,8 +465,6 @@ hollow = (poly, inset_dist, thickness) ->
 
     inset_dist ?= 0.5
     thickness ?= 0.2
-  
-    klog "hollow #{poly.name}"
   
     dualnormals = dual(poly).normals()
     normals = poly.normals()
@@ -566,18 +568,13 @@ perspectiva = (poly) -> # an operation reverse-engineered from Perspectiva Corpo
 #    000     000   000  000       000  000   000  000   000  
 #    000     000   000  000  0000000    0000000   0000000    
 
-trisub = (poly, n) ->
-    
-    klog "trisub of #{poly.name}"
-    
-    n ?= 2
+trisub = (poly, n=2) ->
     
     # No-Op for non-triangular meshes
     for fn in [0...poly.faces.length]
         if poly.faces[fn].length != 3
             return poly
   
-    # Calculate redundant set of new vertices for subdivided mesh.
     newVs = []
     vmap = {}
     pos = 0
@@ -591,18 +588,15 @@ trisub = (poly, n) ->
         v31 = sub v3, v1
         for i in [0..n]
             for j in [0..n-i]
-                v = add add(v1, mult(i * 1.0 / n, v21)), mult(j * 1.0 / n, v31)
+                v = add add(v1, mult(i/n, v21)), mult(j/n, v31)
                 vmap["v#{fn}-#{i}-#{j}"] = pos++
                 newVs.push v
   
-    # The above vertices are redundant along original edges, 
-    # we need to build an index map into a uniqueified list of them.
-    # We identify vertices that are closer than a certain epsilon distance.
     EPSILON_CLOSE = 1.0e-8
     uniqVs = []
     newpos = 0
     uniqmap = {}
-    for [i, v] in newVs.entries()
+    for v,i in newVs
         if i in uniqmap then continue # already mapped
         uniqmap[i] = newpos
         uniqVs.push v
@@ -625,19 +619,26 @@ trisub = (poly, n) ->
                             uniqmap[vmap["v#{fn}-#{i}-#{j+1}"]], 
                             uniqmap[vmap["v#{fn}-#{i-1}-#{j+1}"]]]
   
+    # klog 'faces' faces
+    # klog 'vertices' uniqVs                         
+    
     new Polyhedron "u#{n}#{poly.name}" faces, uniqVs
 
-# combines above three constraint adjustments in iterative cycle
-canonicalize = (poly, Niter) ->
+#  0000000   0000000   000   000   0000000   000   000  000   0000000   0000000   000      000  0000000  00000000  
+# 000       000   000  0000  000  000   000  0000  000  000  000       000   000  000      000     000   000       
+# 000       000000000  000 0 000  000   000  000 0 000  000  000       000000000  000      000    000    0000000   
+# 000       000   000  000  0000  000   000  000  0000  000  000       000   000  000      000   000     000       
+#  0000000  000   000  000   000   0000000   000   000  000   0000000  000   000  0000000  000  0000000  00000000  
 
-    Niter ?= 1
+canonicalize = (poly, iter=100) ->
+
     # klog "canonicalize #{poly.name}"
     faces = poly.faces
     edges = poly.edges()
     newVs = poly.vertices
     maxChange = 1.0 # convergence tracker
-    for i in [0..Niter]
-        oldVs = copyVecArray newVs #copy vertices
+    for i in [0..iter]
+        oldVs = copyVecArray newVs
         newVs = tangentify newVs, edges
         newVs = recenter newVs, edges
         newVs = planarize newVs, faces
@@ -647,31 +648,31 @@ canonicalize = (poly, Niter) ->
     # one should now rescale, but not rescaling here makes for very interesting numerical
     # instabilities that make interesting mutants on multiple applications...
     # more experience will tell what to do
-    #newVs = rescale(newVs)
+    newVs = rescale(newVs)
     # klog "[canonicalization done, last |deltaV|=#{maxChange}]"
     newpoly = new Polyhedron poly.name, poly.faces, newVs
     # klog "canonicalize" newpoly
     newpoly
     
-canonicalXYZ = (poly, nIterations) ->
+canonicalXYZ = (poly, iterations) ->
 
-    nIterations ?= 1
+    iterations ?= 1
     dpoly = dual poly
     # klog "canonicalXYZ #{poly.name}"
   
-    for count in [0...nIterations] # reciprocate face normals
+    for count in [0...iterations] # reciprocate face normals
         dpoly.vertices = reciprocalN poly
         poly.vertices  = reciprocalN dpoly
   
     new Polyhedron poly.name, poly.faces, poly.vertices
 
-flatten = (poly, nIterations) -> # quick planarization
+flatten = (poly, iterations) -> # quick planarization
     
-    nIterations ?= 1
+    iterations ?= 1
     dpoly = dual poly # v's of dual are in order of arg's f's
     # klog "flatten #{poly.name}"
   
-    for count in [0...nIterations] # reciprocate face centers
+    for count in [0...iterations] # reciprocate face centers
         dpoly.vertices = reciprocalC poly
         poly.vertices  = reciprocalC dpoly
   
@@ -696,7 +697,6 @@ module.exports =
     quinto:         quinto
     inset:          inset
     extrude:        extrude
-    loft:           loft
     hollow:         hollow
     flatten:        flatten
     zirkularize:    zirkularize

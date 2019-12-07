@@ -169,7 +169,7 @@ class Vect extends Vector3
             
     @rayPlaneIntersection: (rayPos, rayDirection, planePos, planeNormal) ->
         x = planePos.minus(rayPos).dot(planeNormal) / rayDirection.dot(planeNormal)
-        return rayPos.plus rayDirection.mul x
+        rayPos.plus rayDirection.mul x
 
     @pointMappedToPlane: (point, planePos, planeNormal) ->
         point.minus(planeNormal).dot point.minus(planePos).dot(planeNormal)

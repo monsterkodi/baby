@@ -55,7 +55,6 @@ opmap =
     w: topo.whirl
     n: topo.inset
     x: topo.extrude
-    l: topo.loft
     p: topo.perspectiva
     q: topo.quinto
     u: topo.trisub
@@ -107,7 +106,7 @@ generate = (notation, normalize=true) ->
         opfunc = opmap[op['op']]
         opargs = [poly].concat op['args']
         poly   = dispatch opfunc, opargs
-  
+          
     if normalize
         poly.vertices = recenter poly.vertices, poly.edges()
         poly.vertices = rescale  poly.vertices

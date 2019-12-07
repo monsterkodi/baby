@@ -9,6 +9,7 @@
 { deg2rad, prefs, elem, klog } = require 'kxk'
 { ArcRotateCamera, FramingBehavior, Engine, Color3, Vector3, Mesh, SimplificationType, DirectionalLight, AmbientLight, ShadowGenerator, StandardMaterial, MeshBuilder, HemisphericLight, SpotLight, PointLight } = require 'babylonjs'
 
+GUI      = require 'babylonjs-gui'
 generate = require './poly/generate'
 Poly     = require './poly/polyold'
 Vect     = require './vect'
@@ -100,6 +101,8 @@ class World
                     p.material.alpha = 1 # 0.8
                     p.material.diffuseColor = new Color3 i/12 (j/6)%1 1-j/12
             
+        guiTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI 'ui'
+                    
         z = 0
         rows = [
             # ['T' 'tT' 'C' 'tC' 'O' 'tO' 'D' 'tD' 'I' 'tI']
@@ -122,15 +125,42 @@ class World
             # ['qA3''qA4''qA5''qA6''qA7''qA8''qA9''qA10''qA11''qA12']
             # ['qU3''qU4''qU5''qU6''qU7''qU8''qU9''qU10''qU11''qU12']
             # ['qV3''qV4''qV5''qV6''qV7''qV8''qV9''qV10''qV11''qV12']
+  
             ['T''C''O''D''I']
+            ['c(0.2)T''c0.7T''cT''c1T''c(1.5)T']
+            ['c1T''v10000cC''cO''vcD''vcI']
             ['dT''dC''dO''dD''dI']
-            ['kdT''kdC''kdO''kdD''kdI']
-            ['tT''tC''tO''tD''tI']
+            ['aT''aC''aO''aD''aI']
+            ['kT''kC''kO''kD''kI']
+            ['v100gT''v100gC''v100gO''v100gD''v100gI']
+            ['rT''rC''rO''rD''rI']
+            ['v100wT''v100wC''v100wO''v100wD''v100wI']
+            ['nT''nC''nO''nD''nI']
+            ['xT''xC''xO''xD''xI']
+            ['pT''pC''pO''pD''pI']
+            ['qT''qC''qO''qD''qI']
+            ['hT''hC''hO''hD''hI']
+            ['uT''uC''uO''uD''uI']
+            
+            ['eT''eC''eO''eD''eI']
+            ['jT''jC''jO''jD''jI']
+            ['sT''sC''sO''sD''sI']
+            ['dzdk(0,-0.5)dT''dzdk(0,-0.3)dT''dzdk(0,0)dT''dzdk(0,0.8)dT''dzdk(0,1.2)dT']
+            ['dk(3,0.1)ztT''dk(3,-0.3)ztT''dk(3,-0.4)ztT''dk(3,-0.45)ztT''dk(3,-0.5)ztT']
+            ['x(0,1)T''x(0,2)C''x(0,3)O''x(0,4)D''x(0,5)I']
+            ['x(3,1,0)n(0,0.5,0)T''n(0,0.5,-0.3)C''n(0,0.25,-0.1)O''n(0,0.8,-0.2)D''nI']
+            # ['dT''dC''dO''dD''dI']
+            # ['kdT''kdC''kdO''kdD''kdI']
+            # ['tT''tC''tO''tD''tI']
+            ['ztT''ztC''ztO''ztD''ztI']
+            ['dztT''dztC''dztO''dztD''dztI']
+            ['dk(3,0.1)ztT''t3dztC''t4dztO''t3dztD''t5dztI''t6dztI']
             ['kT''jC''kO''kC''oC''mC''gC''jD''kI''kD''oD''mD''gD']
-            ['Y3''Y4''Y5''Y6''Y7''Y8''Y9''Y10''Y11''Y12']
-            ['P3''P4''P5''P6''P7''P8''P9''P10''P11''P12']
-            ['A3''A4''A5''A6''A7''A8''A9''A10''A11''A12']
-            ['U3''U4''U5''U6''U7''U8''U9''U10''U11''U12']
+            # ['Y3''Y4''Y5''Y6''Y7''Y8''Y9''Y10''Y11''Y12']
+            # ['P3''P4''P5''P6''P7''P8''P9''P10''P11''P12']
+            # ['A3''A4''A5''A6''A7''A8''A9''A10''A11''A12']
+            # ['U3''U4''U5''U6''U7''U8''U9''U10''U11''U12']
+  
             # ['kdT''kdC''kdO''kdD''kdI']
             # ['kdY3''kdY4''kdY5''kdY6''kdY7''kdY8''kdY9''kdY10''kdY11''kdY12']
             # ['kdP3''kdP4''kdP5''kdP6''kdP7''kdP8''kdP9''kdP10''kdP11''kdP12']
@@ -170,7 +200,7 @@ class World
                     p.position.z = 3*z
                     p.position.y = y*3
                     p.rotate Vect.unitX, deg2rad -90
-                    p.convertToFlatShadedMesh()
+                    # p.convertToFlatShadedMesh()
                     shadowGenerator.addShadowCaster p
                     p.material = new StandardMaterial 'mat' @scene
                     p.material.alpha = 1

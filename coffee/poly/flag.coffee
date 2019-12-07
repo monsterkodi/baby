@@ -8,7 +8,7 @@
 #
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
-{ kerror, klog } = require 'kxk'
+{ kerror } = require 'kxk'
 Polyhedron = require './polyhedron'
 
 class Flag
@@ -31,27 +31,27 @@ class Flag
 
         poly = new Polyhedron name
     
-        # ctr = 0
-        for i,v of @vertices
-            poly.vertices[ctr] = @vertices[i]
-            # vertidxs[i] = ctr # number the vertices
-            # ctr++
+        nm2idx = {}
+        ctr = 0
+        for name,v of @vertices
+            poly.vertices[ctr] = @vertices[name]
+            nm2idx[name] = ctr++ # number the vertices
             
-        klog 'topoly' @
+        # klog 'topoly' @
             
         ctr = 0
         for i,face of @flags
             newFace = []
             for j,v0 of face
-                v = v0 # any vertex as starting point
+                vN = v0 # any vertex as starting point
                 break
 
-            newFace.push v # @vertidxs[v] # record index
-            v = @flags[i][v] # goto next vertex
+            newFace.push nm2idx[vN] # record index
+            vN = @flags[i][vN] # goto next vertex
             faceCount = 0
-            while v != v0 # loop until back to start
-                newFace.push v # @vertidxs[v]
-                v = @flags[i][v]
+            while vN != v0 # loop until back to start
+                newFace.push nm2idx[vN]
+                vN = @flags[i][vN]
                 if faceCount++ > 100 # prevent infinite loop
                     kerror "Bad flag with neverending face:" i, @flags[i]
                     break
