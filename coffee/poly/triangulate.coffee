@@ -1,3 +1,10 @@
+###
+000000000  00000000   000   0000000   000   000   0000000   000   000  000       0000000   000000000  00000000  
+   000     000   000  000  000   000  0000  000  000        000   000  000      000   000     000     000       
+   000     0000000    000  000000000  000 0 000  000  0000  000   000  000      000000000     000     0000000   
+   000     000   000  000  000   000  000  0000  000   000  000   000  000      000   000     000     000       
+   000     000   000  000  000   000  000   000   0000000    0000000   0000000  000   000     000     00000000  
+###
 # Polyhédronisme
 #==================================================================================================
 #
@@ -7,66 +14,53 @@
 # Released under the MIT License
 #
 
-# Polyhedra Functions
-#==================================================================================================
-#
-# Set of routines for transforming N-face meshes into triangular meshes, necessary for exporting
-# STL or VRML for 3D Printing.
-
-__range__ = (left, right, inclusive) ->
-    range = []
-    ascending = left < right
-    end = !inclusive ? right : ascending ? right + 1 : right - 1
-    for (i = left; ascending ? i < end : i > end; ascending ? i++ : i--) 
-        range.push(i)
-    range
-
 # Ear-based triangulation of 2d faces, takes array of 2d coords in the face ordering
 # Returns indices of the new diagonal lines to cut.
 #
 # assumes planarity of course, so this isn't the ideal algo for making aesthetically pleasing
 # "flattening" choices in distorted polyhedral planes.
-#
+
+{ Polyhedron } = require './polyhedron'
+
 getDiagonals = (verts) ->
-    v0, v2
+
     limiter = 999
     diagonals = []
     ear = []
     facelen = verts.length
   
-    XOR = (x, y) => (x or y) and !(x and y);
-    Area2 = (Va,Vb,Vc)  => ((Vb[0]-Va[0])*(Vc[1]-Va[1])) - ((Vc[0]-Va[0])*(Vb[1]-Va[1]));
-    Left = (Va, Vb, Vc) => Area2(Va, Vb, Vc) > 0;
-    LeftOn = (Va, Vb, Vc) => Area2(Va, Vb, Vc) >= 0;
-    Collinear = (Va, Vb, Vc) => Area2(Va, Vb, Vc) == 0;
+    XOR = (x, y) -> (x or y) and !(x and y);
+    Area2 = (Va,Vb,Vc)  -> ((Vb[0]-Va[0])*(Vc[1]-Va[1])) - ((Vc[0]-Va[0])*(Vb[1]-Va[1]));
+    Left = (Va, Vb, Vc) -> Area2(Va, Vb, Vc) > 0;
+    LeftOn = (Va, Vb, Vc) -> Area2(Va, Vb, Vc) >= 0;
+    Collinear = (Va, Vb, Vc) -> Area2(Va, Vb, Vc) == 0;
   
     Between = (Va, Vb, Vc) ->
-        if (Collinear(Va, Vb, Vc)) { return false; }
-        if (Va[0] != Vb[0]) {
-          return ((Va[0] <= Vc[0]) and (Vc[0] <= Vb[0])) or ((Va[0] >= Vc[0]) and (Vc[0] >= Vb[0]));
-        } else {
-          return ((Va[1] <= Vc[1]) and (Vc[1] <= Vb[1])) or ((Va[1] >= Vc[1]) and (Vc[1] >= Vb[1]));
-        }
+        if Collinear Va, Vb, Vc  
+            return false
+        if Va[0] != Vb[0] 
+            return ((Va[0] <= Vc[0]) and (Vc[0] <= Vb[0])) or ((Va[0] >= Vc[0]) and (Vc[0] >= Vb[0]))
+        else 
+            return ((Va[1] <= Vc[1]) and (Vc[1] <= Vb[1])) or ((Va[1] >= Vc[1]) and (Vc[1] >= Vb[1]))
   
     IntersectProp = (Va, Vb, Vc, Vd) ->
-      if (Collinear(Va, Vb, Vc) or Collinear(Va, Vb, Vd) or Collinear(Vc, Vd, Va) or Collinear(Vc, Vd, Vb)) 
-        return false
+        if Collinear(Va, Vb, Vc) or Collinear(Va, Vb, Vd) or Collinear(Vc, Vd, Va) or Collinear(Vc, Vd, Vb) 
+            return false
 
-      return XOR(Left(Va, Vb, Vc), Left(Va, Vb, Vd)) and XOR(Left(Vc, Vd, Va), Left(Vc, Vd, Vb))
+        XOR(Left(Va, Vb, Vc), Left(Va, Vb, Vd)) and XOR(Left(Vc, Vd, Va), Left(Vc, Vd, Vb))
   
     Intersect = (Va, Vb, Vc, Vd) ->
-        if (IntersectProp(Va, Vb, Vc, Vd)) 
-            return true
+        if IntersectProp Va, Vb, Vc, Vd
+            true
         else
-            return (Between(Va, Vb, Vc) or Between(Va, Vb, Vd) or Between(Vc, Vd, Va) or Between(Vc, Vd, Vb))
+            Between(Va, Vb, Vc) or Between(Va, Vb, Vd) or Between(Vc, Vd, Va) or Between(Vc, Vd, Vb)
   
     InCone = (a, b) ->
-        a1 = (a+1+facelen)%facelen;
-        a0 = ((a-1)+facelen)%facelen;
-        if (LeftOn(verts[a], verts[a1], verts[a0])) {
-          return (Left(verts[a], verts[b], verts[a0]) and Left(verts[b], verts[a], verts[a1]));
-        }
-        return !(LeftOn(verts[a], verts[b], verts[a1]) and LeftOn(verts[b], verts[a], verts[a0]));
+        a1 = (a+1+facelen)%facelen
+        a0 = ((a-1)+facelen)%facelen
+        if LeftOn verts[a], verts[a1], verts[a0]
+            return Left(verts[a], verts[b], verts[a0]) and Left(verts[b], verts[a], verts[a1])
+        not (LeftOn(verts[a], verts[b], verts[a1]) and LeftOn(verts[b], verts[a], verts[a0]))
   
     Diagonalie = (a, b) ->
         c = 0
@@ -79,18 +73,18 @@ getDiagonals = (verts) ->
                 break
         return true
   
-    Diagonal = (a, b) => InCone(a, b) and InCone(b, a) and Diagonalie(a, b)
+    Diagonal = (a, b) -> InCone(a, b) and InCone(b, a) and Diagonalie(a, b)
   
-    v1 = 0;
+    v1 = 0
     while true
-        v2 = (v1+1+facelen)%facelen #v1.next
-        v0 = ((v1-1)+facelen)%facelen #v1.prev
+        v2 = (v1+1+facelen)%facelen # v1.next
+        v0 = ((v1-1)+facelen)%facelen # v1.prev
         ear[v1] = Diagonal v0, v2
         v1 = (v1+1+facelen)%facelen 
         if v1 == 0 then break
   
-    origIdx = __range__ 0, facelen-1, true
-    n = facelen #verts.length
+    origIdx = [0...facelen]
+    n = facelen # verts.length
     z = limiter 
     head = 0 #??
     while (z > 0) and (n > 3)
@@ -101,10 +95,10 @@ getDiagonals = (verts) ->
             y -= 1;
             broke = false
             if ear[v2]
-                v3 = (v2+1+facelen)%facelen #v2.next
-                v4 = (v3+1+facelen)%facelen #v3.next
-                v1 = ((v2-1)+facelen)%facelen #v2.prev
-                v0 = ((v1-1)+facelen)%facelen #v1.prev
+                v3 = (v2+1+facelen)%facelen # v2.next
+                v4 = (v3+1+facelen)%facelen # v3.next
+                v1 = ((v2-1)+facelen)%facelen # v2.prev
+                v0 = ((v1-1)+facelen)%facelen # v1.prev
                 diagonals.push([ origIdx[v1], origIdx[v3] ]) 
                 ear[v1] = Diagonal(v0, v3) 
                 ear[v3] = Diagonal(v1, v4) 
@@ -120,7 +114,7 @@ getDiagonals = (verts) ->
                 head = v3
                 n--
                 broke = true
-            v2 = (v2+1+facelen)%facelen #v2.next
+            v2 = (v2+1+facelen)%facelen # v2.next
             if y <= 0 or broke or v2 == head 
                 break
   
@@ -135,7 +129,7 @@ diagsToTris = (f,diags) ->
     edges = []
     redges = []
     # get edges from faces as assoc arrays
-    for [v1, v2] in __range__(0, f.length-1, true).map (i) => [i,(i+1)%f.length]
+    for [v1, v2] in ([0...f.length].map (i) -> [i, (i+1)%f.length])
         edges[v1]  = [v2]
         redges[v2] = [v1]
     for d in diags  # push the diagonals into the assoc arrays in both directions!
@@ -144,8 +138,7 @@ diagsToTris = (f,diags) ->
         redges[d[0]].push d[1]
         redges[d[1]].push d[0]
     tris=[]
-    for d in diags #orig N-face, N-2 triangles from the N-3 diagonals
-        var e1, e2
+    for d in diags # orig N-face, N-2 triangles from the N-3 diagonals
         for e1 in edges[d[1]] # edge after diag
             for e2 in redges[d[0]] # edge before diag
                 if e1 == e2 # if they meet we have a triangle!
@@ -172,16 +165,16 @@ diagsToTris = (f,diags) ->
 # then builds new polyhedron out of them, preserving original face colors
 triangulate = (poly, colors) ->
 
-    console.log "Triangulating faces of #{poly.name}..."
+    klog "triangulate #{poly.name}"
   
-    newpoly = new polyhedron()
+    newpoly = new Polyhedron poly.name # don't change the name
     newpoly.vertices = clone poly.vertices
     newpoly.face_classes = []
-    # iterate over triplets of faces v1,v2,v3
+
     for [i...poly.faces.length] 
         f = poly.faces[i]
         if f.length > 3
-            TwoDface = project2dface f.map (v) => poly.vertices[v]
+            TwoDface = project2dface f.map (v) -> poly.vertices[v]
             diags = getDiagonals TwoDface
             tris  = diagsToTris f,diags
             for [j...tris.length]
@@ -193,5 +186,4 @@ triangulate = (poly, colors) ->
             newpoly.faces.push [f[0], f[1], f[2]]
             if colors
                 newpoly.face_classes.push poly.face_classes[i]
-    newpoly.name = poly.name # don't change the name for export
     newpoly

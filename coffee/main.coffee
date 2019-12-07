@@ -14,7 +14,7 @@ class Main extends app
         
         super
             dir:            __dirname
-            # dirs:           ['levels' 'lib']
+            dirs:           ['poly']
             pkg:            require '../package.json'
             index:          'index.html'
             icon:           '../img/app.ico'

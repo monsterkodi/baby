@@ -1,3 +1,10 @@
+###
+000000000   0000000   00000000    0000000     
+   000     000   000  000   000  000   000    
+   000     000   000  00000000   000   000    
+   000     000   000  000        000   000    
+   000      0000000   000         0000000     
+###
 # Polyhédronisme
 #===================================================================================================
 #
@@ -9,9 +16,10 @@
 #
 # Copyright 2019, Anselm Levskaya
 # Released under the MIT License
-
+#
 #===================================================================================================
-# Polyhedron Flagset Construct
+    
+# Polyhedron Flag Construct
 #
 # A Flag is an associative triple of a face index and two adjacent vertex vertidxs,
 # listed in geometric clockwise order (staring into the normal)
@@ -24,96 +32,153 @@
 #
 # A flag is similar in concept to a directed halfedge in halfedge data structures.
 
-{ polyhedron } = require './polyhedron'
+{ kerror, klog } = require 'kxk'
+{ intersect } = require './geo'
+{ Polyhedron } = require './polyhedron'
 
-MAX_FACE_SIDEDNESS = 1000
+# 00000000  000       0000000    0000000   
+# 000       000      000   000  000        
+# 000000    000      000000000  000  0000  
+# 000       000      000   000  000   000  
+# 000       0000000  000   000   0000000   
 
-class polyflag
+class Flag
     
     @: ->
-        @flags    = new Object() # flags[face][vertex] = next vertex of flag; symbolic triples
-        @vertidxs = new Object() # [symbolic names] holds vertex index
-        @vertices = new Object() # XYZ coordinates
+        @flags    = {} # flags[face][vertex] = next vertex
+        @vertidxs = {} # [symbolic names] holds vertex index
+        @vertices = {} # XYZ coordinates
   
-    # Add a new vertex named "name" with coordinates "xyz".
     newV: (vertName, coordinates) ->
+        
         if not @vertidxs[vertName]
             @vertidxs[vertName] = 0
             @vertices[vertName] = coordinates
   
     newFlag: (faceName, vertName1, vertName2) ->
+        
         @flags[faceName] ?= {}
         @flags[faceName][vertName1] = vertName2
   
-    topoly: ->
+    topoly: (name='polyhedron') ->
 
-        poly = new polyhedron "unknown polyhedron"
+        poly = new Polyhedron name
     
-        ctr = 0 # first number the vertices
-        for i in @vertidxs
-            v = @vertidxs[i]
-            poly.vertices[ctr]=@vertices[i]
-            @vertidxs[i] = ctr
+        klog 'topoly' @
+        
+        ctr = 0 
+        for i,v of @vertidxs 
+            poly.vertices[ctr] = @vertices[i]
+            @vertidxs[i] = ctr # number the vertices
             ctr++
-    
+            
         ctr = 0
-        for i in @flags
-
-            face = @flags[i]
-            poly.faces[ctr] = [] # new face
-            # grab _any_ vertex as starting point
-            v0 = face[0]
-            # build face out of all the edge relations in the flag assoc array
-            v = v0 # v moves around face
-            poly.faces[ctr].push @vertidxs[v] #record index
+        for i,face of @flags
+            newFace = []
+            for j,v0 of face
+                v = v0 # any vertex as starting point
+                break
+            # klog 'v0' v, v0
+            newFace.push @vertidxs[v] # record index
             v = @flags[i][v] # goto next vertex
-            faceCTR = 0
+            faceCount = 0
             while v != v0 # loop until back to start
-                poly.faces[ctr].push @vertidxs[v]
+                newFace.push @vertidxs[v]
                 v = @flags[i][v]
-                faceCTR++
-                # necessary during development to prevent browser hangs on badly formed flagsets
-                if faceCTR > MAX_FACE_SIDEDNESS
-                    console.log "Bad flag spec, have a neverending face:", i, @flags[i]
+                if faceCount++ > 100 # prevent infinite loop on badly formed flagsets
+                    kerror "Bad flag with neverending face:" i, @flags[i]
                     break
+            poly.faces[ctr] = newFace
             ctr++
+        klog 'poly' poly
         poly
 
-#===================================================================================================
 # Polyhedron Operators
-#===================================================================================================
-# for each vertex of new polyhedron:
+#
+# for each vertex of new polyhedron
 #     call newV(Vname, xyz) with a symbolic name and coordinates
-# for each flag of new polyhedron:
+#
+# for each flag of new polyhedron
 #     call newFlag(Fname, Vname1, Vname2) with a symbolic name for the new face
 #     and the symbolic name for two vertices forming an oriented edge
-# ORIENTATION -must- be dealt with properly to make a manifold (correct) mesh.
-# Specifically, no edge v1->v2 can ever be crossed in the -same direction- by
-# two different faces
-# 
+#
+# Orientation must be dealt with properly to make a manifold mesh
+# Specifically, no edge v1->v2 can ever be crossed in the same direction by two different faces
 # call topoly() to assemble flags into polyhedron structure by following the orbits
 # of the vertex mapping stored in the flagset for each new face
-# 
-# set name as appropriate
 
 midName = (v1, v2) -> v1<v2 and "#{v1}_#{v2}" or "#{v2}_#{v1}" # unique names of midpoints
 
-# Kis(N)
-# ------------------------------------------------------------------------------------------
+# 0000000    000   000   0000000   000      
+# 000   000  000   000  000   000  000      
+# 000   000  000   000  000000000  000      
+# 000   000  000   000  000   000  000      
+# 0000000     0000000   000   000  0000000  
+
+dual = (poly) ->
+
+    klog "dual of #{poly.name}" #poly
+  
+    flag = new Flag()
+  
+    face = [] # make table of face as fn of edge
+    for i in [0...poly.vertices.length] # create empty associative table
+        face[i] = {}
+
+    for i in [0...poly.faces.length]
+        f = poly.faces[i]
+        v1 = f[f.length-1] # last vertex
+        for v2 in f # assumes that no 2 faces share an edge in the same orientation!
+            face[v1]["v#{v2}"] = "#{i}"
+            v1 = v2 # current becomes previous
+  
+    centers = poly.centers()
+    
+    for i in [0...poly.faces.length]
+        flag.newV "#{i}" centers[i]
+  
+    for i in [0...poly.faces.length]
+        f = poly.faces[i]
+        v1 = f[f.length-1] #previous vertex
+        for v2 in f
+            flag.newFlag v1, face[v2]["v#{v1}"], "#{i}"
+            v1=v2 # current becomes previous
+  
+    dpoly = flag.topoly() # build topological dual from flags
+  
+    # match F index ordering to V index ordering on dual
+    sortF = []
+    for f in dpoly.faces
+        k = intersect poly.faces[f[0]], poly.faces[f[1]], poly.faces[f[2]]
+        sortF[k] = f
+    dpoly.faces = sortF
+  
+    if poly.name[0] != "d"
+        dpoly.name = "d#{poly.name}"
+    else 
+        dpoly.name = poly.name.slice 1
+  
+    dpoly
+
+# 000   000  000   0000000  000   000  
+# 000  000   000  000       0000  000  
+# 0000000    000  0000000   000 0 000  
+# 000  000   000       000  000  0000  
+# 000   000  000  0000000   000   000  
+
 # Kis (abbreviated from triakis) transforms an N-sided face into an N-pyramid rooted at the
 # same base vertices. only kis n-sided faces, but n==0 means kis all.
 
-module.exports.kisN = (poly, n, apexdist) ->
+kisN = (poly, n, apexdist) ->
 
     n ?= 0
     apexdist ?= 0.1
 
-    console.log "Taking kis of #{n}-sided faces of #{poly.name}..."
+    klog "kis of #{n and "#{n}-sided" or 'all'} faces of #{poly.name}" poly
 
-    flag = new polyflag()
+    flag = new Flag()
     for i in [0...poly.vertices.length]
-        # each old vertex is a new vertex
-        p = poly.vertices[i]
+        p = poly.vertices[i] # each old vertex is a new vertex
         flag.newV "v#{i}" p
   
     normals = poly.normals()
@@ -139,21 +204,25 @@ module.exports.kisN = (poly, n, apexdist) ->
             v1 = v2 # current becomes previous
   
     if not foundAny
-        console.log "No #{n}-fold components were found."
+        klog "No #{n}-fold components were found."
   
-    newpoly = flag.topoly()
-    newpoly.name = "k#{n}#{poly.name}"
-    return newpoly
+    flag.topoly "k#{n}#{poly.name}"
 
-# Ambo
-# ------------------------------------------------------------------------------------------
+#  0000000   00     00  0000000     0000000   
+# 000   000  000   000  000   000  000   000  
+# 000000000  000000000  0000000    000   000  
+# 000   000  000 0 000  000   000  000   000  
+# 000   000  000   000  0000000     0000000   
+
 # The best way to think of the ambo operator is as a topological "tween" between a polyhedron
 # and its dual polyhedron.  Thus the ambo of a dual polyhedron is the same as the ambo of the
 # original. Also called "Rectify".
 
-module.exports.ambo = (poly) ->
-    console.log "Taking ambo of #{poly.name}..."
-    flag = new polyflag()
+ambo = (poly) ->
+    
+    klog "ambo of #{poly.name}"
+    
+    flag = new Flag()
   
     # For each face f in the original poly
     for i in [0...poly.faces.length]
@@ -169,23 +238,19 @@ module.exports.ambo = (poly) ->
             # shift over one
             [v1, v2] = [v2, v3]
   
-    newpoly = flag.topoly()
-    newpoly.name = "a#{poly.name}"
-    newpoly
+    flag.topoly "a#{poly.name}"
 
-# Gyro
-# ----------------------------------------------------------------------------------------------
-# This is the dual operator to "snub", i.e dual*Gyro = Snub.  It is a bit easier to implement
-# this way.
-#
-# Snub creates at each vertex a new face, expands and twists it, and adds two new triangles to
-# replace each edge.
+#  0000000   000   000  00000000    0000000   
+# 000         000 000   000   000  000   000  
+# 000  0000    00000    0000000    000   000  
+# 000   000     000     000   000  000   000  
+#  0000000      000     000   000   0000000   
 
-module.exports.gyro = (poly) ->
+gyro = (poly) ->
 
-    console.log "Taking gyro of #{poly.name}..."
+    klog "gyro of #{poly.name}"
   
-    flag = new polyflag()
+    flag = new Flag()
   
     for i in [0...poly.vertices.length]
         flag.newV "v#{i}" unit poly.vertices[i] # each old vertex is a new vertex
@@ -193,7 +258,7 @@ module.exports.gyro = (poly) ->
     centers = poly.centers() # new vertices in center of each face
     for i in [0...poly.faces.length]
         f = poly.faces[i]
-        flag.newV("center#{i}", unit(centers[i]))
+        flag.newV "center#{i}" unit centers[i]
   
     for i in [0...poly.faces.length]
         f = poly.faces[i]
@@ -203,28 +268,30 @@ module.exports.gyro = (poly) ->
             v3 = v
             flag.newV(v1+"~"+v2, oneThird(poly.vertices[v1],poly.vertices[v2]));  # new v in face
             fname = i+"f"+v1
-            flag.newFlag(fname, "center#{i}",      v1+"~"+v2) # five new flags
-            flag.newFlag(fname, v1+"~"+v2,  v2+"~"+v1)
-            flag.newFlag(fname, v2+"~"+v1,  "v#{v2}")
-            flag.newFlag(fname, "v#{v2}",     v2+"~"+v3)
-            flag.newFlag(fname, v2+"~"+v3,  "center#{i}")
-            [v1, v2] = [v2, v3]; # shift over one
+            flag.newFlag fname, "center#{i}"  v1+"~"+v2 # five new flags
+            flag.newFlag fname, v1+"~"+v2,  v2+"~"+v1
+            flag.newFlag fname, v2+"~"+v1,  "v#{v2}"
+            flag.newFlag fname, "v#{v2}"     v2+"~"+v3
+            flag.newFlag fname, v2+"~"+v3,  "center#{i}"
+            [v1, v2] = [v2, v3] # shift over one
   
-    newpoly = flag.topoly()
-    newpoly.name = "g#{poly.name}"
-    newpoly
+    flag.topoly "g#{poly.name}"
 
-# Propellor
-# ------------------------------------------------------------------------------------------
+# 00000000   00000000    0000000   00000000   00000000  000      000       0000000   00000000   
+# 000   000  000   000  000   000  000   000  000       000      000      000   000  000   000  
+# 00000000   0000000    000   000  00000000   0000000   000      000      000   000  0000000    
+# 000        000   000  000   000  000        000       000      000      000   000  000   000  
+# 000        000   000   0000000   000        00000000  0000000  0000000   0000000   000   000  
+
 # builds a new 'skew face' by making new points along edges, 1/3rd the distance from v1->v2,
 # then connecting these into a new inset face.  This breaks rotational symmetry about the
 # faces, whirling them into gyres
-#
-module.exports.propellor = (poly) ->
 
-    console.log "Taking propellor of #{poly.name}..."
+propellor = (poly) ->
+
+    klog "propellor of #{poly.name}"
   
-    flag = new polyflag()
+    flag = new Flag()
   
     for i in [0...poly.vertices.length] # each old vertex is a new vertex
         flag.newV "v#{i}" unit poly.vertices[i]
@@ -243,16 +310,17 @@ module.exports.propellor = (poly) ->
             flag.newFlag(fname,   v2+"~"+v3,  v1+"~"+v2);
             [v1, v2] = [v2, v3]
     
-    newpoly = flag.topoly()
-    newpoly.name = "p#{poly.name}"
-    newpoly
+    flag.topoly "p#{poly.name}"
 
-# Reflection
-# ------------------------------------------------------------------------------------------
-# geometric reflection through origin
-module.exports.reflect = (poly) ->
+# 00000000   00000000  00000000  000      00000000   0000000  000000000  
+# 000   000  000       000       000      000       000          000     
+# 0000000    0000000   000000    000      0000000   000          000     
+# 000   000  000       000       000      000       000          000     
+# 000   000  00000000  000       0000000  00000000   0000000     000     
 
-    console.log "Taking reflection of #{poly.name}..."
+reflect = (poly) -> # geometric reflection through origin
+
+    klog "reflection of #{poly.name}"
     # reflect each point through origin
     for i in [0...poly.vertices.length]
         poly.vertices[i] = mult -1, poly.vertices[i]
@@ -262,64 +330,12 @@ module.exports.reflect = (poly) ->
     poly.name = "r#{poly.name}"
     poly
 
-# Dual
-# ------------------------------------------------------------------------------------------------
-# The dual of a polyhedron is another mesh wherein:
-# - every face in the original becomes a vertex in the dual
-# - every vertex in the original becomes a face in the dual
-#
-# So N_faces, N_vertices = N_dualfaces, N_dualvertices
-#
-# The new vertex coordinates are convenient to set to the original face centroids.
+#  0000000  000   000   0000000   00     00  00000000  00000000  00000000   
+# 000       000   000  000   000  000   000  000       000       000   000  
+# 000       000000000  000000000  000000000  000000    0000000   0000000    
+# 000       000   000  000   000  000 0 000  000       000       000   000  
+#  0000000  000   000  000   000  000   000  000       00000000  000   000  
 
-module.exports.dual = (poly) ->
-
-    console.log "Taking dual of #{poly.name}..." poly
-  
-    flag = new polyflag()
-  
-    face = [] # make table of face as fn of edge
-    for i in [0...poly.vertices.length] # create empty associative table
-        face[i] = {}
-
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
-        v1 = f[f.length-1] #previous vertex
-        for v2 in f
-            # THIS ASSUMES that no 2 faces that share an edge share it in the same orientation!
-            # which of course never happens for proper manifold meshes, so get your meshes right.
-            face[v1]["v#{v2}"] = "#{i}"
-            v1 = v2 # current becomes previous
-  
-    centers = poly.centers()
-    for i in [0...poly.faces.length]
-        flag.newV "#{i}" centers[i]
-  
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
-        v1 = f[f.length-1] #previous vertex
-        for v2 in f
-            flag.newFlag v1, face[v2]["v#{v1}"], "#{i}"
-            v1=v2 # current becomes previous
-  
-    dpoly = flag.topoly() # build topological dual from flags
-  
-    # match F index ordering to V index ordering on dual
-    sortF = []
-    for f in dpoly.faces
-        k = intersect poly.faces[f[0]], poly.faces[f[1]], poly.faces[f[2]]
-        sortF[k] = f
-    dpoly.faces = sortF
-  
-    if poly.name[0] != "d"
-        dpoly.name = "d#{poly.name}"
-    else 
-        dpoly.name = poly.name.slice(1)
-  
-    dpoly
-
-# Chamfer
-# ----------------------------------------------------------------------------------------
 # A truncation along a polyhedron's edges.
 # Chamfering or edge-truncation is similar to expansion, moving faces apart and outward,
 # but also maintains the original vertices. Adds a new hexagonal face in place of each
@@ -338,12 +354,12 @@ module.exports.dual = (poly) ->
 # cC = t4daC = t4jC, cO = t3daO, cD = t5daD, cI = t3daI
 # But it doesn't work for cases like T.
 
-module.exports.chamfer = (poly, dist) ->
-    console.log "Taking chamfer of #{poly.name}..."
+chamfer = (poly, dist) ->
+    klog "chamfer of #{poly.name}"
   
     dist ?= 0.5
   
-    flag = new polyflag()
+    flag = new Flag()
   
     normals = poly.normals()
   
@@ -371,12 +387,14 @@ module.exports.chamfer = (poly, dist) ->
           v1 = v2;
           v1new = v2new
 
-    newpoly = flag.topoly()
-    newpoly.name = "c#{poly.name}"
-    newpoly
+    flag.topoly "c#{poly.name}"
 
-# Whirl
-# ----------------------------------------------------------------------------------------------
+# 000   000  000   000  000  00000000   000      
+# 000 0 000  000   000  000  000   000  000      
+# 000000000  000000000  000  0000000    000      
+# 000   000  000   000  000  000   000  000      
+# 00     00  000   000  000  000   000  0000000  
+
 # Gyro followed by truncation of vertices centered on original faces.
 # This create 2 new hexagons for every original edge.
 # (https:#en.wikipedia.org/wiki/Conway_polyhedron_notation#Operations_on_polyhedra)
@@ -386,12 +404,12 @@ module.exports.chamfer = (poly, dist) ->
 # filled in one way or another, depending on whether the adjacent face is
 # whirled or not.
 
-module.exports.whirl = (poly, n) ->
+whirl = (poly, n) ->
 
-    console.log "Taking whirl of #{poly.name}..."
+    klog "whirl of #{poly.name}"
     n ?= 0
     
-    flag = new polyflag()
+    flag = new Flag()
   
     # each old vertex is a new vertex
     for i in [0...poly.vertices.length]
@@ -426,17 +444,18 @@ module.exports.whirl = (poly, n) ->
             
             [v1, v2] = [v2, v3] # shift over one
   
-    newpoly = flag.topoly()
-    newpoly.name = "w#{poly.name}"
-    newpoly
+    flag.topoly "w#{poly.name}"
 
-# Quinto
-# ----------------------------------------------------------------------------------------------
-# This creates a pentagon for every point in the original face, as well as one new inset face.
-module.exports.quinto = (poly) ->
+#  0000000   000   000  000  000   000  000000000   0000000   
+# 000   000  000   000  000  0000  000     000     000   000  
+# 000 00 00  000   000  000  000 0 000     000     000   000  
+# 000 0000   000   000  000  000  0000     000     000   000  
+#  00000 00   0000000   000  000   000     000      0000000   
+
+quinto = (poly) -> # creates a pentagon for every point in the original face, as well as one new inset face.
     
-    console.log("Taking quinto of #{poly.name}...")
-    flag = new polyflag()
+    klog("quinto of #{poly.name}")
+    flag = new Flag()
   
     # For each face f in the original poly
     for i in [0...poly.faces.length]
@@ -465,21 +484,23 @@ module.exports.quinto = (poly) ->
       
             [v1, v2] = [v2, v3] # shift over one
   
-    newpoly = flag.topoly()
-    newpoly.name = "q#{poly.name}"
-    newpoly
+    flag.topoly "q#{poly.name}"
 
-# inset / extrude / "Loft" operator
-# ------------------------------------------------------------------------------------------
-module.exports.insetN = (poly, n, inset_dist, popout_dist)->
+# 000  000   000   0000000  00000000  000000000  000   000  
+# 000  0000  000  000       000          000     0000  000  
+# 000  000 0 000  0000000   0000000      000     000 0 000  
+# 000  000  0000       000  000          000     000  0000  
+# 000  000   000  0000000   00000000     000     000   000  
+
+insetN = (poly, n, inset_dist, popout_dist) ->
 
     n ?= 0
     inset_dist ?= 0.5
     popout_dist ?= -0.2
   
-    console.log "Taking inset of #{n}-sided faces of #{poly.name}..."
+    klog "inset of #{n and "#{n}-sided" or 'all'} faces of #{poly.name}"
   
-    flag = new polyflag()
+    flag = new Flag()
     for i in [0...poly.vertices.length]
         # each old vertex is a new vertex
         p = poly.vertices[i]
@@ -487,7 +508,7 @@ module.exports.insetN = (poly, n, inset_dist, popout_dist)->
 
     normals = poly.normals()
     centers = poly.centers()
-    for i in [0...poly.faces.length] #new inset vertex for every vert in face
+    for i in [0...poly.faces.length] # new inset vertex for every vert in face
         f = poly.faces[i]
         if f.length == n or n == 0
             for v in f
@@ -506,53 +527,62 @@ module.exports.insetN = (poly, n, inset_dist, popout_dist)->
                 flag.newFlag(fname,      v2,       "f#{i}#{v2}")
                 flag.newFlag(fname, "f#{i}#{v2}",  "f#{i}#{v1}")
                 flag.newFlag(fname, "f#{i}#{v1}",  v1)
-                #new inset, extruded face
+                # new inset, extruded face
                 flag.newFlag("ex#{i}", "f#{i}#{v1}",  "f#{i}#{v2}")
             else
                 flag.newFlag(i, v1, v2)  # same old flag, if non-n
             v1=v2 # current becomes previous
   
     if not foundAny
-        console.log "No #{n}-fold components were found."
+        klog "No #{n}-fold components were found."
   
-    newpoly = flag.topoly()
-    newpoly.name = "n#{n}#{poly.name}"
-    newpoly
+    flag.topoly "n#{n}#{poly.name}"
 
-# extrudeN
-# ------------------------------------------------------------------------------------------
-# for compatibility with older operator spec
-module.exports.extrudeN = (poly, n) ->
+# 00000000  000   000  000000000  00000000   000   000  0000000    00000000  000   000  
+# 000        000 000      000     000   000  000   000  000   000  000       0000  000  
+# 0000000     00000       000     0000000    000   000  000   000  0000000   000 0 000  
+# 000        000 000      000     000   000  000   000  000   000  000       000  0000  
+# 00000000  000   000     000     000   000   0000000   0000000    00000000  000   000  
+
+extrudeN = (poly, n) ->
     newpoly = insetN poly, n, 0.0, 0.3
     newpoly.name = "x#{n}#{poly.name}"
     newpoly
 
-# loft
-# ------------------------------------------------------------------------------------------
-module.exports.loft = (poly, n, alpha) ->
+# 000       0000000   00000000  000000000  
+# 000      000   000  000          000     
+# 000      000   000  000000       000     
+# 000      000   000  000          000     
+# 0000000   0000000   000          000     
+
+loft = (poly, n, alpha) ->
     newpoly = insetN poly, n, alpha, 0.0
     newpoly.name = "l#{n}#{poly.name}"
     newpoly
 
-# Hollow (skeletonize)
-# ------------------------------------------------------------------------------------------
-module.exports.hollow = (poly, inset_dist, thickness) ->
+# 000   000   0000000   000      000       0000000   000   000  
+# 000   000  000   000  000      000      000   000  000 0 000  
+# 000000000  000   000  000      000      000   000  000000000  
+# 000   000  000   000  000      000      000   000  000   000  
+# 000   000   0000000   0000000  0000000   0000000   00     00  
+
+hollow = (poly, inset_dist, thickness) ->
 
     inset_dist ?= 0.5
     thickness ?= 0.2
   
-    console.log "Hollowing #{poly.name}..."
+    klog "hollow #{poly.name}"
   
     dualnormals = dual(poly).normals()
     normals = poly.normals()
     centers = poly.centers()
   
-    flag = new polyflag()
+    flag = new Flag()
     for i in [0...poly.vertices.length]
-      # each old vertex is a new vertex
-      p = poly.vertices[i]
-      flag.newV "v#{i}" p
-      flag.newV "downv#{i}" add p, mult -1*thickness,dualnormals[i]
+        # each old vertex is a new vertex
+        p = poly.vertices[i]
+        flag.newV "v#{i}" p
+        flag.newV "downv#{i}" add p, mult -1*thickness,dualnormals[i]
 
     # new inset vertex for every vert in face
     for i in [0...poly.faces.length]
@@ -567,44 +597,45 @@ module.exports.hollow = (poly, inset_dist, thickness) ->
         for v in f
             v2 = "v#{v}"
             fname = i + v1
-            flag.newFlag(fname,      v1,       v2)
-            flag.newFlag(fname,      v2,       "fin#{i}#{v2}")
-            flag.newFlag(fname, "fin#{i}#{v2}",  "fin#{i}#{v1}")
-            flag.newFlag(fname, "fin#{i}#{v1}",  v1)
+            flag.newFlag fname, v1,            v2
+            flag.newFlag fname, v2,            "fin#{i}#{v2}"
+            flag.newFlag fname, "fin#{i}#{v2}" "fin#{i}#{v1}"
+            flag.newFlag fname, "fin#{i}#{v1}" v1
       
             fname = "sides#{i}#{v1}"
-            flag.newFlag(fname, "fin#{i}#{v1}",     "fin#{i}#{v2}")
-            flag.newFlag(fname, "fin#{i}#{v2}",     "findown#{i}#{v2}")
-            flag.newFlag(fname, "findown#{i}#{v2}", "findown#{i}#{v1}")
-            flag.newFlag(fname, "findown#{i}#{v1}", "fin#{i}#{v1}")
+            flag.newFlag fname, "fin#{i}#{v1}"     "fin#{i}#{v2}"
+            flag.newFlag fname, "fin#{i}#{v2}"     "findown#{i}#{v2}"
+            flag.newFlag fname, "findown#{i}#{v2}" "findown#{i}#{v1}"
+            flag.newFlag fname, "findown#{i}#{v1}" "fin#{i}#{v1}"
       
             fname = "bottom#{i}#{v1}"
-            flag.newFlag(fname,  "down#{v2}",      "down#{v1}")
-            flag.newFlag(fname,  "down#{v1}",      "findown#{i}#{v1}")
-            flag.newFlag(fname,  "findown#{i}#{v1}", "findown#{i}#{v2}")
-            flag.newFlag(fname,  "findown#{i}#{v2}", "down#{v2}")
+            flag.newFlag fname,  "down#{v2}"        "down#{v1}"
+            flag.newFlag fname,  "down#{v1}"        "findown#{i}#{v1}"
+            flag.newFlag fname,  "findown#{i}#{v1}" "findown#{i}#{v2}"
+            flag.newFlag fname,  "findown#{i}#{v2}" "down#{v2}"
       
             v1 = v2 # current becomes previous
   
-    newpoly = flag.topoly()
-    newpoly.name = "H#{poly.name}"
-    newpoly
+    flag.topoly "H#{poly.name}"
 
-# Perspectiva 1
-# ------------------------------------------------------------------------------------------
-# an operation reverse-engineered from Perspectiva Corporum Regularium
-module.exports.perspectiva1 = (poly) ->
+# 00000000   00000000  00000000    0000000  00000000   00000000   0000000  000000000  000  000   000   0000000      000  
+# 000   000  000       000   000  000       000   000  000       000          000     000  000   000  000   000   00000  
+# 00000000   0000000   0000000    0000000   00000000   0000000   000          000     000   000 000   000000000  000000  
+# 000        000       000   000       000  000        000       000          000     000     000     000   000     000  
+# 000        00000000  000   000  0000000   000        00000000   0000000     000     000      0      000   000     000  
 
-    console.log("Taking stella of #{poly.name}...")
+perspectiva1 = (poly) -> # an operation reverse-engineered from Perspectiva Corporum Regularium
+
+    klog "stella of #{poly.name}"
   
     centers = poly.centers() # calculate face centers
   
-    flag = new polyflag()
+    flag = new Flag()
     for i in [0...poly.vertices.length]
         flag.newV "v#{i}" poly.vertices[i]
   
-    # iterate over triplets of faces v1,v2,v3
-    for i in [0...poly.faces.length]
+    for i in [0...poly.faces.length] # iterate over triplets of faces v1,v2,v3
+        
         f = poly.faces[i]
         v1 = "v#{f[f.length-2]}"
         v2 = "v#{f[f.length-1]}"
@@ -618,39 +649,35 @@ module.exports.perspectiva1 = (poly) ->
             v23 = v2+"~"+v3
       
             # on each Nface, N new points inset from edge midpoints towards center = "stellated" points
-            flag.newV(v12, midpoint( midpoint(vert1,vert2), centers[i] ))
+            flag.newV v12, midpoint midpoint(vert1,vert2), centers[i] 
       
             # inset Nface made of new, stellated points
-            flag.newFlag("in#{i}",      v12,       v23)
+            flag.newFlag "in#{i}" v12, v23
       
             # new tri face constituting the remainder of the stellated Nface
-            flag.newFlag("f#{i}#{v2}",      v23,      v12)
-            flag.newFlag("f#{i}#{v2}",       v12,      v2)
-            flag.newFlag("f#{i}#{v2}",      v2,      v23)
+            flag.newFlag "f#{i}#{v2}" v23, v12
+            flag.newFlag "f#{i}#{v2}" v12, v2
+            flag.newFlag "f#{i}#{v2}" v2,  v23
       
             # one of the two new triangles replacing old edge between v1->v2
-            flag.newFlag("f#{v12}",     v1,        v21)
-            flag.newFlag("f#{v12}",     v21,       v12)
-            flag.newFlag("f#{v12}",      v12,       v1)
+            flag.newFlag "f#{v12}" v1,  v21
+            flag.newFlag "f#{v12}" v21, v12
+            flag.newFlag "f#{v12}" v12, v1
       
-            [v1, v2] = [v2, v3];  # current becomes previous
+            [v1, v2] = [v2, v3]  # current becomes previous
             [vert1, vert2] = [vert2, vert3]
   
-    newpoly = flag.topoly()
-    newpoly.name = "P#{poly.name}"
-    newpoly
+    flag.topoly "P#{poly.name}"
 
-#===================================================================================================
-# Goldberg-Coxeter Operators  (in progress...)
-#===================================================================================================
+# 000000000  00000000   000   0000000  000   000  0000000    
+#    000     000   000  000  000       000   000  000   000  
+#    000     0000000    000  0000000   000   000  0000000    
+#    000     000   000  000       000  000   000  000   000  
+#    000     000   000  000  0000000    0000000   0000000    
 
-# Triangular Subdivision Operator
-# ----------------------------------------------------------------------------------------------
-# limited version of the Goldberg-Coxeter u_n operator for triangular meshes
-# We subdivide manually here, instead of using the usual flag machinery.
-module.exports.trisub = (poly, n) ->
+trisub = (poly, n) ->
     
-    console.log("Taking trisub of #{poly.name}...")
+    klog "trisub of #{poly.name}"
     
     n ?= 2
     
@@ -707,10 +734,28 @@ module.exports.trisub = (poly, n) ->
                             uniqmap[vmap["v#{fn}-#{i}-#{j+1}"]], 
                             uniqmap[vmap["v#{fn}-#{i-1}-#{j+1}"]]]
   
-    # Create new polygon out of faces and unique vertices.
-    newpoly = new polyhedron()
-    newpoly.name = "u#{n}#{poly.name}"
-    newpoly.faces = faces
-    newpoly.vertices = uniqVs
-  
-    newpoly
+    new Polyhedron "u#{n}#{poly.name}" faces, uniqVs
+
+# 00000000  000   000  00000000    0000000   00000000   000000000   0000000  
+# 000        000 000   000   000  000   000  000   000     000     000       
+# 0000000     00000    00000000   000   000  0000000       000     0000000   
+# 000        000 000   000        000   000  000   000     000          000  
+# 00000000  000   000  000         0000000   000   000     000     0000000   
+
+module.exports =
+    dual:           dual
+    trisub:         trisub
+    perspectiva1:   perspectiva1
+    kisN:           kisN
+    ambo:           ambo
+    gyro:           gyro
+    propellor:      propellor
+    reflect:        reflect
+    chamfer:        chamfer
+    whirl:          whirl
+    quinto:         quinto
+    insetN:         insetN
+    extrudeN:       extrudeN
+    loft:           loft
+    hollow:         hollow
+    

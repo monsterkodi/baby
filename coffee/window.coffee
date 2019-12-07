@@ -1,8 +1,10 @@
-# 000   000  000  000   000  0000000     0000000   000   000
-# 000 0 000  000  0000  000  000   000  000   000  000 0 000
-# 000000000  000  000 0 000  000   000  000   000  000000000
-# 000   000  000  000  0000  000   000  000   000  000   000
-# 00     00  000  000   000  0000000     0000000   00     00
+###
+000   000  000  000   000  0000000     0000000   000   000
+000 0 000  000  0000  000  000   000  000   000  000 0 000
+000000000  000  000 0 000  000   000  000   000  000000000
+000   000  000  000  0000  000   000  000   000  000   000
+00     00  000  000   000  0000000     0000000   00     00
+###
 
 { gamepad, keyinfo, win, $ } = require 'kxk'
 
@@ -32,6 +34,12 @@ class MainWin extends win
         gamepad.on 'button' @onPadButton
         gamepad.on 'axis'   @onPadAxis
         
+    # 00000000    0000000   0000000    
+    # 000   000  000   000  000   000  
+    # 00000000   000000000  000   000  
+    # 000        000   000  000   000  
+    # 000        000   000  0000000    
+    
     onPadButton: (button, value) =>
         
         # klog 'onPadButton' button, value
@@ -55,6 +63,16 @@ class MainWin extends win
             else
                 @world.modKeyComboEventUp '' key, key
                 
+    onPadAxis: (state) => 
+
+        # klog 'onPadAxis' state
+                
+    # 000   000  00000000  000   000  
+    # 000  000   000        000 000   
+    # 0000000    0000000     00000    
+    # 000  000   000          000     
+    # 000   000  00000000     000     
+    
     onKeyDown: (event) =>
 
         { mod, key, combo } = keyinfo.forEvent event
@@ -64,9 +82,15 @@ class MainWin extends win
     onKeyUp: (event) =>
         
         { mod, key, combo } = keyinfo.forEvent event
-        @world.modKeyComboEventUp mod, key, combo, event
+        @world?.modKeyComboEventUp mod, key, combo, event
         super
         
+    # 00     00  00000000  000   000  000   000  
+    # 000   000  000       0000  000  000   000  
+    # 000000000  0000000   000 0 000  000   000  
+    # 000 0 000  000       000  0000  000   000  
+    # 000   000  00000000  000   000   0000000   
+    
     onMenuAction: (action, args) =>
         
         # klog "menuAction #{action}" args, @world.scene.debugLayer.isVisible()
@@ -75,9 +99,5 @@ class MainWin extends win
             when 'Inspector' then return @world.toggleInspector()
             
         super
-                
-    onPadAxis: (state) => 
-
-        # klog 'onPadAxis' state
-        
+                        
 new MainWin            

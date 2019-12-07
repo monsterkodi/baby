@@ -6,11 +6,12 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ prefs, elem } = require 'kxk'
+{ prefs, elem, klog } = require 'kxk'
 
 { ArcRotateCamera, FramingBehavior, Engine, Scene, Color3, Vector3, Mesh, SimplificationType, DirectionalLight, AmbientLight, ShadowGenerator, StandardMaterial, MeshBuilder, HemisphericLight, SpotLight } = require 'babylonjs'
 
-Poly    = require './poly'
+{ generate } = require './poly/parser'
+Poly    = require './poly/poly'
 Vect    = require './vect'
 Camera  = require './camera'
 animate = require './animate'
@@ -26,7 +27,6 @@ class World
         
         @resized()
         @engine = new Engine @canvas, true
-        
         @scene = new Scene @engine 
         
         a = 0.06
@@ -60,115 +60,60 @@ class World
              
         window.addEventListener 'pointerdown' @onMouseDown
         window.addEventListener 'pointerup'   @onMouseUp
-                    
-        for i in [0..10]
             
-            truncated = Poly.truncate Poly.tetrahedron(), i*0.1
-    
-            p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
-            # p.convertToFlatShadedMesh()
-            p.receiveShadows = true
-            p.position.z = -3*i
-            shadowGenerator.addShadowCaster p
-            p.material = new StandardMaterial 'mat' @scene
-            p.material.alpha = 0.8
-            p.material.diffuseColor = new Color3 0 1 1
+        names = [
+            'tetrahedron'
+            'cube'
+            'octahedron'
+            'dodecahedron'
+            'icosahedron'
+            'cuboctahedron'
+            'icosidodecahedron'
+            'truncatedicosidodecahedron' 
+            'rhombicosidodecahedron' 
+            'rhombicubocahedron' 
+            'snubicosidodecahedron' 
+            'snubcuboctahedron'
+        ]
+        
+        for m,j in names
             
-        for i in [0..10]
-            
-            truncated = Poly.truncate Poly.cube(), i*0.1
-    
-            p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
-            # p.convertToFlatShadedMesh()
-            p.receiveShadows = true
-            p.position.x =  3
-            p.position.z = -3*i
-            shadowGenerator.addShadowCaster p
-            p.material = new StandardMaterial 'mat' @scene
-            p.material.alpha = 0.8
-            p.material.diffuseColor = new Color3 1 0 1
-            
-        for i in [0..10]
-            
-            truncated = Poly.truncate Poly.octahedron(), i*0.1
-    
-            p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
-            # p.convertToFlatShadedMesh()
-            p.receiveShadows = true
-            p.position.x =  6
-            p.position.z = -3*i
-            shadowGenerator.addShadowCaster p
-            p.material = new StandardMaterial 'mat' @scene
-            p.material.alpha = 0.8
-            p.material.diffuseColor = new Color3 1 1 0
-            
-        for i in [0..10]
-            
-            truncated = Poly.truncate Poly.dodecahedron(), i*0.1
-    
-            p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
-            # p.convertToFlatShadedMesh()
-            p.receiveShadows = true
-            p.position.x =  9
-            p.position.z = -3*i
-            shadowGenerator.addShadowCaster p
-            p.material = new StandardMaterial 'mat' @scene
-            p.material.alpha = 0.8
-            p.material.diffuseColor = new Color3 0 0 1
-            
-        for i in [0..10]
-            
-            truncated = Poly.truncate Poly.icosahedron(), i*0.1
-    
-            p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
-            # p.convertToFlatShadedMesh()
-            p.receiveShadows = true
-            p.position.x =  12
-            p.position.z = -3*i
-            shadowGenerator.addShadowCaster p
-            p.material = new StandardMaterial 'mat' @scene
-            p.material.alpha = 0.8
-            p.material.diffuseColor = new Color3 1 0 0
-                 
-        for i in [0..10]
-             
-            truncated = Poly.truncate Poly.cuboctahedron(), i*0.1
-            p = Mesh.CreatePolyhedron "cuboctahedron" {custom:truncated}, @scene
-            # p.convertToFlatShadedMesh()
-            p.receiveShadows = true
-            p.position.x =  15
-            p.position.z = -3*i
-            shadowGenerator.addShadowCaster p
-            p.material = new StandardMaterial 'mat' @scene
-            p.material.alpha = 0.8
-            p.material.diffuseColor = new Color3 0 1 0
-            
-        for i in [0..10]
-             
-            truncated = Poly.truncate Poly.icosidodecahedron(), i*0.1
-     
-            p = Mesh.CreatePolyhedron "icosidodecahedron" {custom:truncated}, @scene
-            # p.convertToFlatShadedMesh()
-            p.receiveShadows = true
-            p.position.x =  18
-            p.position.z = -3*i
-            shadowGenerator.addShadowCaster p
-            p.material = new StandardMaterial 'mat' @scene
-            p.material.alpha = 0.8
-            p.material.diffuseColor = new Color3 1 1 0
-            
-        for m,j in ['truncatedicosidodecahedron' 'rhombicosidodecahedron' 'rhombicubocahedron' 'snubicosidodecahedron' 'snubcuboctahedron']
             for i in [0..10]
                 truncated = Poly.truncate Poly[m](), i*0.1
-                p = Mesh.CreatePolyhedron "icosahedron" {custom:truncated}, @scene
+                p = Mesh.CreatePolyhedron m, {custom:truncated}, @scene
                 p.receiveShadows = true
-                p.position.x =  21 + j*3
-                p.position.z = -3*i
+                p.convertToFlatShadedMesh()
+                p.position.x = 3*j
+                p.position.z = 3*i
                 shadowGenerator.addShadowCaster p
                 p.material = new StandardMaterial 'mat' @scene
-                p.material.alpha = 0.8
-                p.material.diffuseColor = new Color3 1 1 1
+                p.material.alpha = 1 # 0.8
+                p.material.diffuseColor = new Color3 i/12 (j/6)%1 1-j/12
             
+        j = 0
+        for code in ['C' 'dC' 'ddC' 'T' 'dT']
+            klog 'code' code
+            poly = generate code
+            klog 'poly'
+            p = Mesh.CreatePolyhedron m, {custom:poly}, @scene
+            p.receiveShadows = true
+            p.convertToFlatShadedMesh()
+            p.position.x =  3*j++
+            p.position.z = -3
+            shadowGenerator.addShadowCaster p
+            p.material = new StandardMaterial 'mat' @scene
+            p.material.alpha = 1 # 0.8
+            p.material.diffuseColor = new Color3 i/12 (j/6)%1 1-j/12
+                
+        # Poly.dump Poly.truncate Poly.icosahedron(), 1
+        # Poly.dump Poly.truncate Poly.dodecahedron(), 1
+                
+    # 00     00   0000000   000   000   0000000  00000000  
+    # 000   000  000   000  000   000  000       000       
+    # 000000000  000   000  000   000  0000000   0000000   
+    # 000 0 000  000   000  000   000       000  000       
+    # 000   000   0000000    0000000   0000000   00000000  
+    
     onMouseDown: (event) =>
         
         window.addEventListener 'pointermove' @onMouseMove
@@ -193,6 +138,12 @@ class World
                 
         @camera.onMouseUp event
                 
+    # 000  000   000   0000000  00000000   00000000   0000000  000000000   0000000   00000000   
+    # 000  0000  000  000       000   000  000       000          000     000   000  000   000  
+    # 000  000 0 000  0000000   00000000   0000000   000          000     000   000  0000000    
+    # 000  000  0000       000  000        000       000          000     000   000  000   000  
+    # 000  000   000  0000000   000        00000000   0000000     000      0000000   000   000  
+    
     toggleInspector: ->
         
         if @scene.debugLayer.isVisible()
@@ -204,6 +155,12 @@ class World
         
     start: -> @view.focus()
 
+    #  0000000   000   000  000  00     00   0000000   000000000  00000000  
+    # 000   000  0000  000  000  000   000  000   000     000     000       
+    # 000000000  000 0 000  000  000000000  000000000     000     0000000   
+    # 000   000  000  0000  000  000 0 000  000   000     000     000       
+    # 000   000  000   000  000  000   000  000   000     000     00000000  
+    
     animate: =>
 
         if not @paused
@@ -211,10 +168,22 @@ class World
             
             animate.tick @engine.getDeltaTime()/1000
     
+    # 00000000   00000000   0000000  000  0000000  00000000  
+    # 000   000  000       000       000     000   000       
+    # 0000000    0000000   0000000   000    000    0000000   
+    # 000   000  000            000  000   000     000       
+    # 000   000  00000000  0000000   000  0000000  00000000  
+    
     resized: => 
 
         @canvas.width = @view.clientWidth
         @canvas.height = @view.clientHeight
+    
+    # 000   000  00000000  000   000  
+    # 000  000   000        000 000   
+    # 0000000    0000000     00000    
+    # 000  000   000          000     
+    # 000   000  00000000     000     
     
     modKeyComboEventDown: (mod, key, combo, event) ->
         
