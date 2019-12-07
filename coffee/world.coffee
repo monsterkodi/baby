@@ -187,8 +187,10 @@ class World
         window.addEventListener 'pointermove' @onMouseMove
         
         result = @scene.pick @scene.pointerX, @scene.pointerY
-        if event.buttons & 2
-            @mouseDownMesh = result.pickedMesh         
+        if event.buttons & 2 and result.pickedMesh.name != 'ground'
+            @mouseDownMesh = result.pickedMesh 
+        else
+            @mouseDownMesh = null
         @camera.onMouseDown event
 
     onMouseMove: (event) =>
@@ -208,6 +210,9 @@ class World
                     klog mesh.name
                 @cursor.position = mesh.getAbsolutePosition()
                 @camera.fadeToPos mesh.getAbsolutePosition()
+            else
+                if not @mouseDownMesh
+                    @cursor.position = new Vect 0 0 0
                 
         @camera.onMouseUp event
                 

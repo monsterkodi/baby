@@ -62,6 +62,7 @@ opmap =
     h: topo.hollow
     f: topo.flatten
     v: topo.canonicalize
+    z: topo.zirkularize
 
 replacements = [
     [/e/g,      'aa']    # e    -> aa   explode

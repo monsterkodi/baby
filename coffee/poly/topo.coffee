@@ -31,6 +31,10 @@ Polyhedron = require './polyhedron'
 
 midName = (v1, v2) -> v1<v2 and "#{v1}_#{v2}" or "#{v2}_#{v1}" # unique names of midpoints
 
+zirkularize = (poly) ->
+    
+    poly
+
 # 0000000    000   000   0000000   000      
 # 000   000  000   000  000   000  000      
 # 000   000  000   000  000000000  000      
@@ -43,8 +47,8 @@ dual = (poly) ->
   
     flag = new Flag()
   
-    face = [] # make table of face as fn of edge
-    for i in [0...poly.vertices.length] # create empty associative table
+    face = [] 
+    for i in [0...poly.vertices.length] 
         face[i] = {}
 
     for i in [0...poly.faces.length]
@@ -695,6 +699,7 @@ module.exports =
     loft:           loft
     hollow:         hollow
     flatten:        flatten
+    zirkularize:    zirkularize
     canonicalize:   canonicalize
     canonicalXYZ:   canonicalXYZ
     
