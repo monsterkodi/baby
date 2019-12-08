@@ -19,10 +19,34 @@ class Polyhedron
         @faces    ?= [] # vertices listed clockwise as seen from outside.
         @vertices ?= [] 
         @name     ?= "null polyhedron"
-  
+
+    wings: ->
+                
+        epool = []
+        for fi in [0...@faces.length]
+            edges = @faceToEdges @faces[fi]
+            edges.forEach (e) -> e.push fr:fi
+            epool = epool.concat edges
+            
+        wings = []
+        
+        while epool.length
+            edge = epool.shift()
+            
+            for oi in [0...epool.length]
+                other = epool[oi]
+                if other[0] == edge[1] and other[1] == edge[0]
+                    edge[2].fl = other[2].fr
+                    epool.splice oi, 1
+                    break
+            
+            wings.push edge
+    
+        wings
+        
     faceToEdges: (face) -> # array of edges [v1,v2] for face
         edges = []
-        [v1] = face.slice -1
+        v1 = face[-1]
         for v2 in face
             edges.push [v1, v2]
             v1 = v2

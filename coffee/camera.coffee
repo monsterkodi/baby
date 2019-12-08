@@ -282,7 +282,7 @@ class Camera extends UniversalCamera
             @wheelInert = 0
     
     setDist: (factor) =>
-        
+                
         @dist = clamp @minDist, @maxDist, @dist*factor
         @navigate()
         
@@ -303,5 +303,10 @@ class Camera extends UniversalCamera
         @rotationQuaternion.copyFrom Quat.RotationYawPitchRoll yaw, pitch, 0
         @position.copyFrom @center.plus @rotationQuaternion.rotate vec(0 0 -@dist)
         @setTarget @center
+        
+        if 18*@minDist/@dist >= 8
+            @scene.style.fontSize = 18*@minDist/@dist
+        else
+            @scene.style.fontSize = 0
         
 module.exports = Camera

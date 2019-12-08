@@ -9,13 +9,14 @@
 { deg2rad, prefs, elem, klog } = require 'kxk'
 { ArcRotateCamera, FramingBehavior, Engine, Color3, Vector3, Mesh, SimplificationType, DirectionalLight, AmbientLight, ShadowGenerator, StandardMaterial, MeshBuilder, HemisphericLight, SpotLight, PointLight } = require 'babylonjs'
 
-GUI      = require 'babylonjs-gui'
 generate = require './poly/generate'
 Poly     = require './poly/polyold'
 Vect     = require './vect'
 Camera   = require './camera'
 Scene    = require './scene'
 animate  = require './animate'
+
+ϕ = (Math.sqrt(5)-1)/2
 
 class World
     
@@ -26,9 +27,9 @@ class World
         
         @canvas = elem 'canvas' class:'babylon' parent:@view
         
-        @resized()
         @engine = new Engine @canvas, true
         @scene = new Scene @engine 
+        @resized()
         
         a = 0.06
         @scene.clearColor = new Color3 a, a, a
@@ -62,6 +63,7 @@ class World
         @cursor.material = new StandardMaterial 'mat' @scene
         @cursor.material.diffuseColor = new Color3 0.05 0.05 0.05
         @cursor.material.alpha = 0.25
+        @cursor.position = @camera.position
         
         @engine.runRenderLoop @animate
         if prefs.get 'inspector'
@@ -100,112 +102,75 @@ class World
                     p.material = new StandardMaterial 'mat' @scene
                     p.material.alpha = 1 # 0.8
                     p.material.diffuseColor = new Color3 i/12 (j/6)%1 1-j/12
-            
-        guiTexture = GUI.AdvancedDynamicTexture.CreateFullscreenUI 'ui'
-                    
-        z = 0
+  
         rows = [
-            # ['T' 'tT' 'C' 'tC' 'O' 'tO' 'D' 'tD' 'I' 'tI']
+            # ['c0.64T'] 
+            ['c0.1T''c0.25T''cT''c0.75T''c0.9T']
+            ['c0.1C''c0.25C''cC''c0.75C''c0.9C']
+            ['c0.1O''c0.25O''cO''c0.75O''c0.9O']
+            ['c0.1D''c0.25D''cD''c0.75D''c0.9D']
+            ['c0.1I''c0.25I''cI''c0.75I''c0.9I']
+            # ['T''C''O''D''I']
+            # ['cT''cC''cO''cD''cI']
+            # ['z6ztT''z6ztO''ztI']
+            # ['v10z6cT''vcC''vcO''vcD''vcI']
+            # ['dT''dC''dO''dD''dI']
+            # ['aT''aC''aO''aD''aI']
+            # ['kT''kC''kO''kD''kI']
+            # ['vgT''vgC''vgO''vgD''vgI']
+            # ['rT''rC''rO''rD''rI']
+            # ['vwT''vwC''vwO''vwD''vwI']
+            # ['nT''nC''nO''nD''nI']
+            # ['xT''xC''xO''xD''xI']
+            # ['pT''pC''pO''pD''pI']
+            # ['qT''qC''qO''qD''qI']
+            # ['hT''hC''hO''hD''hI']
+            # ['uT''uC''uO''uD''uI']
+            # ['eT''eC''eO''eD''eI']
+#             
+            # ['vjT''vjC''vjO''vjD''vjI']
+            # ['sT''sC''sO''sD''sI']
+            # ['dzdk(0,-0.5)dT''dzdk(0,-0.3)dT''dzdk(0,0)dT''dzdk(0,0.8)dT''dzdk(0,1.2)dT']
+            # ['dk(3,0.1)ztT''dk(3,-0.3)ztT''dk(3,-0.4)ztT''dk(3,-0.45)ztT''dk(3,-0.5)ztT']
+            # ['x(0,1)T''x(0,2)C''x(0,3)O''x(0,4)D''x(0,5)I']
+            # ['x(3,1,0)n(0,0.5,0)T''n(0,0.5,-0.3)C''n(0,0.25,-0.1)O''n(0,0.8,-0.2)D''nI']
+            # ['dztT''dztC''dztO''dztD''dztI']
+            # ['dk(3,0.1)ztT''t3dztC''t4dztO''t3dztD''t5dztI''t6dztI']
+            # ['kT''vjC''kO''kC''oC''mC''vgC''vjD''kI''kD''oD''mD''vgD']
+
             # ['Y3''Y4''Y5''Y6''Y7''Y8''Y9''Y10''Y11''Y12']
             # ['P3''P4''P5''P6''P7''P8''P9''P10''P11''P12']
             # ['A3''A4''A5''A6''A7''A8''A9''A10''A11''A12']
             # ['U3''U4''U5''U6''U7''U8''U9''U10''U11''U12']
             # ['V3''V4''V5''V6''V7''V8''V9''V10''V11''V12']
             # ['hY3''hY4''hY5''hY6''hY7''hY8''hY9''hY10''hY11''hY12''hY13''hY14']
-            # ['hT''hC''hO''hD''hI']
-            # ['pT''ptT''pC''ptC''pO''ptO''pD''ptD''pI''ptI']
-            # ['pY3''pY4''pY5''pY6''pY7''pY8''pY9''pY10''pY11''pY12']
-            # ['pP3''pP4''pP5''pP6''pP7''pP8''pP9''pP10''pP11''pP12']
-            # ['pA3''pA4''pA5''pA6''pA7''pA8''pA9''pA10''pA11''pA12']
-            # ['pU3''pU4''pU5''pU6''pU7''pU8''pU9''pU10''pU11''pU12']
-            # ['pV3''pV4''pV5''pV6''pV7''pV8''pV9''pV10''pV11''pV12']
-            # ['qT''qtT''qC''qtC''qO''qtO''qD''qtD''qI''qtI']
-            # ['qY3''qY4''qY5''qY6''qY7''qY8''qY9''qY10''qY11''qY12']
-            # ['qP3''qP4''qP5''qP6''qP7''qP8''qP9''qP10''qP11''qP12']
-            # ['qA3''qA4''qA5''qA6''qA7''qA8''qA9''qA10''qA11''qA12']
-            # ['qU3''qU4''qU5''qU6''qU7''qU8''qU9''qU10''qU11''qU12']
-            # ['qV3''qV4''qV5''qV6''qV7''qV8''qV9''qV10''qV11''qV12']
-  
-            ['T''C''O''D''I']
-            ['c(0.2)T''c0.7T''cT''c1T''c(1.5)T']
-            ['c1T''v10000cC''cO''vcD''vcI']
-            ['dT''dC''dO''dD''dI']
-            ['aT''aC''aO''aD''aI']
-            ['kT''kC''kO''kD''kI']
-            ['v100gT''v100gC''v100gO''v100gD''v100gI']
-            ['rT''rC''rO''rD''rI']
-            ['v100wT''v100wC''v100wO''v100wD''v100wI']
-            ['nT''nC''nO''nD''nI']
-            ['xT''xC''xO''xD''xI']
-            ['pT''pC''pO''pD''pI']
-            ['qT''qC''qO''qD''qI']
-            ['hT''hC''hO''hD''hI']
-            ['uT''uC''uO''uD''uI']
-            
-            ['eT''eC''eO''eD''eI']
-            ['jT''jC''jO''jD''jI']
-            ['sT''sC''sO''sD''sI']
-            ['dzdk(0,-0.5)dT''dzdk(0,-0.3)dT''dzdk(0,0)dT''dzdk(0,0.8)dT''dzdk(0,1.2)dT']
-            ['dk(3,0.1)ztT''dk(3,-0.3)ztT''dk(3,-0.4)ztT''dk(3,-0.45)ztT''dk(3,-0.5)ztT']
-            ['x(0,1)T''x(0,2)C''x(0,3)O''x(0,4)D''x(0,5)I']
-            ['x(3,1,0)n(0,0.5,0)T''n(0,0.5,-0.3)C''n(0,0.25,-0.1)O''n(0,0.8,-0.2)D''nI']
-            # ['dT''dC''dO''dD''dI']
-            # ['kdT''kdC''kdO''kdD''kdI']
-            # ['tT''tC''tO''tD''tI']
-            ['ztT''ztC''ztO''ztD''ztI']
-            ['dztT''dztC''dztO''dztD''dztI']
-            ['dk(3,0.1)ztT''t3dztC''t4dztO''t3dztD''t5dztI''t6dztI']
-            ['kT''jC''kO''kC''oC''mC''gC''jD''kI''kD''oD''mD''gD']
-            # ['Y3''Y4''Y5''Y6''Y7''Y8''Y9''Y10''Y11''Y12']
-            # ['P3''P4''P5''P6''P7''P8''P9''P10''P11''P12']
-            # ['A3''A4''A5''A6''A7''A8''A9''A10''A11''A12']
-            # ['U3''U4''U5''U6''U7''U8''U9''U10''U11''U12']
-  
-            # ['kdT''kdC''kdO''kdD''kdI']
-            # ['kdY3''kdY4''kdY5''kdY6''kdY7''kdY8''kdY9''kdY10''kdY11''kdY12']
-            # ['kdP3''kdP4''kdP5''kdP6''kdP7''kdP8''kdP9''kdP10''kdP11''kdP12']
-            # ['kdA3''kdA4''kdA5''kdA6''kdA7''kdA8''kdA9''kdA10''kdA11''kdA12']
-            # ['kdU3''kdU4''kdU5''kdU6''kdU7''kdU8''kdU9''kdU10''kdU11''kdU12']
-            # ['kdaT''kdaC''kdaO''kdaD''kdaI']
-            # ['tT''tC''tO''tD''tI']
-            # ['tY3''tY4''tY5''tY6''tY7''tY8''tY9''tY10''tY11''tY12']
-            # ['tP3''tP4''tP5''tP6''tP7''tP8''tP9''tP10''tP11''tP12']
-            # ['tA3''tA4''tA5''tA6''tA7''tA8''tA9''tA10''tA11''tA12']
-            # ['tU3''tU4''tU5''tU6''tU7''tU8''tU9''tU10''tU11''tU12']
-            # ['taT''taC''taO''taD''taI']
-            # ['taY3''taY4''taY5''taY6''taY7''taY8''taY9''taY10''taY11''taY12']
-            # ['taP3''taP4''taP5''taP6''taP7''taP8''taP9''taP10''taP11''taP12']
-            # ['taA3''taA4''taA5''taA6''taA7''taA8''taA9''taA10''taA11''taA12']
-            # ['taU3''taU4''taU5''taU6''taU7''taU8''taU9''taU10''taU11''taU12']
-            # ['aT''aC''aO''aD''aI']
-            # ['aY3''aY4''aY5''aY6''aY7''aY8''aY9''aY10''aY11''aY12']
-            # ['aP3''aP4''aP5''aP6''aP7''aP8''aP9''aP10''aP11''aP12']
-            # ['aA3''aA4''aA5''aA6''aA7''aA8''aA9''aA10''aA11''aA12']
-            # ['aU3''aU4''aU5''aU6''aU7''aU8''aU9''aU10''aU11''aU12']
             ]
         
+        ri = 0
         for row in rows
-            j = 0
-            z++
+            ci = 0
+            ri++
             for code in row
-                j++
-                # for d,y in ['' 'd' 'kd' 'dkd']
-                for d,y in ['']
+                ci++
+                for d,y in ['' 'c']
+                # for d,y in ['']
                     poly = generate d+code
                     p = Mesh.CreatePolyhedron code, {custom:poly}, @scene
                     # @scene.showNormals p
                     @scene.showFaces p, poly
+                    @scene.label p
                     p.receiveShadows = true
-                    p.position.x = 3*j
-                    p.position.z = 3*z
+                    p.position.x = 3*ci
+                    p.position.z = 3*ri
                     p.position.y = y*3
                     p.rotate Vect.unitX, deg2rad -90
                     # p.convertToFlatShadedMesh()
                     shadowGenerator.addShadowCaster p
                     p.material = new StandardMaterial 'mat' @scene
                     p.material.alpha = 1
-                    p.material.diffuseColor = new Color3 i/12 (j/6)%1 1-j/12                
-                
+                    f = ci/5
+                    p.material.diffuseColor = new Color3 f*((ri&1)>>0), f*((ri&2)>>1), f*((ri&4)>>2)
+            
     # 00     00   0000000   000   000   0000000  00000000  
     # 000   000  000   000  000   000  000       000       
     # 000000000  000   000  000   000  0000000   0000000   
@@ -242,7 +207,7 @@ class World
                 @camera.fadeToPos mesh.getAbsolutePosition()
             else
                 if not @mouseDownMesh
-                    @cursor.position = new Vect 0 0 0
+                    @cursor.position = @camera.position
                 
         @camera.onMouseUp event
                 
@@ -286,6 +251,8 @@ class World
 
         @canvas.width = @view.clientWidth
         @canvas.height = @view.clientHeight
+        @engine.resize()
+        # @scene.resize()
     
     # 000   000  00000000  000   000  
     # 000  000   000        000 000   

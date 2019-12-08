@@ -8,14 +8,28 @@
 
 { klog } = require 'kxk'
 babylon = require 'babylonjs'
-
+GUI = require 'babylonjs-gui'
 Vect = require './vect'
 { Color3, Vector3, VertexBuffer, MeshBuilder } = require 'babylonjs'
 
 class Scene extends babylon.Scene 
 
-    @: (engine) -> super
+    @: (engine) -> 
+    
+        super
+        @ui = GUI.AdvancedDynamicTexture.CreateFullscreenUI 'ui'
+        
+        @style = @ui.createStyle()
+        @style.fontSize = 12
+        @style.fontFamily = 'fontMono'
+        @style.height = "20px"
 
+    # 000   000   0000000   00000000   00     00   0000000   000       0000000  
+    # 0000  000  000   000  000   000  000   000  000   000  000      000       
+    # 000 0 000  000   000  0000000    000000000  000000000  000      0000000   
+    # 000  0000  000   000  000   000  000 0 000  000   000  000           000  
+    # 000   000   0000000   000   000  000   000  000   000  0000000  0000000   
+    
     showNormals: (mesh, size, color)->
         
         normals   = mesh.getVerticesData VertexBuffer.NormalKind
@@ -34,6 +48,12 @@ class Scene extends babylon.Scene
         mesh.addChild system
         system
         
+    # 00000000   0000000    0000000  00000000   0000000  
+    # 000       000   000  000       000       000       
+    # 000000    000000000  000       0000000   0000000   
+    # 000       000   000  000       000            000  
+    # 000       000   000   0000000  00000000  0000000   
+    
     showFaces: (mesh, poly, color)->
                 
         color ?= new Color3 0 0 0
@@ -51,5 +71,30 @@ class Scene extends babylon.Scene
         system.color = color
         mesh.addChild system
         system
+        
+    # 000       0000000   0000000    00000000  000      
+    # 000      000   000  000   000  000       000      
+    # 000      000000000  0000000    0000000   000      
+    # 000      000   000  000   000  000       000      
+    # 0000000  000   000  0000000    00000000  0000000  
+    
+    label: (mesh, name=mesh.name) ->
+        
+        label = new GUI.Rectangle "label_#{mesh.name}"
+        label.background = "white"
+        label.height = "20px"
+        label.alpha = 0
+        label.width = "#{name.length*8}px"
+        label.cornerRadius = 10
+        label.thickness = 0
+        @ui.addControl label
+        label.linkWithMesh mesh
+
+        text = new GUI.TextBlock()
+        text.text = name
+        text.color = "black"
+        text.style = @style
+        @ui.addControl text
+        text.linkWithMesh mesh
 
 module.exports = Scene

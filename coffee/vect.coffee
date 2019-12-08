@@ -27,6 +27,8 @@ class Vect extends Vector3
             super x, y, z ? 0
         if Number.isNaN @x
             throw new Error
+          
+    coords: -> [@x, @y, @z]
             
     applyQuaternion: (quaternion) ->
         

@@ -22,10 +22,11 @@
 # call topoly() to assemble flags into polyhedron structure by following the orbits
 # of the vertex mapping stored in the flagset for each new face
 
-{ klog, _ } = require 'kxk'
-{ add, mult, mag, sub, unit, cross, oneThird, tween, intersect, rayPlane, midpoint, calcCentroid, copyVecArray } = require './math'
+{ clamp, klog, _ } = require 'kxk'
+{ dot, add, neg, mult, mag, sub, unit, cross, rotate, oneThird, tween, intersect, rayPlane, midpoint, calcCentroid, copyVecArray } = require './math'
 { tangentify, reciprocalC, reciprocalN, recenter, rescale, planarize } = require './geo'
-{ abs } = Math
+{ abs, acos } = Math
+
 Flag = require './flag'
 Polyhedron = require './polyhedron'
 
@@ -259,48 +260,65 @@ reflect = (poly) -> # geometric reflection through origin
 # 000       000   000  000   000  000 0 000  000       000       000   000  
 #  0000000  000   000  000   000  000   000  000       00000000  000   000  
 
-# A truncation along a polyhedron's edges.
-# Chamfering or edge-truncation is similar to expansion, moving faces apart and outward,
-# but also maintains the original vertices. Adds a new hexagonal face in place of each
-# original edge.
-# A polyhedron with e edges will have a chamfered form containing 2e new vertices,
-# 3e new edges, and e new hexagonal faces. -- Wikipedia
-# See also http://dmccooey.com/polyhedra/Chamfer.html
-#
-# The dist parameter could control how deeply to chamfer.
-# But I'm not sure about implementing that yet.
-#
-# Q: what is the dual operation of chamfering? I.e.
-# if cX = dxdX, and xX = dcdX, what operation is x?
+chamfer = (poly, factor=0.5) ->
 
-# We could "almost" do this in terms of already-implemented operations:
-# cC = t4daC = t4jC, cO = t3daO, cD = t5daD, cI = t3daI
-# But it doesn't work for cases like T.
-
-chamfer = (poly, dist=0.5) ->
-    
+    factor = clamp 0.001 0.995 factor
     flag = new Flag()
-  
     normals = poly.normals()
-  
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
-        v1 = f[f.length-1]
-        v1new = i + "_" + v1
+    centers = poly.centers()
+    wings   = poly.wings()
     
-        for v2 in f
-          # TODO: figure out what distances will give us a planar hex face.
-          flag.newV v2, mult 1.0 + dist, poly.vertices[v2]
-          v2new = i + "_" + v2
-          flag.newV v2new, add poly.vertices[v2], mult dist*1.5, normals[i]
-          flag.newFlag "orig#{i}" v1new, v2new
-          facename = (v1<v2 and "hex#{v1}_#{v2}" or "hex#{v2}_#{v1}")
-          flag.newFlag facename, v2, v2new
-          flag.newFlag facename, v2new, v1new
-          flag.newFlag facename, v1new, v1
-          v1 = v2;
-          v1new = v2new
+    for edge in wings
+        e0  = poly.vertices[edge[0]]
+        e1  = poly.vertices[edge[1]]
+        nfl = normals[edge[2].fl]
+        nfr = normals[edge[2].fr]
+        emp = midpoint e0, e1
+        edir = sub e1, e0
+        faceAngle = acos dot nfl, nfr
+        
+        mpr = rotate emp, edir, -factor*faceAngle/2
+        mpl = rotate emp, edir,  factor*faceAngle/2
+        
+        e1fr = sub centers[edge[2].fr], e1
+        e1fl = sub centers[edge[2].fl], e1
+        e0fr = sub centers[edge[2].fr], e0
+        e0fl = sub centers[edge[2].fl], e0
+        
+        nr = rayPlane mpr, edir,      e1, unit cross nfr, e1fr
+        nl = rayPlane mpl, edir,      e1, unit cross nfl, e1fl
+        pr = rayPlane mpr, neg(edir), e0, unit cross nfr, e0fr
+        pl = rayPlane mpl, neg(edir), e0, unit cross nfl, e0fl
 
+        nf  = "#{edge[0]}▸#{edge[1]}" 
+        n_h = "#{edge[1]}"
+        n_t = "#{edge[0]}"
+
+        nnr = "#{n_h}▸#{edge[2].fr}"
+        nnl = "#{n_h}▸#{edge[2].fl}"
+        npr = "#{n_t}▸#{edge[2].fr}"
+        npl = "#{n_t}▸#{edge[2].fl}"                
+
+        nfn = unit emp
+        nmp = midpoint nr, pl
+        
+        flag.newV n_h, rayPlane [0 0 0], e1, nmp, nfn 
+        flag.newV n_t, rayPlane [0 0 0], e0, nmp, nfn 
+        flag.newV nnr, nr
+        flag.newV nnl, nl
+        flag.newV npl, pl
+        flag.newV npr, pr
+
+        flag.newFlag nf, n_h, nnr
+        flag.newFlag nf, nnr, npr
+        flag.newFlag nf, npr, n_t
+        flag.newFlag nf, n_t, npl
+        flag.newFlag nf, npl, nnl
+        flag.newFlag nf, nnl, n_h
+        
+        flag.newFlag "#{edge[2].fr}" npr, nnr
+        flag.newFlag "#{edge[2].fl}" nnl, npl
+        
     flag.topoly "c#{poly.name}"
 
 # 000   000  000   000  000  00000000   000      
@@ -630,7 +648,7 @@ trisub = (poly, n=2) ->
 # 000       000   000  000  0000  000   000  000  0000  000  000       000   000  000      000   000     000       
 #  0000000  000   000  000   000   0000000   000   000  000   0000000  000   000  0000000  000  0000000  00000000  
 
-canonicalize = (poly, iter=100) ->
+canonicalize = (poly, iter=200) ->
 
     # klog "canonicalize #{poly.name}"
     faces = poly.faces

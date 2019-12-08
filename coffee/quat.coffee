@@ -33,7 +33,7 @@ class Quat extends Quaternion
                     
     @axisAngle: (axis, angle) -> 
         
-        Quaternion.RotationAxis axis, deg2rad angle
+        new Quat Quaternion.RotationAxis axis, deg2rad angle
             
     rotateAxisAngle: (axis, angle) ->
         

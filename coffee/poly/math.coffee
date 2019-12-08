@@ -9,8 +9,11 @@
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 #
     
-{ _ } = require 'kxk'
+{ rad2deg, _ } = require 'kxk'
 { random, round, floor, sqrt, sin, cos, tan, asin, acos, atan, abs, pow, log, PI, LN10 } = Math
+
+Vect = require '../vect'
+Quat = require '../quat'
 
 sigfigs = (N, nsigs) -> # string with nsigs digits ignoring magnitude
     
@@ -29,6 +32,7 @@ clone = (obj) -> # deep-copy
 
 randomchoice = (array) -> array[floor random()*array.length]
 
+neg      = (vec) -> [-vec[0], -vec[1], -vec[2]]
 mult     = (c, vec) -> [c*vec[0], c*vec[1], c*vec[2]]
 _mult    = (v1, v2) -> [v1[0]*v2[0], v1[1]*v2[1], v1[2]*v2[2]]
 add      = (v1, v2) -> [v1[0]+v2[0], v1[1]+v2[1], v1[2]+v2[2]]
@@ -41,6 +45,11 @@ unit     = (vec) -> mult 1/sqrt(mag2(vec)), vec
 tween    = (v1, v2, t) -> [((1-t)*v1[0]) + (t*v2[0]), ((1-t)*v1[1]) + (t*v2[1]), ((1-t)*v1[2]) + (t*v2[2])]
 midpoint = (v1, v2) -> mult 0.5, add v1, v2
 oneThird = (v1, v2) -> tween v1, v2, 1/3.0
+
+rotate = (vec, axis, angle) ->
+    rot = Quat.axisAngle (new Vect axis), rad2deg angle
+    res = rot.rotated vec
+    res.coords()
 
 reciprocal = (vec) -> mult 1.0/mag2(vec), vec # reflect in unit sphere
 
@@ -148,7 +157,7 @@ project2dface = (verts) ->
     c = unit calcCentroid verts #XXX: correct?
     p = cross n, c
   
-    tmpverts.map (v) => [dot(n, v), dot(p, v)]
+    tmpverts.map (v) -> [dot(n, v), dot(p, v)]
 
 copyVecArray = (vecArray) -> # copies array of arrays by value (deep copy)
     
@@ -163,11 +172,13 @@ module.exports =
     sub:            sub
     dot:            dot
     mag:            mag
+    neg:            neg
     mult:           mult
     unit:           unit
     cross:          cross
     tween:          tween
     normal:         normal
+    rotate:         rotate
     oneThird:       oneThird
     midpoint:       midpoint
     calcCentroid:   calcCentroid
