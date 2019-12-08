@@ -81,11 +81,32 @@ linePointDist2 = (v1, v2, v3) ->
         result = mag2(cross d21, d13)/m2
     result
     
+pointPlaneDist = (pos, planePos, planeNormal) ->
+    
+    mag sub pos, rayPlane pos, planeNormal, planePos, planeNormal
+    
 rayPlane = (rayPos, rayDirection, planePos, planeNormal) ->
     
     x = dot(sub(planePos, rayPos), planeNormal) / dot(rayDirection, planeNormal)
     add rayPos, mult x, rayDirection
   
+rayRay= (rayA, rayB) ->
+
+    A = rayA[0]
+    B = rayB[0]
+    a = sub rayA[1], A
+    b = sub rayB[1], B
+    c = sub B, A
+    aa = dot a, a
+    ab = dot a, b
+    ac = dot a, c
+    bc = dot b, c
+    bb = dot b, b
+    D = add A, mult (-ab*bc+ac*bb)/(aa*bb-ab*ab), a
+    E = add B, mult ( ab*ac-bc*aa)/(aa*bb-ab*ab), b
+    
+    mult 0.5, add D, E
+    
 # find vector orthogonal to plane of 3 pts
 orthogonal = (v1,v2,v3) -> cross sub(v2, v1), sub(v3, v2)
 
@@ -179,6 +200,7 @@ module.exports =
     tween:          tween
     normal:         normal
     rotate:         rotate
+    rayRay:         rayRay
     oneThird:       oneThird
     midpoint:       midpoint
     calcCentroid:   calcCentroid
@@ -188,5 +210,6 @@ module.exports =
     intersect:      intersect
     orthogonal:     orthogonal
     tangentPoint:   tangentPoint
+    pointPlaneDist: pointPlaneDist
     rayPlane:       rayPlane
     

@@ -21,22 +21,32 @@ class Polyhedron
         @name     ?= "null polyhedron"
 
     wings: ->
-                
+        
+        nvert = {}
+        pvert = {}
         epool = []
         for fi in [0...@faces.length]
             edges = @faceToEdges @faces[fi]
-            edges.forEach (e) -> e.push fr:fi
+            edges.forEach (edge) -> 
+                nvert[fi] ?= {}
+                pvert[fi] ?= {}
+                nvert[fi][edge[0]] = edge[1]
+                pvert[fi][edge[1]] = edge[0]
+                edge.push fr:fi
             epool = epool.concat edges
             
         wings = []
         
         while epool.length
             edge = epool.shift()
-            
+            edge[2].nr = nvert[edge[2].fr][edge[1]]
+            edge[2].pr = pvert[edge[2].fr][edge[0]]
             for oi in [0...epool.length]
                 other = epool[oi]
                 if other[0] == edge[1] and other[1] == edge[0]
                     edge[2].fl = other[2].fr
+                    edge[2].nl = pvert[edge[2].fl][edge[1]]
+                    edge[2].pl = nvert[edge[2].fl][edge[0]]
                     epool.splice oi, 1
                     break
             

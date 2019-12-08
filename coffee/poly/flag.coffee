@@ -8,7 +8,8 @@
 #
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
-{ kerror } = require 'kxk'
+{ kerror, klog } = require 'kxk'
+{ mag, add, sub, mult } = require './math'
 Polyhedron = require './polyhedron'
 
 class Flag
@@ -17,10 +18,16 @@ class Flag
         @flags    = {} # [face][vertex] -> next vertex
         @vertices = {} # [name] -> coordinates
   
-    newV: (vertName, coordinates) ->
-        
+    newV: (vertName, coords) ->
         if not @vertices[vertName]
-            @vertices[vertName] = coordinates
+            @vertices[vertName] = coords
+        else
+            diff = sub coords, @vertices[vertName]
+            if mag(diff) > 0.0001
+                klog "#{vertName}" mag diff
+                return true
+        false
+                # @vertices[vertName] = add @vertices[vertName], mult 0.5 diff
   
     newFlag: (faceName, vertName1, vertName2) ->
         

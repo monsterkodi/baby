@@ -28,7 +28,7 @@ class Camera extends UniversalCamera
         @dist       = 10
         @maxDist    = 100
         @minDist    = 3
-        @center     = vec 0 0 0
+        @center     = vec 10.5 3 6
         @moveFade   = vec 0 0 0
         @degree     = 90
         @rotate     = 0
@@ -92,7 +92,7 @@ class Camera extends UniversalCamera
         @mouseX = event.clientX
         @mouseY = event.clientY
         
-        if @downPos.dist(vec @mouseX, @mouseY) > 60
+        if @downPos?.dist(vec @mouseX, @mouseY) > 60
             @mouseMoved = true
         
         if event.buttons & 4

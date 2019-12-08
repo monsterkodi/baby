@@ -104,12 +104,13 @@ class World
                     p.material.diffuseColor = new Color3 i/12 (j/6)%1 1-j/12
   
         rows = [
-            # ['c0.64T'] 
-            ['c0.1T''c0.25T''cT''c0.75T''c0.9T']
-            ['c0.1C''c0.25C''cC''c0.75C''c0.9C']
-            ['c0.1O''c0.25O''cO''c0.75O''c0.9O']
-            ['c0.1D''c0.25D''cD''c0.75D''c0.9D']
-            ['c0.1I''c0.25I''cI''c0.75I''c0.9I']
+            # ['cC'] 
+            # ['cC'] 
+            # ['c0T''c0.25T''cT''c0.75T''c1T']
+            ['c0C''c0.25C''cC''c0.57C''c0.58C''c0.59C''c1C']
+            # ['c0O''c0.25O''cO''c0.75O''c1O']
+            # ['c0D''c0.25D''cD''c0.75D''c1D']
+            # ['c0I''c0.25I''cI''c0.75I''c1I']
             # ['T''C''O''D''I']
             # ['cT''cC''cO''cD''cI']
             # ['z6ztT''z6ztO''ztI']
@@ -152,10 +153,10 @@ class World
             ri++
             for code in row
                 ci++
-                for d,y in ['' 'c']
-                # for d,y in ['']
-                    poly = generate d+code
-                    p = Mesh.CreatePolyhedron code, {custom:poly}, @scene
+                # for d,y in ['' 'c' 'cc']
+                for d,y in ['']
+                    poly = generate d+code, false
+                    p = Mesh.CreatePolyhedron d+code, {custom:poly}, @scene
                     # @scene.showNormals p
                     @scene.showFaces p, poly
                     @scene.label p
@@ -201,8 +202,6 @@ class World
             if mesh.name != 'ground' and mesh == @mouseDownMesh
                 if mesh.name in ['faces''normals']
                     klog mesh.parent.name
-                else
-                    klog mesh.name
                 @cursor.position = mesh.getAbsolutePosition()
                 @camera.fadeToPos mesh.getAbsolutePosition()
             else
