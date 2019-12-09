@@ -6,7 +6,7 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ deg2rad, elem, empty, klog, prefs } = require 'kxk'
+{ deg2rad, elem, empty, prefs } = require 'kxk'
 { Camera, Color3, DirectionalLight, Engine, HemisphericLight, Mesh, MeshBuilder, Scene, ShadowGenerator, StandardMaterial, Vector3 } = require 'babylonjs'
 
 generate = require './poly/generate'
@@ -59,17 +59,21 @@ class World
         ground.receiveShadows = true
         ground.position.y = -4
              
-        @cursor = MeshBuilder.CreateIcoSphere 'cursor' flat:false radius:0.99, @scene
+        @cursor = MeshBuilder.CreateIcoSphere 'cursor' flat:false radius:1.1, @scene
         @cursor.material = new StandardMaterial 'mat' @scene
         @cursor.material.diffuseColor = new Color3 0.05 0.05 0.05
-        @cursor.material.alpha = 0.25
-        @cursor.position = @camera.position
+        @cursor.material.specularColor = new Color3 0 0 0
+        @cursor.material.alpha = 0.5
+        @cursor.position = [0 -1000 0]
+        @cursor.backFaceCulling = true
+        @cursor = @cursor.flipFaces true
         
         @engine.runRenderLoop @animate
         if prefs.get 'inspector'
             @toggleInspector()
              
         window.addEventListener 'pointerdown' @onMouseDown
+        window.addEventListener 'pointermove' @onMouseMove
         window.addEventListener 'pointerup'   @onMouseUp
             
         if 0
@@ -178,35 +182,41 @@ class World
     
     onMouseDown: (event) =>
         
-        window.addEventListener 'pointermove' @onMouseMove
-        
-        result = @scene.pick @scene.pointerX, @scene.pointerY
-        if event.buttons & 2 and result.pickedMesh.name != 'ground'
-            @mouseDownMesh = result.pickedMesh 
-        else
-            @mouseDownMesh = null
+        @mouseDownMesh = @pickedMesh()
         @camera.onMouseDown event
 
     onMouseMove: (event) =>
         
         @camera.onMouseDrag event
+        if mesh = @pickedMesh()
+            @highlight mesh            
         
     onMouseUp: (event) =>                
-
-        window.removeEventListener 'pointermove' @onMouseMove
-         
-        result = @scene.pick @scene.pointerX, @scene.pointerY
-        if mesh = result.pickedMesh
-            if mesh.name != 'ground' and mesh == @mouseDownMesh
-                if mesh.name in ['faces''normals']
-                    klog mesh.parent.name
+        
+        if mesh = @pickedMesh()
+            if mesh == @mouseDownMesh
                 @cursor.position = mesh.getAbsolutePosition()
                 @camera.fadeToPos mesh.getAbsolutePosition()
-            else
-                if not @mouseDownMesh
-                    @cursor.position = @camera.position
+
+        else if not @mouseDownMesh
+            @cursor.position = [0 -1000 0]
                 
         @camera.onMouseUp event
+          
+    pickedMesh: ->
+        
+        if result = @scene.pick(@scene.pointerX, @scene.pointerY, (m) -> m.name not in ['ground' 'cursor'])
+            if result.pickedMesh?.name in ['faces''normals']
+                result.pickedMesh.parent
+            else
+                result.pickedMesh
+        
+    highlight: (mesh) ->
+        
+        @highlightMesh?.material.diffuseColor = @preHighlightColor
+        @preHighlightColor = mesh.material.diffuseColor
+        mesh.material.diffuseColor = @preHighlightColor.multiply new Color3 1.5 1.5 1.5
+        @highlightMesh = mesh
                 
     # 000  000   000   0000000  00000000   00000000   0000000  000000000   0000000   00000000   
     # 000  0000  000  000       000   000  000       000          000     000   000  000   000  
