@@ -6,9 +6,9 @@
     0      00000000   0000000     000   
 ###
 
-{ randRange, rad2deg } = require 'kxk'
+{ rad2deg, randRange } = require 'kxk'
 { Vector3 } = require 'babylonjs'
-{ round, acos, atan2, abs, sqrt } = Math 
+{ abs, acos, atan2, round, sqrt } = Math
 
 class Vect extends Vector3
 

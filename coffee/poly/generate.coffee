@@ -9,7 +9,7 @@
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
     
 { klog } = require 'kxk'
-{ add, recenter, rescale } = require './geo'
+{ add, recenter, rescale } = require './math'
 
 poly = require './poly'
 topo = require './topo'

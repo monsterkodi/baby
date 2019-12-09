@@ -11,10 +11,10 @@
 # Polyhedron Operators
 #
 # for each vertex of new polyhedron
-#     call newV(Vname, xyz) with a symbolic name and coordinates
+#     call vert(Vname, xyz) with a symbolic name and coordinates
 #
 # for each flag of new polyhedron
-#     call newFlag(Fname, Vname1, Vname2) with a symbolic name for the new face
+#     call edge(Fname, Vname1, Vname2) with a symbolic name for the new face
 #     and the symbolic name for two vertices forming an oriented edge
 #
 # Orientation must be dealt with properly to make a manifold mesh
@@ -23,8 +23,9 @@
 # of the vertex mapping stored in the flagset for each new face
 
 { clamp, klog, _ } = require 'kxk'
-{ dot, add, neg, mult, mag, sub, unit, cross, rotate, oneThird, tween, intersect, rayRay, rayPlane, pointPlaneDist, midpoint, calcCentroid, copyVecArray } = require './math'
-{ tangentify, reciprocalC, reciprocalN, recenter, rescale, planarize } = require './geo'
+{ dot, add, neg, mult, mag, sub, unit, cross, rotate, oneThird, tween, intersect, rayRay, 
+  rayPlane, pointPlaneDist, midpoint, calcCentroid, copyVecArray,
+  tangentify, reciprocalC, reciprocalN, recenter, rescale, planarize } = require './math'
 { min, abs, acos } = Math
 
 Flag = require './flag'
@@ -94,13 +95,13 @@ dual = (poly) ->
     centers = poly.centers()
     
     for i in [0...poly.faces.length]
-        flag.newV "#{i}" centers[i]
+        flag.vert "#{i}" centers[i]
   
     for i in [0...poly.faces.length]
         f = poly.faces[i]
         v1 = f[f.length-1] #previous vertex
         for v2 in f
-            flag.newFlag v1, face[v2]["v#{v1}"], "#{i}"
+            flag.edge v1, face[v2]["v#{v1}"], "#{i}"
             v1=v2 # current becomes previous
   
     dpoly = flag.topoly() # build topological dual from flags
@@ -138,7 +139,7 @@ kis = (poly, n, apexdist) ->
     flag = new Flag()
     for i in [0...poly.vertices.length]
         p = poly.vertices[i] # each old vertex is a new vertex
-        flag.newV "v#{i}" p
+        flag.vert "v#{i}" p
   
     normals = poly.normals()
     centers = poly.centers()
@@ -153,12 +154,12 @@ kis = (poly, n, apexdist) ->
                 apex = "apex#{i}"
                 fname = "#{i}#{v1}"
                 # new vertices in centers of n-sided face
-                flag.newV apex, add centers[i], mult apexdist, normals[i]
-                flag.newFlag fname,   v1,   v2 # the old edge of original face
-                flag.newFlag fname,   v2, apex # up to apex of pyramid
-                flag.newFlag fname, apex,   v1 # and back down again
+                flag.vert apex, add centers[i], mult apexdist, normals[i]
+                flag.edge fname,   v1,   v2 # the old edge of original face
+                flag.edge fname,   v2, apex # up to apex of pyramid
+                flag.edge fname, apex,   v1 # and back down again
             else
-                flag.newFlag "#{i}", v1, v2  # same old flag, if non-n
+                flag.edge "#{i}", v1, v2  # same old flag, if non-n
             
             v1 = v2 # current becomes previous
   
@@ -173,27 +174,22 @@ kis = (poly, n, apexdist) ->
 # 000   000  000 0 000  000   000  000   000  
 # 000   000  000   000  0000000     0000000   
 
-# The best way to think of the ambo operator is as a topological "tween" between a polyhedron
-# and its dual polyhedron.  Thus the ambo of a dual polyhedron is the same as the ambo of the
-# original. Also called "Rectify".
+# Topological "tween" between a polyhedron and its dual polyhedron.
 
 ambo = (poly) ->
     
-    # klog "ambo of #{poly.name}"
-    
     flag = new Flag()
   
-    # For each face f in the original poly
     for i in [0...poly.faces.length]
         f = poly.faces[i]
         [v1, v2] = f.slice(-2)
         for v3 in f
             if v1 < v2 # vertices are the midpoints of all edges of original poly
-                flag.newV midName(v1,v2), midpoint poly.vertices[v1], poly.vertices[v2]
+                flag.vert midName(v1,v2), midpoint poly.vertices[v1], poly.vertices[v2]
             # face corresponds to the original f
-            flag.newFlag "orig#{i}"  midName(v1,v2), midName(v2,v3)
+            flag.edge "orig#{i}"  midName(v1,v2), midName(v2,v3)
             # face corresponds to (the truncated) v2
-            flag.newFlag "dual#{v2}" midName(v2,v3), midName(v1,v2)
+            flag.edge "dual#{v2}" midName(v2,v3), midName(v1,v2)
             # shift over one
             [v1, v2] = [v2, v3]
   
@@ -275,22 +271,22 @@ chamfer = (poly, factor=0.5) ->
         head = rayPlane [0 0 0], e1, cmid, pnm
         tail = rayPlane [0 0 0], e0, cmid, pnm
         
-        flag.newV n_h, head
-        flag.newV n_t, tail
-        flag.newV nnr, nr
-        flag.newV nnl, nl
-        flag.newV npl, pl
-        flag.newV npr, pr
+        flag.vert n_h, head
+        flag.vert n_t, tail
+        flag.vert nnr, nr
+        flag.vert nnl, nl
+        flag.vert npl, pl
+        flag.vert npr, pr
 
-        flag.newFlag nf, n_h, nnr
-        flag.newFlag nf, nnr, npr
-        flag.newFlag nf, npr, n_t
-        flag.newFlag nf, n_t, npl
-        flag.newFlag nf, npl, nnl
-        flag.newFlag nf, nnl, n_h
+        flag.edge nf, n_h, nnr
+        flag.edge nf, nnr, npr
+        flag.edge nf, npr, n_t
+        flag.edge nf, n_t, npl
+        flag.edge nf, npl, nnl
+        flag.edge nf, nnl, n_h
                 
-        flag.newFlag "#{edge[2].fr}" npr, nnr
-        flag.newFlag "#{edge[2].fl}" nnl, npl
+        flag.edge "#{edge[2].fr}" npr, nnr
+        flag.edge "#{edge[2].fl}" nnl, npl
         
     flag.topoly "c#{poly.name}"
 
@@ -314,7 +310,7 @@ whirl = (poly, n=0) ->
     flag = new Flag()
   
     for i in [0...poly.vertices.length]
-        flag.newV "v#{i}" unit poly.vertices[i]
+        flag.vert "v#{i}" unit poly.vertices[i]
 
     centers = poly.centers()
   
@@ -325,18 +321,18 @@ whirl = (poly, n=0) ->
             v = f[j]
             v3 = v
             v1_2 = oneThird poly.vertices[v1], poly.vertices[v2]
-            flag.newV(v1+"~"+v2, v1_2)
+            flag.vert(v1+"~"+v2, v1_2)
             cv1name = "center#{i}~#{v1}"
             cv2name = "center#{i}~#{v2}"
-            flag.newV cv1name, unit oneThird centers[i], v1_2
+            flag.vert cv1name, unit oneThird centers[i], v1_2
             fname = i+"f"+v1
-            flag.newFlag fname, cv1name,   v1+"~"+v2
-            flag.newFlag fname, v1+"~"+v2, v2+"~"+v1 
-            flag.newFlag fname, v2+"~"+v1, "v#{v2}"  
-            flag.newFlag fname, "v#{v2}",  v2+"~"+v3 
-            flag.newFlag fname, v2+"~"+v3, cv2name
-            flag.newFlag fname, cv2name,   cv1name
-            flag.newFlag "c#{i}", cv1name, cv2name
+            flag.edge fname, cv1name,   v1+"~"+v2
+            flag.edge fname, v1+"~"+v2, v2+"~"+v1 
+            flag.edge fname, v2+"~"+v1, "v#{v2}"  
+            flag.edge fname, "v#{v2}",  v2+"~"+v3 
+            flag.edge fname, v2+"~"+v3, cv2name
+            flag.edge fname, cv2name,   cv1name
+            flag.edge "c#{i}", cv1name, cv2name
             
             [v1, v2] = [v2, v3] # shift over one
   
@@ -353,12 +349,12 @@ gyro = (poly) ->
     flag = new Flag()
   
     for i in [0...poly.vertices.length]
-        flag.newV "v#{i}" unit poly.vertices[i]
+        flag.vert "v#{i}" unit poly.vertices[i]
 
     centers = poly.centers()
     for i in [0...poly.faces.length]
         f = poly.faces[i]
-        flag.newV "center#{i}" unit centers[i]
+        flag.vert "center#{i}" unit centers[i]
   
     for i in [0...poly.faces.length]
         f = poly.faces[i]
@@ -366,13 +362,13 @@ gyro = (poly) ->
         for j in [0...f.length]
             v = f[j]
             v3 = v
-            flag.newV v1+"~"+v2, oneThird poly.vertices[v1],poly.vertices[v2]
+            flag.vert v1+"~"+v2, oneThird poly.vertices[v1],poly.vertices[v2]
             fname = i+"f"+v1
-            flag.newFlag fname, "center#{i}"  v1+"~"+v2
-            flag.newFlag fname, v1+"~"+v2,  v2+"~"+v1
-            flag.newFlag fname, v2+"~"+v1,  "v#{v2}"
-            flag.newFlag fname, "v#{v2}"     v2+"~"+v3
-            flag.newFlag fname, v2+"~"+v3,  "center#{i}"
+            flag.edge fname, "center#{i}"  v1+"~"+v2
+            flag.edge fname, v1+"~"+v2,  v2+"~"+v1
+            flag.edge fname, v2+"~"+v1,  "v#{v2}"
+            flag.edge fname, "v#{v2}"     v2+"~"+v3
+            flag.edge fname, v2+"~"+v3,  "center#{i}"
             [v1, v2] = [v2, v3]
   
     canonicalize flag.topoly "g#{poly.name}"
@@ -398,20 +394,20 @@ quinto = (poly) -> # creates a pentagon for every point in the original face, as
             # for each face-corner, we make two new points:
             midpt = midpoint poly.vertices[v1], poly.vertices[v2]
             innerpt = midpoint midpt, centroid
-            flag.newV midName(v1,v2), midpt
-            flag.newV "inner_#{i}_" + midName(v1,v2), innerpt
+            flag.vert midName(v1,v2), midpt
+            flag.vert "inner_#{i}_" + midName(v1,v2), innerpt
             # and add the old corner-vertex
-            flag.newV "#{v2}" poly.vertices[v2]
+            flag.vert "#{v2}" poly.vertices[v2]
           
             # pentagon for each vertex in original face
-            flag.newFlag "f#{i}_#{v2}", "inner_#{i}_"+midName(v1, v2), midName(v1, v2)
-            flag.newFlag "f#{i}_#{v2}", midName(v1, v2), "#{v2}"
-            flag.newFlag "f#{i}_#{v2}", "#{v2}", midName(v2, v3)
-            flag.newFlag "f#{i}_#{v2}", midName(v2, v3), "inner_#{i}_"+midName(v2, v3)
-            flag.newFlag "f#{i}_#{v2}", "inner_#{i}_"+midName(v2, v3), "inner_#{i}_"+midName(v1, v2)
+            flag.edge "f#{i}_#{v2}", "inner_#{i}_"+midName(v1, v2), midName(v1, v2)
+            flag.edge "f#{i}_#{v2}", midName(v1, v2), "#{v2}"
+            flag.edge "f#{i}_#{v2}", "#{v2}", midName(v2, v3)
+            flag.edge "f#{i}_#{v2}", midName(v2, v3), "inner_#{i}_"+midName(v2, v3)
+            flag.edge "f#{i}_#{v2}", "inner_#{i}_"+midName(v2, v3), "inner_#{i}_"+midName(v1, v2)
       
             # inner rotated face of same vertex-number as original
-            flag.newFlag "f_in_#{i}", "inner_#{i}_"+midName(v1, v2), "inner_#{i}_"+midName(v2, v3)
+            flag.edge "f_in_#{i}", "inner_#{i}_"+midName(v1, v2), "inner_#{i}_"+midName(v2, v3)
       
             [v1, v2] = [v2, v3] # shift over one
   
@@ -430,7 +426,7 @@ inset = (poly, inset=0.5, popout=-0.2, n=0) ->
     flag = new Flag()
     for i in [0...poly.vertices.length]
         p = poly.vertices[i]
-        flag.newV "v#{i}" p
+        flag.vert "v#{i}" p
 
     normals = poly.normals()
     centers = poly.centers()
@@ -438,7 +434,7 @@ inset = (poly, inset=0.5, popout=-0.2, n=0) ->
         f = poly.faces[i]
         if f.length == n or n == 0
             for v in f
-                flag.newV "f#{i}v#{v}" add tween(poly.vertices[v],centers[i],inset), mult(popout,normals[i])
+                flag.vert "f#{i}v#{v}" add tween(poly.vertices[v],centers[i],inset), mult(popout,normals[i])
   
     foundAny = false # alert if don't find any
     for i in [0...poly.faces.length]
@@ -449,13 +445,13 @@ inset = (poly, inset=0.5, popout=-0.2, n=0) ->
             if f.length == n or n == 0
                 foundAny = true
                 fname = i + v1
-                flag.newFlag(fname,      v1,       v2)
-                flag.newFlag(fname,      v2,       "f#{i}#{v2}")
-                flag.newFlag(fname, "f#{i}#{v2}",  "f#{i}#{v1}")
-                flag.newFlag(fname, "f#{i}#{v1}",  v1)
-                flag.newFlag("ex#{i}", "f#{i}#{v1}",  "f#{i}#{v2}")
+                flag.edge(fname,      v1,       v2)
+                flag.edge(fname,      v2,       "f#{i}#{v2}")
+                flag.edge(fname, "f#{i}#{v2}",  "f#{i}#{v1}")
+                flag.edge(fname, "f#{i}#{v1}",  v1)
+                flag.edge("ex#{i}", "f#{i}#{v1}",  "f#{i}#{v2}")
             else
-                flag.newFlag(i, v1, v2)  
+                flag.edge(i, v1, v2)  
             v1=v2
   
     if not foundAny
@@ -494,14 +490,14 @@ hollow = (poly, insetf, thickness) ->
     flag = new Flag()
     for i in [0...poly.vertices.length]
         p = poly.vertices[i]
-        flag.newV "v#{i}" p
-        flag.newV "downv#{i}" add p, mult -1*thickness,dualnormals[i]
+        flag.vert "v#{i}" p
+        flag.vert "downv#{i}" add p, mult -1*thickness,dualnormals[i]
 
     for i in [0...poly.faces.length]
         f = poly.faces[i]
         for v in f
-            flag.newV "fin#{i}v#{v}" tween poly.vertices[v], centers[i], insetf
-            flag.newV "findown#{i}v#{v}" add tween(poly.vertices[v],centers[i],insetf), mult(-1*thickness,normals[i])
+            flag.vert "fin#{i}v#{v}" tween poly.vertices[v], centers[i], insetf
+            flag.vert "findown#{i}v#{v}" add tween(poly.vertices[v],centers[i],insetf), mult(-1*thickness,normals[i])
   
     for i in [0...poly.faces.length]
         f = poly.faces[i]
@@ -509,22 +505,22 @@ hollow = (poly, insetf, thickness) ->
         for v in f
             v2 = "v#{v}"
             fname = i + v1
-            flag.newFlag fname, v1,            v2
-            flag.newFlag fname, v2,            "fin#{i}#{v2}"
-            flag.newFlag fname, "fin#{i}#{v2}" "fin#{i}#{v1}"
-            flag.newFlag fname, "fin#{i}#{v1}" v1
+            flag.edge fname, v1,            v2
+            flag.edge fname, v2,            "fin#{i}#{v2}"
+            flag.edge fname, "fin#{i}#{v2}" "fin#{i}#{v1}"
+            flag.edge fname, "fin#{i}#{v1}" v1
       
             fname = "sides#{i}#{v1}"
-            flag.newFlag fname, "fin#{i}#{v1}"     "fin#{i}#{v2}"
-            flag.newFlag fname, "fin#{i}#{v2}"     "findown#{i}#{v2}"
-            flag.newFlag fname, "findown#{i}#{v2}" "findown#{i}#{v1}"
-            flag.newFlag fname, "findown#{i}#{v1}" "fin#{i}#{v1}"
+            flag.edge fname, "fin#{i}#{v1}"     "fin#{i}#{v2}"
+            flag.edge fname, "fin#{i}#{v2}"     "findown#{i}#{v2}"
+            flag.edge fname, "findown#{i}#{v2}" "findown#{i}#{v1}"
+            flag.edge fname, "findown#{i}#{v1}" "fin#{i}#{v1}"
       
             fname = "bottom#{i}#{v1}"
-            flag.newFlag fname,  "down#{v2}"        "down#{v1}"
-            flag.newFlag fname,  "down#{v1}"        "findown#{i}#{v1}"
-            flag.newFlag fname,  "findown#{i}#{v1}" "findown#{i}#{v2}"
-            flag.newFlag fname,  "findown#{i}#{v2}" "down#{v2}"
+            flag.edge fname,  "down#{v2}"        "down#{v1}"
+            flag.edge fname,  "down#{v1}"        "findown#{i}#{v1}"
+            flag.edge fname,  "findown#{i}#{v1}" "findown#{i}#{v2}"
+            flag.edge fname,  "findown#{i}#{v2}" "down#{v2}"
       
             v1 = v2
   
@@ -544,7 +540,7 @@ perspectiva = (poly) -> # an operation reverse-engineered from Perspectiva Corpo
   
     flag = new Flag()
     for i in [0...poly.vertices.length]
-        flag.newV "v#{i}" poly.vertices[i]
+        flag.vert "v#{i}" poly.vertices[i]
   
     for i in [0...poly.faces.length]
         
@@ -561,20 +557,20 @@ perspectiva = (poly) -> # an operation reverse-engineered from Perspectiva Corpo
             v23 = v2+"~"+v3
       
             # on each Nface, N new points inset from edge midpoints towards center = "stellated" points
-            flag.newV v12, midpoint midpoint(vert1,vert2), centers[i] 
+            flag.vert v12, midpoint midpoint(vert1,vert2), centers[i] 
       
             # inset Nface made of new, stellated points
-            flag.newFlag "in#{i}" v12, v23
+            flag.edge "in#{i}" v12, v23
       
             # new tri face constituting the remainder of the stellated Nface
-            flag.newFlag "f#{i}#{v2}" v23, v12
-            flag.newFlag "f#{i}#{v2}" v12, v2
-            flag.newFlag "f#{i}#{v2}" v2,  v23
+            flag.edge "f#{i}#{v2}" v23, v12
+            flag.edge "f#{i}#{v2}" v12, v2
+            flag.edge "f#{i}#{v2}" v2,  v23
       
             # one of the two new triangles replacing old edge between v1->v2
-            flag.newFlag "f#{v12}" v1,  v21
-            flag.newFlag "f#{v12}" v21, v12
-            flag.newFlag "f#{v12}" v12, v1
+            flag.edge "f#{v12}" v1,  v21
+            flag.edge "f#{v12}" v21, v12
+            flag.edge "f#{v12}" v12, v1
       
             [v1, v2] = [v2, v3]  # current becomes previous
             [vert1, vert2] = [vert2, vert3]
@@ -594,7 +590,7 @@ trisub = (poly, n=2) ->
         if poly.faces[fn].length != 3
             return poly
   
-    newVs = []
+    verts = []
     vmap = {}
     pos = 0
     for fn in [0...poly.faces.length]
@@ -609,18 +605,18 @@ trisub = (poly, n=2) ->
             for j in [0..n-i]
                 v = add add(v1, mult(i/n, v21)), mult(j/n, v31)
                 vmap["v#{fn}-#{i}-#{j}"] = pos++
-                newVs.push v
+                verts.push v
   
     EPSILON_CLOSE = 1.0e-8
     uniqVs = []
     newpos = 0
     uniqmap = {}
-    for v,i in newVs
+    for v,i in verts
         if i in uniqmap then continue # already mapped
         uniqmap[i] = newpos
         uniqVs.push v
-        for j in [i+1...newVs.length]
-            w = newVs[j]
+        for j in [i+1...verts.length]
+            w = verts[j]
             if mag(sub(v, w)) < EPSILON_CLOSE
                 uniqmap[j] = newpos
         newpos++
@@ -649,27 +645,39 @@ trisub = (poly, n=2) ->
 # 000       000   000  000  0000  000   000  000  0000  000  000       000   000  000      000   000     000       
 #  0000000  000   000  000   000   0000000   000   000  000   0000000  000   000  0000000  000  0000000  00000000  
 
+# Slow Canonicalization Algorithm
+#
+# This algorithm has some convergence problems, what really needs to be done is to
+# sum the three forcing factors together as a conherent force and to use a half-decent
+# integrator to make sure that it converges well as opposed to the current hack of
+# ad-hoc stability multipliers.  Ideally one would implement a conjugate gradient
+# descent or similar pretty thing.
+#
+# Only try to use this on convex polyhedra that have a chance of being canonicalized,
+# otherwise it will probably blow up the geometry.  A much trickier / smarter seed-symmetry
+# based geometrical regularizer should be used for fancier/weirder polyhedra.
+
 canonicalize = (poly, iter=200) ->
 
     # klog "canonicalize #{poly.name}"
     faces = poly.faces
     edges = poly.edges()
-    newVs = poly.vertices
+    verts = poly.vertices
     maxChange = 1.0 # convergence tracker
     for i in [0..iter]
-        oldVs = copyVecArray newVs
-        newVs = tangentify newVs, edges
-        newVs = recenter newVs, edges
-        newVs = planarize newVs, faces
-        maxChange = _.max _.map _.zip(newVs, oldVs), ([x, y]) -> mag sub x, y
+        oldVs = copyVecArray verts
+        verts = tangentify verts, edges
+        verts = recenter verts, edges
+        verts = planarize verts, faces
+        maxChange = _.max _.map _.zip(verts, oldVs), ([x, y]) -> mag sub x, y
         if maxChange < 1e-8
             break
     # one should now rescale, but not rescaling here makes for very interesting numerical
     # instabilities that make interesting mutants on multiple applications...
     # more experience will tell what to do
-    newVs = rescale(newVs)
+    verts = rescale(verts)
     # klog "[canonicalization done, last |deltaV|=#{maxChange}]"
-    newpoly = new Polyhedron poly.name, poly.faces, newVs
+    newpoly = new Polyhedron poly.name, poly.faces, verts
     # klog "canonicalize" newpoly
     newpoly
     

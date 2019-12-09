@@ -7,9 +7,8 @@
 ###
 #
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
-#
 
-{ add, mult, normal } = require './geo'
+{ add, mult, normal } = require './math'
 { flatten, canonicalXYZ } = require './topo'
 { sqrt, sin, cos, pow, PI } = Math
 Polyhedron = require './polyhedron'

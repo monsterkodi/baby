@@ -6,9 +6,10 @@
  00000 00   0000000   000   000     000   
 ###
 
-{ deg2rad, rad2deg } = require 'kxk'
+{ deg2rad, rad2deg } = require "kxk"
 { Quaternion, Vector3 } = require 'babylonjs'
-{ cos, sin, sqrt, atan2, asin, acos } = Math
+{ acos, asin, atan2, cos, sin, sqrt } = Math
+
 Vect = require './vect'
 
 class Quat extends Quaternion
@@ -157,18 +158,18 @@ class Quat extends Quaternion
     mul: (quatOrScalar) ->
         if quatOrScalar instanceof Quat
             quat = quatOrScalar
-            A = (@w + @x) * (quat.w + quat.x)
-            B = (@z - @y) * (quat.y - quat.z)
-            C = (@w - @x) * (quat.y + quat.z) 
-            D = (@y + @z) * (quat.w - quat.x)
-            E = (@x + @z) * (quat.x + quat.y)
-            F = (@x - @z) * (quat.x - quat.y)
-            G = (@w + @y) * (quat.w - quat.z)
-            H = (@w - @y) * (quat.w + quat.z)
-            new Quat B + (-E - F + G + H)/2,
-                     A -  (E + F + G + H)/2,
-                     C +  (E - F + G - H)/2,
-                     D +  (E - F - G + H)/2
+            a = (@w + @x) * (quat.w + quat.x)
+            b = (@z - @y) * (quat.y - quat.z)
+            c = (@w - @x) * (quat.y + quat.z) 
+            d = (@y + @z) * (quat.w - quat.x)
+            e = (@x + @z) * (quat.x + quat.y)
+            f = (@x - @z) * (quat.x - quat.y)
+            g = (@w + @y) * (quat.w - quat.z)
+            h = (@w - @y) * (quat.w + quat.z)
+            new Quat b + (-e - f + g + h)/2,
+                     a -  (e + f + g + h)/2,
+                     c +  (e - f + g - h)/2,
+                     d +  (e - f - g + h)/2
         else
             f = parseFloat quatOrScalar
             new Quat @w*f, @x*f, @y*f, @z*f

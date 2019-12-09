@@ -9,7 +9,8 @@
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
 { kerror } = require 'kxk'
-{ mag, add, sub, mult } = require './math'
+{ mag, sub } = require './math'
+
 Polyhedron = require './polyhedron'
 
 class Flag
@@ -29,7 +30,7 @@ class Flag
         false
                 # @vertices[vertName] = add @vertices[vertName], mult 0.5 diff
   
-    newFlag: (faceName, vertName1, vertName2) ->
+    edge: (faceName, vertName1, vertName2) ->
         
         @flags[faceName] ?= {}
         @flags[faceName][vertName1] = vertName2
@@ -42,7 +43,7 @@ class Flag
         ctr = 0
         for name,v of @vertices
             poly.vertices[ctr] = @vertices[name]
-            nm2idx[name] = ctr++ # number the vertices
+            nm2idx[name] = ctr++
             
         # klog 'topoly' @
             
@@ -53,7 +54,7 @@ class Flag
                 vN = v0 # any vertex as starting point
                 break
 
-            newFace.push nm2idx[vN] # record index
+            newFace.push nm2idx[vN]
             vN = @flags[i][vN] # goto next vertex
             faceCount = 0
             while vN != v0 # loop until back to start

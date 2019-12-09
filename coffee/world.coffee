@@ -6,8 +6,8 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ deg2rad, prefs, empty, elem, klog } = require 'kxk'
-{ ArcRotateCamera, FramingBehavior, Engine, Color3, Vector3, Mesh, SimplificationType, DirectionalLight, AmbientLight, ShadowGenerator, StandardMaterial, MeshBuilder, HemisphericLight, SpotLight, PointLight } = require 'babylonjs'
+{ deg2rad, elem, empty, klog, prefs } = require 'kxk'
+{ Camera, Color3, DirectionalLight, Engine, HemisphericLight, Mesh, MeshBuilder, Scene, ShadowGenerator, StandardMaterial, Vector3 } = require 'babylonjs'
 
 generate = require './poly/generate'
 Poly     = require './poly/polyold'

@@ -7,10 +7,11 @@
 ###
 
 { klog } = require 'kxk'
+{ Color3, MeshBuilder, Scene, Vector3, VertexBuffer } = require 'babylonjs'
+
 babylon = require 'babylonjs'
-GUI = require 'babylonjs-gui'
-Vect = require './vect'
-{ Color3, Color4, Vector3, VertexBuffer, MeshBuilder } = require 'babylonjs'
+GUI     = require 'babylonjs-gui'
+Vect    = require './vect'
 
 class Scene extends babylon.Scene 
 

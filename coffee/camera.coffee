@@ -6,8 +6,8 @@
  0000000  000   000  000   000  00000000  000   000  000   000
 ###
 
-{ deg2rad, reduce, clamp } = require 'kxk'
-{ TargetCamera, UniversalCamera, PointLight } = require 'babylonjs'
+{ clamp, deg2rad, reduce } = require 'kxk'
+{ Camera, PointLight, UniversalCamera } = require 'babylonjs'
 
 Vect = require './vect'
 Quat = require './quat'

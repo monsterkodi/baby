@@ -6,7 +6,7 @@
 00     00  000  000   000  0000000     0000000   00     00
 ###
 
-{ gamepad, keyinfo, win, $ } = require 'kxk'
+{ $, gamepad, keyinfo, win } = require 'kxk'
 
 World = require './world'
 
