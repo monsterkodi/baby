@@ -19,7 +19,7 @@ class Flag
         @flags    = {} # [face][vertex] -> next vertex
         @vertices = {} # [name] -> coordinates
   
-    newV: (vertName, coords) ->
+    vert: (vertName, coords) ->
         if not @vertices[vertName]
             @vertices[vertName] = coords
         else
