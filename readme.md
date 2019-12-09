@@ -1,4 +1,1 @@
-<br/>
-<br/>
-<br/>
-![baby](img/baby.png)
+![baby](./img/baby.png)
