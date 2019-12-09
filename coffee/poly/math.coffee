@@ -9,7 +9,7 @@
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 #
     
-{ rad2deg, _ } = require 'kxk'
+{ rad2deg, klog, _ } = require 'kxk'
 { random, round, floor, sqrt, sin, cos, tan, asin, acos, atan, abs, pow, log, PI, LN10 } = Math
 
 Vect = require '../vect'
@@ -105,6 +105,8 @@ rayRay= (rayA, rayB) ->
     D = add A, mult (-ab*bc+ac*bb)/(aa*bb-ab*ab), a
     E = add B, mult ( ab*ac-bc*aa)/(aa*bb-ab*ab), b
     
+    if 0.1 < mag sub D, E
+        klog 'no intersect?' mag sub D, E
     mult 0.5, add D, E
     
 # find vector orthogonal to plane of 3 pts

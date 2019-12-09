@@ -6,7 +6,7 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ deg2rad, prefs, elem, klog } = require 'kxk'
+{ deg2rad, prefs, empty, elem, klog } = require 'kxk'
 { ArcRotateCamera, FramingBehavior, Engine, Color3, Vector3, Mesh, SimplificationType, DirectionalLight, AmbientLight, ShadowGenerator, StandardMaterial, MeshBuilder, HemisphericLight, SpotLight, PointLight } = require 'babylonjs'
 
 generate = require './poly/generate'
@@ -104,31 +104,31 @@ class World
                     p.material.diffuseColor = new Color3 i/12 (j/6)%1 1-j/12
   
         rows = [
-            # ['cC'] 
-            # ['cC'] 
-            # ['c0T''c0.25T''cT''c0.75T''c1T']
-            ['c0C''c0.25C''cC''c0.57C''c0.58C''c0.59C''c1C']
-            # ['c0O''c0.25O''cO''c0.75O''c1O']
-            # ['c0D''c0.25D''cD''c0.75D''c1D']
-            # ['c0I''c0.25I''cI''c0.75I''c1I']
-            # ['T''C''O''D''I']
-            # ['cT''cC''cO''cD''cI']
-            # ['z6ztT''z6ztO''ztI']
-            # ['v10z6cT''vcC''vcO''vcD''vcI']
+            ['c0T''c.25T''cT''c.75T''c1T' '' 'h0T''h.25T''hT''h.75T''h1T']
+            ['c0C''c.25C''cC''c.75C''c1C' '' 'h0C''h.25C''hC''h.75C''h1C']
+            ['c0O''c.25O''cO''c.75O''c1O' '' 'h0O''h.25O''hO''h.75O''h1O']
+            ['c0D''c.25D''cD''c.75D''c1D' '' 'h0D''h.25D''hD''h.75D''h1D']
+            ['c0I''c.25I''cI''c.75I''c1I' '' 'h0I''h.25I''hI''h.75I''h1I']
+            ['']
+            ['x0T''x.25T''xT''x.75T''x1T' '' 'n0T''n.25T''nT''n.75T''n1T']
+            ['x0C''x.25C''xC''x.75C''x1C' '' 'n0C''n.25C''nC''n.75C''n1C']
+            ['x0O''x.25O''xO''x.75O''x1O' '' 'n0O''n.25O''nO''n.75O''n1O']
+            ['x0D''x.25D''xD''x.75D''x1D' '' 'n0D''n.25D''nD''n.75D''n1D']
+            ['x0I''x.25I''xI''x.75I''x1I' '' 'n0I''n.25I''nI''n.75I''n1I']
+            ['']
+            ['z6ztT''z6ztO''ztI']
+            ['v10z6cT''vcC''vcO''vcD''vcI']
+            ['aT''aC''aO''aD''aI']
+            ['gT''gC''gO''gD''gI']
+            ['wT''wC''wO''wD''wI']
+            ['']
+            ['pT''pC''pO''pD''pI']
+            ['eT''eC''eO''eD''eI']
+            ['kT''kC''kO''kD''kI']
+            ['qT''qC''qO''qD''qI']
+            ['uT''uC''uO''uD''uI']
             # ['dT''dC''dO''dD''dI']
-            # ['aT''aC''aO''aD''aI']
-            # ['kT''kC''kO''kD''kI']
-            # ['vgT''vgC''vgO''vgD''vgI']
-            # ['rT''rC''rO''rD''rI']
-            # ['vwT''vwC''vwO''vwD''vwI']
-            # ['nT''nC''nO''nD''nI']
-            # ['xT''xC''xO''xD''xI']
-            # ['pT''pC''pO''pD''pI']
-            # ['qT''qC''qO''qD''qI']
-            # ['hT''hC''hO''hD''hI']
-            # ['uT''uC''uO''uD''uI']
-            # ['eT''eC''eO''eD''eI']
-#             
+             
             # ['vjT''vjC''vjO''vjD''vjI']
             # ['sT''sC''sO''sD''sI']
             # ['dzdk(0,-0.5)dT''dzdk(0,-0.3)dT''dzdk(0,0)dT''dzdk(0,0.8)dT''dzdk(0,1.2)dT']
@@ -153,12 +153,14 @@ class World
             ri++
             for code in row
                 ci++
-                # for d,y in ['' 'c' 'cc']
+                continue if empty code
+                # for d,y in ['' 'c.64' 'c.64c.64']
                 for d,y in ['']
-                    poly = generate d+code, false
+                    poly = generate d+code, true
                     p = Mesh.CreatePolyhedron d+code, {custom:poly}, @scene
                     # @scene.showNormals p
                     @scene.showFaces p, poly
+                    # @scene.showDebug p, poly
                     @scene.label p
                     p.receiveShadows = true
                     p.position.x = 3*ci
@@ -169,8 +171,10 @@ class World
                     shadowGenerator.addShadowCaster p
                     p.material = new StandardMaterial 'mat' @scene
                     p.material.alpha = 1
-                    f = ci/5
-                    p.material.diffuseColor = new Color3 f*((ri&1)>>0), f*((ri&2)>>1), f*((ri&4)>>2)
+                    f = (ci%6)/5
+                    # r = (ri-1)%6+1
+                    r = ri%6
+                    p.material.diffuseColor = new Color3 f*((r&1)>>0), f*((r&2)>>1), f*((r&4)>>2)
             
     # 00     00   0000000   000   000   0000000  00000000  
     # 000   000  000   000  000   000  000       000       

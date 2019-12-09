@@ -49,9 +49,8 @@ opmap =
     d: topo.dual
     a: topo.ambo
     k: topo.kis
-    g: topo.gyro
-    r: topo.reflect
     c: topo.chamfer
+    g: topo.gyro
     w: topo.whirl
     n: topo.inset
     x: topo.extrude

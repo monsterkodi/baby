@@ -27,7 +27,7 @@ class Camera extends UniversalCamera
         @size       = vec width, height
         @dist       = 10
         @maxDist    = 100
-        @minDist    = 3
+        @minDist    = 2
         @center     = vec 10.5 3 6
         @moveFade   = vec 0 0 0
         @degree     = 90
@@ -40,8 +40,10 @@ class Camera extends UniversalCamera
         @moveZ      = 0
         @quat       = quat()
 
+        
         super 'Camera' vec(0 -10 0), @scene
 
+        @fov = deg2rad 20
         @rotationQuaternion = new Quat()
         @setTarget @center
                 

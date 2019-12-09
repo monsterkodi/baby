@@ -199,61 +199,6 @@ ambo = (poly) ->
   
     flag.topoly "a#{poly.name}"
 
-#  0000000   000   000  00000000    0000000   
-# 000         000 000   000   000  000   000  
-# 000  0000    00000    0000000    000   000  
-# 000   000     000     000   000  000   000  
-#  0000000      000     000   000   0000000   
-
-gyro = (poly) ->
-
-    # klog "gyro of #{poly.name}"
-  
-    flag = new Flag()
-  
-    for i in [0...poly.vertices.length]
-        flag.newV "v#{i}" unit poly.vertices[i] # each old vertex is a new vertex
-
-    centers = poly.centers() # new vertices in center of each face
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
-        flag.newV "center#{i}" unit centers[i]
-  
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
-        [v1, v2] = f.slice(-2)
-        for j in [0...f.length]
-            v = f[j]
-            v3 = v
-            flag.newV(v1+"~"+v2, oneThird(poly.vertices[v1],poly.vertices[v2]));  # new v in face
-            fname = i+"f"+v1
-            flag.newFlag fname, "center#{i}"  v1+"~"+v2 # five new flags
-            flag.newFlag fname, v1+"~"+v2,  v2+"~"+v1
-            flag.newFlag fname, v2+"~"+v1,  "v#{v2}"
-            flag.newFlag fname, "v#{v2}"     v2+"~"+v3
-            flag.newFlag fname, v2+"~"+v3,  "center#{i}"
-            [v1, v2] = [v2, v3]
-  
-    flag.topoly "g#{poly.name}"
-
-# 00000000   00000000  00000000  000      00000000   0000000  000000000  
-# 000   000  000       000       000      000       000          000     
-# 0000000    0000000   000000    000      0000000   000          000     
-# 000   000  000       000       000      000       000          000     
-# 000   000  00000000  000       0000000  00000000   0000000     000     
-
-reflect = (poly) -> # geometric reflection through origin
-
-    klog "reflection of #{poly.name}"
-    # reflect each point through origin
-    for i in [0...poly.vertices.length]
-        poly.vertices[i] = mult -1, poly.vertices[i]
-    # repair clockwise-ness of faces
-    for i in [0...poly.faces.length]
-        poly.faces[i] = poly.faces[i].reverse()
-    poly.name = "r#{poly.name}"
-    poly
-
 #  0000000  000   000   0000000   00     00  00000000  00000000  00000000   
 # 000       000   000  000   000  000   000  000       000       000   000  
 # 000       000000000  000000000  000000000  000000    0000000   0000000    
@@ -269,36 +214,41 @@ chamfer = (poly, factor=0.5) ->
     wings   = poly.wings()
         
     minEdgeLength = Infinity
-
-    # klog poly.name, wings
-    
-    planeNormal = (edge, e0, e1) ->
-
-        dir = sub e1, e0
-        dr  = unit cross normals[edge[2].fr], dir
-        dl  = unit cross dir, normals[edge[2].fl]
-        unit cross dir, cross(dir, unit(add dr, dl))
     
     for edge in wings
-        e0  = poly.vertices[edge[0]]
-        e1  = poly.vertices[edge[1]]
-        edgeLength = mag sub e0, e1
-        minEdgeLength = min minEdgeLength, edgeLength/2
+        e0 = poly.vertices[edge[0]]
+        e1 = poly.vertices[edge[1]]
+        ed = unit sub e1, e0
+        
+        nr = unit sub poly.vertices[edge[2].nr], e1
+        pr = unit sub poly.vertices[edge[2].pr], e0
+        cr = rayRay [e1, mult 0.5, add add(e1, nr), sub(e1, ed)],
+                    [e0, mult 0.5, add add(e0, pr), add(e0, ed)]
 
+        el = mag sub e1, rayRay [e1, add(e1, nr)], [cr, add(cr, ed)]
+        minEdgeLength = min minEdgeLength, el
+
+        el = mag sub e0, rayRay [e0, add(e0, pr)], [cr, sub(cr, ed)]
+        minEdgeLength = min minEdgeLength, el
+        
     minEdgeLength *= factor
-    klog poly.name, minEdgeLength
         
     moved = {}
     for edge in wings
         e0  = poly.vertices[edge[0]]
         e1  = poly.vertices[edge[1]]
-        moved["#{edge[1]}#{edge[0]}l"] = moved["#{edge[0]}#{edge[1]}r"] = [
-            add e0, mult minEdgeLength, unit sub poly.vertices[edge[2].pr], e0
-            add e1, mult minEdgeLength, unit sub poly.vertices[edge[2].nr], e1]
-        moved["#{edge[1]}#{edge[0]}r"] = moved["#{edge[0]}#{edge[1]}l"] = [
-            add e0, mult minEdgeLength, unit sub poly.vertices[edge[2].pl], e0
-            add e1, mult minEdgeLength, unit sub poly.vertices[edge[2].nl], e1]
-
+        rr = [
+            add(e0, mult minEdgeLength, unit sub poly.vertices[edge[2].pr], e0),
+            add(e1, mult minEdgeLength, unit sub poly.vertices[edge[2].nr], e1)]
+        lr = [
+            add(e0, mult minEdgeLength, unit sub poly.vertices[edge[2].pl], e0),
+            add(e1, mult minEdgeLength, unit sub poly.vertices[edge[2].nl], e1)]
+            
+        moved["#{edge[1]}▸#{edge[0]}l"] = rr
+        moved["#{edge[0]}▸#{edge[1]}r"] = rr
+        moved["#{edge[1]}▸#{edge[0]}r"] = lr
+        moved["#{edge[0]}▸#{edge[1]}l"] = lr
+            
     for edge in wings
         e0   = poly.vertices[edge[0]]
         e1   = poly.vertices[edge[1]]
@@ -306,164 +256,27 @@ chamfer = (poly, factor=0.5) ->
         nf  = "#{edge[0]}▸#{edge[1]}" 
         n_h = "#{edge[1]}"
         n_t = "#{edge[0]}"
-
+        
         nnr = "#{n_h}▸#{edge[2].fr}"
         nnl = "#{n_h}▸#{edge[2].fl}"
         npr = "#{n_t}▸#{edge[2].fr}"
         npl = "#{n_t}▸#{edge[2].fl}"        
                 
-        nr = rayRay moved["#{edge[0]}#{edge[1]}r"], moved["#{edge[1]}#{edge[2].nr}r"]
-        nl = rayRay moved["#{edge[0]}#{edge[1]}l"], moved["#{edge[1]}#{edge[2].nl}l"]
-        pr = rayRay moved["#{edge[0]}#{edge[1]}r"], moved["#{edge[2].pr}#{edge[0]}r"]
-        pl = rayRay moved["#{edge[0]}#{edge[1]}l"], moved["#{edge[2].pl}#{edge[0]}l"]
+        nr = rayRay moved["#{edge[0]}▸#{edge[1]}r"], moved["#{edge[1]}▸#{edge[2].nr}r"]
+        nl = rayRay moved["#{edge[0]}▸#{edge[1]}l"], moved["#{edge[1]}▸#{edge[2].nl}l"]
+        pr = rayRay moved["#{edge[0]}▸#{edge[1]}r"], moved["#{edge[2].pr}▸#{edge[0]}r"]
+        pl = rayRay moved["#{edge[0]}▸#{edge[1]}l"], moved["#{edge[2].pl}▸#{edge[0]}l"]
         
-        # if flag.newV(n_h, head) then klog 'n_h'
-        # if flag.newV(n_t, tail) then klog 'n_t'
-        if flag.newV(nnr, nr) then klog 'nnr'
-        if flag.newV(nnl, nl) then klog 'nnl'
-        if flag.newV(npl, pl) then klog 'npl'
-        if flag.newV(npr, pr) then klog 'npr'
+        pmid = midpoint pl, pr
+        nmid = midpoint nl, nr
+        cmid = midpoint pmid, nmid
+        pnm  = cross sub(pmid,nmid), sub(pl,pr)
 
-        # flag.newFlag nf, n_h, nnr
-        # flag.newFlag nf, nnr, npr
-        # flag.newFlag nf, npr, n_t
-        # flag.newFlag nf, n_t, npl
-        # flag.newFlag nf, npl, nnl
-        # flag.newFlag nf, nnl, n_h
+        head = rayPlane [0 0 0], e1, cmid, pnm
+        tail = rayPlane [0 0 0], e0, cmid, pnm
         
-        flag.newFlag nf, nnr, npr
-        flag.newFlag nf, npr, npl
-        flag.newFlag nf, npl, nnl
-        flag.newFlag nf, nnl, nnr
-        
-        # flag.newFlag "#{edge[2].fr}" npr, nnr
-        # flag.newFlag "#{edge[2].fl}" nnl, npl
-        
-    flag.topoly "c#{poly.name}"
-
-chamfer1 = (poly, factor=0.5) ->
-
-    factor  = clamp 0.001 0.995 factor
-    flag    = new Flag()
-    normals = poly.normals()
-    centers = poly.centers()
-    wings   = poly.wings()
-        
-    minDepth = Infinity
-
-    klog poly.name #, poly, wings
-    
-    planeNormal = (edge, e0, e1) ->
-
-        dir = sub e1, e0
-        dr = unit cross normals[edge[2].fr], dir
-        dl = unit cross dir, normals[edge[2].fl]
-        unit cross dir, cross(dir, unit(add dr, dl))
-    
-    for edge in wings
-        e0  = poly.vertices[edge[0]]
-        e1  = poly.vertices[edge[1]]
-        pnm = planeNormal edge, e0, e1
-        
-        minDepth = Math.min minDepth, mag sub e0, rayPlane [0 0 0], e0, centers[edge[2].fr], pnm
-        minDepth = Math.min minDepth, mag sub e1, rayPlane [0 0 0], e1, centers[edge[2].fr], pnm
-        minDepth = Math.min minDepth, mag sub e1, rayPlane [0 0 0], e1, centers[edge[2].fl], pnm
-        minDepth = Math.min minDepth, mag sub e0, rayPlane [0 0 0], e0, centers[edge[2].fl], pnm
-
-    cutDepth = factor * minDepth
-                
-    for edge in wings
-        e0   = poly.vertices[edge[0]]
-        e1   = poly.vertices[edge[1]]
-        pnm = planeNormal edge, e0, e1
-                
-        he = sub e1, mult cutDepth, pnm
-        te = sub e0, mult cutDepth, pnm
-        head = rayPlane [0 0 0], e1, he, pnm
-        tail = rayPlane [0 0 0], e0, te, pnm
-        
-        menr = unit add unit(sub e0, e1), unit(sub poly.vertices[edge[2].nr], e1)
-        menl = unit add unit(sub e0, e1), unit(sub poly.vertices[edge[2].nl], e1)
-        mepr = unit add unit(sub e1, e0), unit(sub poly.vertices[edge[2].pr], e0)
-        mepl = unit add unit(sub e1, e0), unit(sub poly.vertices[edge[2].pl], e0)
-                        
-        nr = rayPlane e1, menr, head, pnm
-        nl = rayPlane e1, menl, head, pnm
-        pr = rayPlane e0, mepr, tail, pnm
-        pl = rayPlane e0, mepl, tail, pnm
-        
-        nf  = "#{edge[0]}▸#{edge[1]}" 
-        n_h = "#{edge[1]}"
-        n_t = "#{edge[0]}"
-
-        nnr = "#{n_h}▸#{edge[2].fr}"
-        nnl = "#{n_h}▸#{edge[2].fl}"
-        npr = "#{n_t}▸#{edge[2].fr}"
-        npl = "#{n_t}▸#{edge[2].fl}"                
-        
-        if flag.newV(n_h, head) then klog 'n_h'
-        if flag.newV(n_t, tail) then klog 'n_t'
-        if flag.newV(nnr, nr) then klog 'nnr'
-        if flag.newV(nnl, nl) then klog 'nnl'
-        if flag.newV(npl, pl) then klog 'npl'
-        if flag.newV(npr, pr) then klog 'npr'
-
-        flag.newFlag nf, n_h, nnr
-        flag.newFlag nf, nnr, npr
-        flag.newFlag nf, npr, n_t
-        flag.newFlag nf, n_t, npl
-        flag.newFlag nf, npl, nnl
-        flag.newFlag nf, nnl, n_h
-        
-        flag.newFlag "#{edge[2].fr}" npr, nnr
-        flag.newFlag "#{edge[2].fl}" nnl, npl
-        
-    flag.topoly "c#{poly.name}"
-
-chamfer2 = (poly, factor=0.5) ->
-
-    factor = clamp 0.001 0.995 factor
-    flag = new Flag()
-    normals = poly.normals()
-    centers = poly.centers()
-    wings   = poly.wings()
-        
-    for edge in wings
-        e0  = poly.vertices[edge[0]]
-        e1  = poly.vertices[edge[1]]
-        nfl = normals[edge[2].fl]
-        nfr = normals[edge[2].fr]
-        emp = midpoint e0, e1
-        edir = sub e1, e0
-        faceAngle = acos dot nfl, nfr
-        
-        mpr = rotate emp, edir, -factor*faceAngle/2
-        mpl = rotate emp, edir,  factor*faceAngle/2
-        
-        e1fr = sub centers[edge[2].fr], e1
-        e1fl = sub centers[edge[2].fl], e1
-        e0fr = sub centers[edge[2].fr], e0
-        e0fl = sub centers[edge[2].fl], e0
-        
-        nr = rayPlane mpr, edir,      e1, unit cross nfr, e1fr
-        nl = rayPlane mpl, edir,      e1, unit cross nfl, e1fl
-        pr = rayPlane mpr, neg(edir), e0, unit cross nfr, e0fr
-        pl = rayPlane mpl, neg(edir), e0, unit cross nfl, e0fl
-
-        nf  = "#{edge[0]}▸#{edge[1]}" 
-        n_h = "#{edge[1]}"
-        n_t = "#{edge[0]}"
-
-        nnr = "#{n_h}▸#{edge[2].fr}"
-        nnl = "#{n_h}▸#{edge[2].fl}"
-        npr = "#{n_t}▸#{edge[2].fr}"
-        npl = "#{n_t}▸#{edge[2].fl}"                
-
-        nfn = unit emp
-        nmp = midpoint nr, pl
-        
-        flag.newV n_h, rayPlane [0 0 0], e1, nmp, nfn 
-        flag.newV n_t, rayPlane [0 0 0], e0, nmp, nfn
+        flag.newV n_h, head
+        flag.newV n_t, tail
         flag.newV nnr, nr
         flag.newV nnl, nl
         flag.newV npl, pl
@@ -475,7 +288,7 @@ chamfer2 = (poly, factor=0.5) ->
         flag.newFlag nf, n_t, npl
         flag.newFlag nf, npl, nnl
         flag.newFlag nf, nnl, n_h
-        
+                
         flag.newFlag "#{edge[2].fr}" npr, nnr
         flag.newFlag "#{edge[2].fl}" nnl, npl
         
@@ -496,11 +309,8 @@ chamfer2 = (poly, factor=0.5) ->
 # filled in one way or another, depending on whether the adjacent face is
 # whirled or not.
 
-whirl = (poly, n) ->
+whirl = (poly, n=0) ->
 
-    klog "whirl of #{poly.name}"
-    n ?= 0
-    
     flag = new Flag()
   
     for i in [0...poly.vertices.length]
@@ -530,8 +340,43 @@ whirl = (poly, n) ->
             
             [v1, v2] = [v2, v3] # shift over one
   
-    flag.topoly "w#{poly.name}"
+    canonicalize flag.topoly "w#{poly.name}"
 
+#  0000000   000   000  00000000    0000000   
+# 000         000 000   000   000  000   000  
+# 000  0000    00000    0000000    000   000  
+# 000   000     000     000   000  000   000  
+#  0000000      000     000   000   0000000   
+
+gyro = (poly) ->
+
+    flag = new Flag()
+  
+    for i in [0...poly.vertices.length]
+        flag.newV "v#{i}" unit poly.vertices[i]
+
+    centers = poly.centers()
+    for i in [0...poly.faces.length]
+        f = poly.faces[i]
+        flag.newV "center#{i}" unit centers[i]
+  
+    for i in [0...poly.faces.length]
+        f = poly.faces[i]
+        [v1, v2] = f.slice(-2)
+        for j in [0...f.length]
+            v = f[j]
+            v3 = v
+            flag.newV v1+"~"+v2, oneThird poly.vertices[v1],poly.vertices[v2]
+            fname = i+"f"+v1
+            flag.newFlag fname, "center#{i}"  v1+"~"+v2
+            flag.newFlag fname, v1+"~"+v2,  v2+"~"+v1
+            flag.newFlag fname, v2+"~"+v1,  "v#{v2}"
+            flag.newFlag fname, "v#{v2}"     v2+"~"+v3
+            flag.newFlag fname, v2+"~"+v3,  "center#{i}"
+            [v1, v2] = [v2, v3]
+  
+    canonicalize flag.topoly "g#{poly.name}"
+    
 #  0000000   000   000  000  000   000  000000000   0000000   
 # 000   000  000   000  000  0000  000     000     000   000  
 # 000 00 00  000   000  000  000 0 000     000     000   000  
@@ -578,25 +423,22 @@ quinto = (poly) -> # creates a pentagon for every point in the original face, as
 # 000  000  0000       000  000          000   
 # 000  000   000  0000000   00000000     000   
 
-inset = (poly, n, inset_dist, popout_dist) ->
-
-    n ?= 0
-    inset_dist ?= 0.5
-    popout_dist ?= -0.2
+inset = (poly, inset=0.5, popout=-0.2, n=0) ->
   
+    inset = clamp 0.25 0.99 inset
+    popout = min popout, inset
     flag = new Flag()
     for i in [0...poly.vertices.length]
-        # each old vertex is a new vertex
         p = poly.vertices[i]
         flag.newV "v#{i}" p
 
     normals = poly.normals()
     centers = poly.centers()
-    for i in [0...poly.faces.length] # new inset vertex for every vert in face
+    for i in [0...poly.faces.length]
         f = poly.faces[i]
         if f.length == n or n == 0
             for v in f
-                flag.newV "f#{i}v#{v}" add tween(poly.vertices[v],centers[i],inset_dist), mult(popout_dist,normals[i])
+                flag.newV "f#{i}v#{v}" add tween(poly.vertices[v],centers[i],inset), mult(popout,normals[i])
   
     foundAny = false # alert if don't find any
     for i in [0...poly.faces.length]
@@ -611,11 +453,10 @@ inset = (poly, n, inset_dist, popout_dist) ->
                 flag.newFlag(fname,      v2,       "f#{i}#{v2}")
                 flag.newFlag(fname, "f#{i}#{v2}",  "f#{i}#{v1}")
                 flag.newFlag(fname, "f#{i}#{v1}",  v1)
-                # new inset, extruded face
                 flag.newFlag("ex#{i}", "f#{i}#{v1}",  "f#{i}#{v2}")
             else
-                flag.newFlag(i, v1, v2)  # same old flag, if non-n
-            v1=v2 # current becomes previous
+                flag.newFlag(i, v1, v2)  
+            v1=v2
   
     if not foundAny
         klog "No #{n}-fold components were found."
@@ -628,8 +469,8 @@ inset = (poly, n, inset_dist, popout_dist) ->
 # 000        000 000      000     000   000  000   000  000   000  000     
 # 00000000  000   000     000     000   000   0000000   0000000    00000000
 
-extrude = (poly, n, popout=1, insetf=0.5) ->
-    newpoly = inset poly, n, insetf, popout
+extrude = (poly, popout=1, insetf=0.5, n=0) ->
+    newpoly = inset poly, insetf, popout, n
     newpoly.name = "x#{n}#{poly.name}"
     newpoly
 
@@ -639,10 +480,12 @@ extrude = (poly, n, popout=1, insetf=0.5) ->
 # 000   000  000   000  000      000      000   000  000   000  
 # 000   000   0000000   0000000  0000000   0000000   00     00  
 
-hollow = (poly, inset_dist, thickness) ->
+hollow = (poly, insetf, thickness) ->
 
-    inset_dist ?= 0.5
-    thickness ?= 0.2
+    insetf ?= 0.5
+    insetf  = clamp 0.1 0.9 insetf
+    thickness ?= insetf*2/3
+    thickness = min insetf*2/3, thickness
   
     dualnormals = dual(poly).normals()
     normals = poly.normals()
@@ -650,17 +493,15 @@ hollow = (poly, inset_dist, thickness) ->
   
     flag = new Flag()
     for i in [0...poly.vertices.length]
-        # each old vertex is a new vertex
         p = poly.vertices[i]
         flag.newV "v#{i}" p
         flag.newV "downv#{i}" add p, mult -1*thickness,dualnormals[i]
 
-    # new inset vertex for every vert in face
     for i in [0...poly.faces.length]
         f = poly.faces[i]
         for v in f
-            flag.newV "fin#{i}v#{v}" tween poly.vertices[v], centers[i], inset_dist
-            flag.newV "findown#{i}v#{v}" add tween(poly.vertices[v],centers[i],inset_dist), mult(-1*thickness,normals[i])
+            flag.newV "fin#{i}v#{v}" tween poly.vertices[v], centers[i], insetf
+            flag.newV "findown#{i}v#{v}" add tween(poly.vertices[v],centers[i],insetf), mult(-1*thickness,normals[i])
   
     for i in [0...poly.faces.length]
         f = poly.faces[i]
@@ -685,7 +526,7 @@ hollow = (poly, inset_dist, thickness) ->
             flag.newFlag fname,  "findown#{i}#{v1}" "findown#{i}#{v2}"
             flag.newFlag fname,  "findown#{i}#{v2}" "down#{v2}"
       
-            v1 = v2 # current becomes previous
+            v1 = v2
   
     flag.topoly "H#{poly.name}"
 
@@ -869,7 +710,6 @@ module.exports =
     kis:            kis
     ambo:           ambo
     gyro:           gyro
-    reflect:        reflect
     chamfer:        chamfer
     whirl:          whirl
     quinto:         quinto

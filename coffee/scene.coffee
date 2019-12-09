@@ -10,7 +10,7 @@
 babylon = require 'babylonjs'
 GUI = require 'babylonjs-gui'
 Vect = require './vect'
-{ Color3, Vector3, VertexBuffer, MeshBuilder } = require 'babylonjs'
+{ Color3, Color4, Vector3, VertexBuffer, MeshBuilder } = require 'babylonjs'
 
 class Scene extends babylon.Scene 
 
@@ -47,6 +47,23 @@ class Scene extends babylon.Scene
         system.color = color
         mesh.addChild system
         system
+        
+    # 00000000   0000000    0000000  00000000   0000000  
+    # 000       000   000  000       000       000       
+    # 000000    000000000  000       0000000   0000000   
+    # 000       000   000  000       000            000  
+    # 000       000   000   0000000  00000000  0000000   
+    
+    showDebug: (mesh, poly)->
+        
+        if poly.debug
+            lines = poly.debug.map (dbg) -> dbg.map (v) -> new Vector3 v[0], v[1], v[2]
+            system = MeshBuilder.CreateLineSystem 'faces' lines:lines
+            system.scaling = new Vector3 1.03 1.03 1.03
+            system.color = new Color3 1 1 0
+            system.alpha = 0.5
+            mesh.addChild system
+            system
         
     # 00000000   0000000    0000000  00000000   0000000  
     # 000       000   000  000       000       000       
