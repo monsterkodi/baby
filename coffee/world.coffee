@@ -159,7 +159,7 @@ class World
                     # @scene.showNormals p
                     @scene.showFaces p, poly
                     # @scene.showDebug p, poly
-                    @scene.label p
+                    # @scene.label p
                     p.receiveShadows = true
                     p.position.x = 3*ci
                     p.position.z = 3*ri
@@ -170,7 +170,6 @@ class World
                     p.material = new StandardMaterial 'mat' @scene
                     p.material.alpha = 1
                     f = (ci%6)/5
-                    # r = (ri-1)%6+1
                     r = ri%6
                     p.material.diffuseColor = new Color3 f*((r&1)>>0), f*((r&2)>>1), f*((r&4)>>2)
             
@@ -189,7 +188,10 @@ class World
         
         @camera.onMouseDrag event
         if mesh = @pickedMesh()
-            @highlight mesh            
+            @highlight mesh    
+            @scene.legend.show mesh            
+        else
+            @scene.legend.show @legendMesh
         
     onMouseUp: (event) =>                
         
@@ -197,9 +199,13 @@ class World
             if mesh == @mouseDownMesh
                 @cursor.position = mesh.getAbsolutePosition()
                 @camera.fadeToPos mesh.getAbsolutePosition()
+                @scene.legend.show mesh
+                @legendMesh = mesh
 
         else if not @mouseDownMesh
             @cursor.position = [0 -1000 0]
+            @scene.legend.hide()
+            @legendMesh = null
                 
         @camera.onMouseUp event
           
@@ -216,7 +222,7 @@ class World
         @highlightMesh?.material.diffuseColor = @preHighlightColor
         @preHighlightColor = mesh.material.diffuseColor
         mesh.material.diffuseColor = @preHighlightColor.multiply new Color3 1.5 1.5 1.5
-        @highlightMesh = mesh
+        @highlightMesh = mesh        
                 
     # 000  000   000   0000000  00000000   00000000   0000000  000000000   0000000   00000000   
     # 000  0000  000  000       000   000  000       000          000     000   000  000   000  
@@ -245,7 +251,6 @@ class World
 
         if not @paused
             @scene.render()
-            
             animate.tick @engine.getDeltaTime()/1000
     
     # 00000000   00000000   0000000  000  0000000  00000000  

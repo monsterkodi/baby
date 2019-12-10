@@ -15,7 +15,7 @@
     "electron-packager": "^14.1.1",
     "electron-rebuild": "^1.8.8",
     "koffee": "^1.6.0",
-    "kxk": "^0.372.0",
+    "kxk": "^0.374.0",
     "oimo": "^1.0.9",
     "pegjs": "^0.10.0"
   }

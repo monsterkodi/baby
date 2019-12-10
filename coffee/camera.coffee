@@ -6,7 +6,7 @@
  0000000  000   000  000   000  00000000  000   000  000   000
 ###
 
-{ clamp, deg2rad, reduce } = require 'kxk'
+{ clamp, deg2rad, gamepad, reduce } = require 'kxk'
 { Camera, PointLight, UniversalCamera } = require 'babylonjs'
 
 Vect = require './vect'
@@ -27,7 +27,8 @@ class Camera extends UniversalCamera
         @size       = vec width, height
         @dist       = 10
         @maxDist    = 100
-        @minDist    = 2
+        @minDist    = 9
+        @moveDist   = 0.1
         @center     = vec 10.5 3 6
         @moveFade   = vec 0 0 0
         @degree     = 90
@@ -39,7 +40,6 @@ class Camera extends UniversalCamera
         @moveY      = 0
         @moveZ      = 0
         @quat       = quat()
-
         
         super 'Camera' vec(0 -10 0), @scene
 
@@ -67,6 +67,46 @@ class Camera extends UniversalCamera
     del: =>
         
         @view.removeEventListener  'mousewheel' @onMouseWheel
+        
+    # 00000000    0000000   0000000    
+    # 000   000  000   000  000   000  
+    # 00000000   000000000  000   000  
+    # 000        000   000  000   000  
+    # 000        000   000  0000000    
+    
+    onPadAxis: (state) -> 
+    
+        @rotate += state.right.x
+        @degree -= state.right.y
+                    
+        if state.left.x == state.left.y == state.right.x == state.right.y == 0
+            gamepad.continuous = false
+        else
+            @fading = false
+            if @dist > @moveDist
+                @dist   = @moveDist
+                @center = @position.plus @getDir().mul @dist
+            
+            gamepad.continuous = true
+            
+            @moveRelative 0.5*state.left.x, 0, state.left.y
+            
+            @navigate()
+                            
+    onPadButton: (button, value) ->
+        
+        if value
+            switch button
+                when 'LB' then @moveDown()
+                when 'RB' then @moveUp()
+                when 'LT' then @moveLeft()
+                when 'RT' then @moveRight()
+        else
+            switch button
+                when 'LB' then @stopDown()
+                when 'RB' then @stopUp()
+                when 'LT' then @stopLeft()
+                when 'RT' then @stopRight()
         
     # 00     00   0000000   000   000   0000000  00000000  
     # 000   000  000   000  000   000  000       000       
@@ -142,8 +182,12 @@ class Camera extends UniversalCamera
     # 000        0000000    0000000   0000000   0000000   
                      
     fadeToPos: (v) -> 
-        
         @centerTarget = vec v
+        
+        if @dist <= @moveDist
+            @dist = @centerTarget.dist @position
+            @center = @position.plus @getDir().mul @dist
+
         @startFadeCenter()
 
     startFadeCenter: -> 
@@ -171,12 +215,12 @@ class Camera extends UniversalCamera
     # 000 0 000  000   000     000     000       
     # 000   000   0000000       0      00000000  
     
-    moveForward:  -> @startMove @moveZ = 1
-    moveRight:    -> @startMove @moveX = 1
-    moveUp:       -> @startMove @moveY = 1
-    moveLeft:     -> @startMove @moveX = -1
-    moveDown:     -> @startMove @moveY = -1
-    moveBackward: -> @startMove @moveZ = -1          
+    moveForward:  (v=1)  -> @startMove @moveZ = v
+    moveRight:    (v=1)  -> @startMove @moveX = v
+    moveUp:       (v=1)  -> @startMove @moveY = v
+    moveLeft:     (v=-1) -> @startMove @moveX = v
+    moveDown:     (v=-1) -> @startMove @moveY = v
+    moveBackward: (v=-1) -> @startMove @moveZ = v          
 
     stopRight:    -> @moveX = clamp -1 0 @moveX
     stopLeft:     -> @moveX = clamp  0 1 @moveX
@@ -187,6 +231,7 @@ class Camera extends UniversalCamera
         
     stopMoving: ->
         
+        @fading = false
         @moving = false
         @moveX = 0
         @moveY = 0
@@ -196,7 +241,7 @@ class Camera extends UniversalCamera
         
         @fading = false
         if not @moving
-            @dist = @minDist
+            @dist   = @moveDist
             @center = @position.plus @getDir().mul @dist
             animate @moveCenter
             @moving = true
@@ -204,18 +249,13 @@ class Camera extends UniversalCamera
     moveCenter: (deltaSeconds) =>
         
         return if not @moving
-                
-        dir = vec()
-        dir.add Vect.unitX.mul 10 * (@moveX or @moveFade.x)
-        dir.add Vect.unitY.mul 10 * (@moveY or @moveFade.y)
-        dir.add Vect.unitZ.mul 10 * (@moveZ or @moveFade.z)
         
-        dir.scale deltaSeconds
-        @rotationQuaternion.rotate dir
+        @moveRelative(deltaSeconds * 10 * (@moveX or @moveFade.x)
+                      deltaSeconds * 10 * (@moveY or @moveFade.y)
+                      deltaSeconds * 20 * (@moveZ or @moveFade.z))
         
-        @center.add dir
         @navigate()
-        
+                
         @moveFade.x = @moveX or reduce @moveFade.x, deltaSeconds
         @moveFade.y = @moveY or reduce @moveFade.y, deltaSeconds
         @moveFade.z = @moveZ or reduce @moveFade.z, deltaSeconds
@@ -225,6 +265,10 @@ class Camera extends UniversalCamera
         else
             @stopMoving()
         
+    moveRelative: (x, y, z) ->
+        
+        @center.add @rotationQuaternion.rotate vec x, y, z
+            
     # 000   000  000   000  00000000  00000000  000      
     # 000 0 000  000   000  000       000       000      
     # 000000000  000000000  0000000   0000000   000      
@@ -308,7 +352,5 @@ class Camera extends UniversalCamera
         
         if 18*@minDist/@dist >= 8
             @scene.style.fontSize = 18*@minDist/@dist
-        else
-            @scene.style.fontSize = 0
         
 module.exports = Camera

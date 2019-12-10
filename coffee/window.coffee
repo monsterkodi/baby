@@ -31,6 +31,7 @@ class MainWin extends win
         @world.start()
         @win.on 'resize' @world.resized        
         
+        gamepad.continuous = true
         gamepad.on 'button' @onPadButton
         gamepad.on 'axis'   @onPadAxis
         
@@ -40,32 +41,9 @@ class MainWin extends win
     # 000        000   000  000   000  
     # 000        000   000  0000000    
     
-    onPadButton: (button, value) =>
-        
-        # klog 'onPadButton' button, value
-        key = switch button
-            when 'Menu'  then 'esc'
-            when 'Back'  then 'q'
-            when 'Start' then 'e'
-            when 'A'     then 'space'
-            when 'B'     then 'f'
-            when 'X'     then 'ctrl'
-            when 'Y'     then 'c'
-            when 'RT'    then 'f'
-            when 'LT'    then 'ctrl'
-            when 'LB'    then 'left'
-            when 'RB'    then 'right'
-            when 'Up' 'Down' 'Left' 'Right' then button.toLowerCase()
+    onPadButton: (button, value) => @world.camera.onPadButton button, value
 
-        if key
-            if value
-                @world.modKeyComboEventDown '' key, key
-            else
-                @world.modKeyComboEventUp '' key, key
-                
-    onPadAxis: (state) => 
-
-        # klog 'onPadAxis' state
+    onPadAxis: (state) => @world.camera.onPadAxis state
                 
     # 000   000  00000000  000   000  
     # 000  000   000        000 000   

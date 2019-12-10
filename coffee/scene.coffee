@@ -12,6 +12,7 @@
 babylon = require 'babylonjs'
 GUI     = require 'babylonjs-gui'
 Vect    = require './vect'
+Legend  = require './legend'
 
 class Scene extends babylon.Scene 
 
@@ -19,6 +20,8 @@ class Scene extends babylon.Scene
     
         super
         @ui = GUI.AdvancedDynamicTexture.CreateFullscreenUI 'ui'
+        
+        @legend = new Legend @ui
         
         @style = @ui.createStyle()
         @style.fontSize = 12
