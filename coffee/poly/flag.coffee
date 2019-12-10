@@ -5,7 +5,7 @@
 000       000      000   000  000   000
 000       0000000  000   000   0000000 
 ###
-#
+
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
 { kerror } = require 'kxk'
@@ -25,10 +25,8 @@ class Flag
         else
             diff = sub coords, @vertices[vertName]
             if mag(diff) > 0.02
-                # klog "#{vertName}" mag diff
                 return true
         false
-                # @vertices[vertName] = add @vertices[vertName], mult 0.5 diff
   
     edge: (faceName, vertName1, vertName2) ->
         
@@ -45,8 +43,6 @@ class Flag
             poly.vertices[ctr] = @vertices[name]
             nm2idx[name] = ctr++
             
-        # klog 'topoly' @
-            
         ctr = 0
         for i,face of @flags
             newFace = []
@@ -55,9 +51,9 @@ class Flag
                 break
 
             newFace.push nm2idx[vN]
-            vN = @flags[i][vN] # goto next vertex
+            vN = @flags[i][vN] # next vertex
             faceCount = 0
-            while vN != v0 # loop until back to start
+            while vN != v0
                 newFace.push nm2idx[vN]
                 vN = @flags[i][vN]
                 if faceCount++ > 100 # prevent infinite loop
@@ -66,8 +62,6 @@ class Flag
             poly.faces[ctr] = newFace
             ctr++
             
-        # klog 'poly' poly
-        
         poly
 
 module.exports = Flag

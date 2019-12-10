@@ -5,11 +5,11 @@
 000   000  000       000  0000  000       000   000  000   000     000     000       
  0000000   00000000  000   000  00000000  000   000  000   000     000     00000000  
 ###
-#
+
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
     
 { klog } = require 'kxk'
-{ add, recenter, rescale } = require './math'
+{ recenter, rescale } = require './math'
 
 poly = require './poly'
 topo = require './topo'
@@ -49,6 +49,7 @@ opmap =
     d: topo.dual
     a: topo.ambo
     k: topo.kis
+    t: topo.truncate
     c: topo.chamfer
     g: topo.gyro
     w: topo.whirl
@@ -67,7 +68,6 @@ replacements = [
     [/b/g,      'ta']    # b    -> ta   bevel
     [/o/g,      'jj']    # o    -> jj   ortho
     [/m/g,      'kj']    # m    -> kj   meta
-    [/t(\d*)/g, 'dk$1d'] # t(n) -> dk(n)d
     [/j/g,      'dad']   # j    -> dad  
     [/s/g,      'dgd']   # s    -> dgd  
     [/dd/g,     '']      # dd   -> 
@@ -92,7 +92,6 @@ generate = (notation, normalize=true) ->
     expanded = notation
     for [orig,equiv] in replacements
         expanded = expanded.replace orig, equiv
-    # klog "#{notation} -> #{expanded}"
     
     oplist = parser.parse(expanded).reverse()
   
@@ -105,7 +104,7 @@ generate = (notation, normalize=true) ->
         opfunc = opmap[op['op']]
         opargs = [poly].concat op['args']
         poly   = dispatch opfunc, opargs
-          
+
     if normalize
         poly.vertices = recenter poly.vertices, poly.edges()
         poly.vertices = rescale  poly.vertices

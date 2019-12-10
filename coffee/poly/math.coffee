@@ -5,12 +5,11 @@
 000 0 000  000   000     000     000   000
 000   000  000   000     000     000   000
 ###
-#
+
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
-#
     
-{ rad2deg, klog, _ } = require 'kxk'
-{ random, round, floor, sqrt, sin, cos, tan, asin, acos, atan, abs, pow, log, PI, LN10 } = Math
+{ _, klog, rad2deg } = require 'kxk'
+{ E, abs, floor, pow, random, round, sqrt } = Math
 
 Vect = require '../vect'
 Quat = require '../quat'
@@ -55,7 +54,9 @@ reciprocal = (vec) -> mult 1.0/mag2(vec), vec # reflect in unit sphere
 
 tangentPoint = (v1, v2) -> # point where line v1...v2 tangent to an origin sphere
     d = sub v2, v1
-    sub v1, mult dot(d, v1)/mag2(d), d
+    l2 = mag2 d
+    return v1 if l2 == 0
+    sub v1, mult dot(d, v1)/l2, d
 
 edgeDist = (v1, v2) -> sqrt mag2 tangentPoint v1, v2 # distance of line v1...v2 to origin
 
@@ -203,14 +204,16 @@ tangentify = (vertices, edges) ->
 
 # recenters entire polyhedron such that center of mass is at origin
 recenter = (vertices, edges) ->
-    #centers of edges
+
     edgecenters = edges.map ([a, b]) -> tangentPoint vertices[a], vertices[b]
+    
     polycenter = [0 0 0]
-    # sum centers to find center of gravity
+
     for v in edgecenters
         polycenter = add polycenter, v
+        
     polycenter = mult 1/edges.length, polycenter
-    # subtract off any deviation from center
+
     _.map vertices, (x) -> sub x, polycenter
 
 # rescales maximum radius of polyhedron to 1

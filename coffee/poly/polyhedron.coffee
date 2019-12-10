@@ -5,21 +5,56 @@
 000        000   000  000         000     000   000  000       000   000  000   000  000   000  000  0000  
 000         0000000   0000000     000     000   000  00000000  0000000    000   000   0000000   000   000  
 ###
-#
+
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
-#
 
 { _ } = require 'kxk'
 { add, mult, normal } = require './math'
+Vect = require '../vect'
 
 class Polyhedron 
 
     @: (@name, @faces, @vertices) ->
 
-        @faces    ?= [] # vertices listed clockwise as seen from outside.
+        @faces    ?= []
         @vertices ?= [] 
-        @name     ?= "null polyhedron"
+        @name     ?= "polyhedron"
 
+    # 000   000  00000000  000   0000000   000   000  0000000     0000000   00000000    0000000  
+    # 0000  000  000       000  000        000   000  000   000  000   000  000   000  000       
+    # 000 0 000  0000000   000  000  0000  000000000  0000000    000   000  0000000    0000000   
+    # 000  0000  000       000  000   000  000   000  000   000  000   000  000   000       000  
+    # 000   000  00000000  000   0000000   000   000  0000000     0000000   000   000  0000000   
+    
+    neighbors: ->
+
+        neighbors = ([] for v in @vertices)
+        for face in @faces
+            for vi in [0...face.length]
+                ni = (vi+1) % face.length
+                if face[ni] not in neighbors[face[vi]]
+                    neighbors[face[vi]].push face[ni]
+                if face[vi] not in neighbors[face[ni]]
+                    neighbors[face[ni]].push face[vi]          
+              
+        for vi in [0...neighbors.length]
+            toVertex = @vert vi
+            toVertex.normalize()
+            toN0 = @vert neighbors[vi][0]
+            perp = toVertex.crossed toN0
+            neighbors[vi].sort (a,b) =>
+                aa = Vect.GetAngleBetweenVectors perp, @vert(a), toVertex
+                bb = Vect.GetAngleBetweenVectors perp, @vert(b), toVertex
+                aa - bb
+                    
+        neighbors
+        
+    # 000   000  000  000   000   0000000    0000000  
+    # 000 0 000  000  0000  000  000        000       
+    # 000000000  000  000 0 000  000  0000  0000000   
+    # 000   000  000  000  0000  000   000       000  
+    # 00     00  000  000   000   0000000   0000000   
+    
     wings: ->
         
         nvert = {}
@@ -62,7 +97,14 @@ class Polyhedron
             v1 = v2
         edges
         
+    # 00000000  0000000     0000000   00000000   0000000  
+    # 000       000   000  000        000       000       
+    # 0000000   000   000  000  0000  0000000   0000000   
+    # 000       000   000  000   000  000            000  
+    # 00000000  0000000     0000000   00000000  0000000   
+    
     edges: ->
+        
         uniqEdges = {}
         faceEdges = @faces.map @faceToEdges
         for edgeSet in faceEdges
@@ -72,6 +114,38 @@ class Polyhedron
                 uniqEdges["#{a}~#{b}"] = e
         _.values uniqEdges
       
+    edge: (v1, v2) ->
+        
+        @vert(v2).subtract @vert(v1)
+    
+    edgeNormal: (v1, v2) ->
+        
+        @vertNormal(v1).add(@vertNormal(v2)).scale(0.5)
+        
+    # 000   000  00000000  00000000   000000000  00000000  000   000  
+    # 000   000  000       000   000     000     000        000 000   
+    #  000 000   0000000   0000000       000     0000000     00000    
+    #    000     000       000   000     000     000        000 000   
+    #     0      00000000  000   000     000     00000000  000   000  
+    
+    vert: (vi) -> 
+    
+        new Vect @vertices[vi]
+                
+    vertNormal: (vi) ->
+         
+        sum = new Vector3 0 0 0
+        for ni in @neighbors(vi)
+            sum.addInPlace @edge vi, ni
+        sum.normalize()
+        sum
+                
+    #  0000000  00000000  000   000  000000000  00000000  00000000    0000000  
+    # 000       000       0000  000     000     000       000   000  000       
+    # 000       0000000   000 0 000     000     0000000   0000000    0000000   
+    # 000       000       000  0000     000     000       000   000       000  
+    #  0000000  00000000  000   000     000     00000000  000   000  0000000   
+    
     centers: -> 
         centersArray = []
         for face in @faces
@@ -81,6 +155,12 @@ class Polyhedron
             centersArray.push mult 1.0/face.length, fcenter
         centersArray
   
+    # 000   000   0000000   00000000   00     00   0000000   000       0000000  
+    # 0000  000  000   000  000   000  000   000  000   000  000      000       
+    # 000 0 000  000   000  0000000    000000000  000000000  000      0000000   
+    # 000  0000  000   000  000   000  000 0 000  000   000  000           000  
+    # 000   000   0000000   000   000  000   000  000   000  0000000  0000000   
+    
     normals: -> 
         normalsArray = []
         for face in @faces

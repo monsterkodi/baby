@@ -5,12 +5,12 @@
 000        000   000  000         000   
 000         0000000   0000000     000   
 ###
-#
+
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
 { add, mult, normal } = require './math'
-{ flatten, canonicalXYZ } = require './topo'
-{ sqrt, sin, cos, pow, PI } = Math
+{ canonicalXYZ, flatten } = require './topo'
+{ PI, cos, pow, sin, sqrt } = Math
 Polyhedron = require './polyhedron'
 
 # 000000000  00000000  000000000  00000000    0000000 

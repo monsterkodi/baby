@@ -41,7 +41,6 @@ class World
         
         light = new DirectionalLight 'light' (new Vector3(0 -1 0)), @scene
         light.position.y = 3
-        # light.intensity = 0.1
         
         shadowGenerator = new ShadowGenerator 8*1024, light
         shadowGenerator.bias = 0.0002
@@ -95,37 +94,37 @@ class World
             for m,j in names
                 
                 for i in [0..10]
-                    truncated = Poly.truncate Poly[m](), i*0.1
-                    p = Mesh.CreatePolyhedron m, {custom:truncated}, @scene
+                    poly = Poly.truncate Poly[m](), i*0.1
+                    p = Mesh.CreatePolyhedron m, {custom:poly}, @scene
+                    @scene.showFaces p, poly
                     p.receiveShadows = true
                     p.convertToFlatShadedMesh()
-                    p.position.x = 3*j
-                    p.position.z = 3*i
-                    p.position.y = -2
+                    p.position.x = -3*j
+                    p.position.z = -3*i
                     shadowGenerator.addShadowCaster p
                     p.material = new StandardMaterial 'mat' @scene
                     p.material.alpha = 1 # 0.8
                     p.material.diffuseColor = new Color3 i/12 (j/6)%1 1-j/12
   
         rows = [
-            ['c0T''c.25T''cT''c.75T''c1T' '' 'h0T''h.25T''hT''h.75T''h1T']
-            ['c0C''c.25C''cC''c.75C''c1C' '' 'h0C''h.25C''hC''h.75C''h1C']
-            ['c0O''c.25O''cO''c.75O''c1O' '' 'h0O''h.25O''hO''h.75O''h1O']
-            ['c0D''c.25D''cD''c.75D''c1D' '' 'h0D''h.25D''hD''h.75D''h1D']
-            ['c0I''c.25I''cI''c.75I''c1I' '' 'h0I''h.25I''hI''h.75I''h1I']
-            ['']
-            ['x0T''x.25T''xT''x.75T''x1T' '' 'n0T''n.25T''nT''n.75T''n1T']
-            ['x0C''x.25C''xC''x.75C''x1C' '' 'n0C''n.25C''nC''n.75C''n1C']
-            ['x0O''x.25O''xO''x.75O''x1O' '' 'n0O''n.25O''nO''n.75O''n1O']
-            ['x0D''x.25D''xD''x.75D''x1D' '' 'n0D''n.25D''nD''n.75D''n1D']
-            ['x0I''x.25I''xI''x.75I''x1I' '' 'n0I''n.25I''nI''n.75I''n1I']
-            ['']
-            ['pT''pC''pO''pD''pI' '' 'z6ztT''z6ztO''ztI']
-            ['eT''eC''eO''eD''eI' '' 'v10z6cT''vcC''vcO''vcD''vcI']
-            ['kT''kC''kO''kD''kI' '' 'aT''aC''aO''aD''aI']
-            ['qT''qC''qO''qD''qI' '' 'gT''gC''gO''gD''gI']
-            ['uT''uC''uO''uD''uI' '' 'wT''wC''wO''wD''wI']
-            # ['dT''dC''dO''dD''dI']
+            ['tT' 'tC' 'tO' 'tD' 'tI']
+            # ['c0T''c.25T''cT''c.75T''c1T' '' 'h0T''h.25T''hT''h.75T''h1T']
+            # ['c0C''c.25C''cC''c.75C''c1C' '' 'h0C''h.25C''hC''h.75C''h1C']
+            # ['c0O''c.25O''cO''c.75O''c1O' '' 'h0O''h.25O''hO''h.75O''h1O']
+            # ['c0D''c.25D''cD''c.75D''c1D' '' 'h0D''h.25D''hD''h.75D''h1D']
+            # ['c0I''c.25I''cI''c.75I''c1I' '' 'h0I''h.25I''hI''h.75I''h1I']
+            # ['']
+            # ['x0T''x.25T''xT''x.75T''x1T' '' 'n0T''n.25T''nT''n.75T''n1T']
+            # ['x0C''x.25C''xC''x.75C''x1C' '' 'n0C''n.25C''nC''n.75C''n1C']
+            # ['x0O''x.25O''xO''x.75O''x1O' '' 'n0O''n.25O''nO''n.75O''n1O']
+            # ['x0D''x.25D''xD''x.75D''x1D' '' 'n0D''n.25D''nD''n.75D''n1D']
+            # ['x0I''x.25I''xI''x.75I''x1I' '' 'n0I''n.25I''nI''n.75I''n1I']
+            # ['']
+            # ['pT''pC''pO''pD''pI' '' 'z6ztT''z6ztO''ztI']
+            # ['eT''eC''eO''eD''eI' '' 'v10z6cT''vcC''vcO''vcD''vcI']
+            # ['kT''kC''kO''kD''kI' '' 'aT''aC''aO''aD''aI']
+            # ['qT''qC''qO''qD''qI' '' 'gT''gC''gO''gD''gI']
+            # ['uT''uC''uO''uD''uI' '' 'wT''wC''wO''wD''wI']
              
             # ['vjT''vjC''vjO''vjD''vjI']
             # ['sT''sC''sO''sD''sI']
@@ -155,6 +154,7 @@ class World
                 # for d,y in ['' 'c.64' 'c.64c.64']
                 for d,y in ['']
                     poly = generate d+code, true
+                    # klog poly
                     p = Mesh.CreatePolyhedron d+code, {custom:poly}, @scene
                     # @scene.showNormals p
                     @scene.showFaces p, poly
@@ -264,7 +264,6 @@ class World
         @canvas.width = @view.clientWidth
         @canvas.height = @view.clientHeight
         @engine.resize()
-        # @scene.resize()
     
     # 000   000  00000000  000   000  
     # 000  000   000        000 000   
@@ -286,6 +285,7 @@ class World
         
     modKeyComboEventUp: (mod, key, combo, event) ->
 
+        # klog 'modKeyComboEventUp' mod, key, combo, event.code
         switch key
             when 'e' then @camera.stopUp()
             when 'q' then @camera.stopDown()
@@ -294,6 +294,5 @@ class World
             when 'w' then @camera.stopForward()
             when 's' then @camera.stopBackward()
         
-        # klog 'modKeyComboEventUp' mod, key, combo, event.code
         
 module.exports = World

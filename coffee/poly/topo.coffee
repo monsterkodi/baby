@@ -5,33 +5,19 @@
    000     000   000  000        000   000    
    000      0000000   000         0000000     
 ###
-#
-# Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
-#
-# Polyhedron Operators
-#
-# for each vertex of new polyhedron
-#     call vert(Vname, xyz) with a symbolic name and coordinates
-#
-# for each flag of new polyhedron
-#     call edge(Fname, Vname1, Vname2) with a symbolic name for the new face
-#     and the symbolic name for two vertices forming an oriented edge
-#
-# Orientation must be dealt with properly to make a manifold mesh
-# Specifically, no edge v1->v2 can ever be crossed in the same direction by two different faces
-# call topoly() to assemble flags into polyhedron structure by following the orbits
-# of the vertex mapping stored in the flagset for each new face
 
-{ clamp, klog, _ } = require 'kxk'
-{ dot, add, neg, mult, mag, sub, unit, cross, rotate, oneThird, tween, intersect, rayRay, 
-  rayPlane, pointPlaneDist, midpoint, calcCentroid, copyVecArray,
-  tangentify, reciprocalC, reciprocalN, recenter, rescale, planarize } = require './math'
-{ min, abs, acos } = Math
+# Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
+
+{ _, clamp, klog } = require 'kxk'
+{ add, calcCentroid, copyVecArray, cross, intersect, mag, midpoint, mult, oneThird, planarize, rayPlane, rayRay, recenter, reciprocalC, reciprocalN, rescale, sub, tangentify, tween, unit } = require './math'
+{ abs, min, sqrt } = Math
+
+ϕ = (sqrt(5)-1)/2
 
 Flag = require './flag'
 Polyhedron = require './polyhedron'
 
-midName = (v1, v2) -> v1<v2 and "#{v1}_#{v2}" or "#{v2}_#{v1}" # unique names of midpoints
+midName = (v1, v2) -> v1<v2 and "#{v1}_#{v2}" or "#{v2}_#{v1}"
 
 # 0000000  000  00000000   000   000  000   000  000       0000000   00000000   000  0000000  00000000  
 #    000   000  000   000  000  000   000   000  000      000   000  000   000  000     000   000       
@@ -77,8 +63,6 @@ zirkularize = (poly, n) ->
 
 dual = (poly) ->
 
-    # klog "dual #{poly.name}" 
-  
     flag = new Flag()
   
     face = [] 
@@ -87,10 +71,10 @@ dual = (poly) ->
 
     for i in [0...poly.faces.length]
         f = poly.faces[i]
-        v1 = f[f.length-1] # last vertex
-        for v2 in f # assumes that no 2 faces share an edge in the same orientation!
+        v1 = f[-1]
+        for v2 in f
             face[v1]["v#{v2}"] = "#{i}"
-            v1 = v2 # current becomes previous
+            v1 = v2
   
     centers = poly.centers()
     
@@ -99,14 +83,13 @@ dual = (poly) ->
   
     for i in [0...poly.faces.length]
         f = poly.faces[i]
-        v1 = f[f.length-1] #previous vertex
+        v1 = f[-1]
         for v2 in f
             flag.edge v1, face[v2]["v#{v1}"], "#{i}"
-            v1=v2 # current becomes previous
+            v1 = v2
   
-    dpoly = flag.topoly() # build topological dual from flags
+    dpoly = flag.topoly()
   
-    # match F index ordering to V index ordering on dual
     sortF = []
     for f in dpoly.faces
         k = intersect poly.faces[f[0]], poly.faces[f[1]], poly.faces[f[2]]
@@ -129,16 +112,11 @@ dual = (poly) ->
 # Kis (abbreviated from triakis) transforms an N-sided face into an N-pyramid rooted at the
 # same base vertices. only kis n-sided faces, but n==0 means kis all.
 
-kis = (poly, n, apexdist) ->
-
-    n ?= 0
-    apexdist ?= 0
-
-    # klog "kis of #{n and "#{n}-sided faces of " or ''}#{poly.name}"
+kis = (poly, apexdist=0, n=0) ->
 
     flag = new Flag()
     for i in [0...poly.vertices.length]
-        p = poly.vertices[i] # each old vertex is a new vertex
+        p = poly.vertices[i]
         flag.vert "v#{i}" p
   
     normals = poly.normals()
@@ -153,21 +131,74 @@ kis = (poly, n, apexdist) ->
                 foundAny = true;
                 apex = "apex#{i}"
                 fname = "#{i}#{v1}"
-                # new vertices in centers of n-sided face
+
                 flag.vert apex, add centers[i], mult apexdist, normals[i]
-                flag.edge fname,   v1,   v2 # the old edge of original face
-                flag.edge fname,   v2, apex # up to apex of pyramid
-                flag.edge fname, apex,   v1 # and back down again
+                flag.edge fname,   v1,   v2
+                flag.edge fname,   v2, apex
+                flag.edge fname, apex,   v1
             else
-                flag.edge "#{i}", v1, v2  # same old flag, if non-n
+                flag.edge "#{i}", v1, v2
             
-            v1 = v2 # current becomes previous
+            v1 = v2
   
     if not foundAny
         klog "No #{n}-fold components were found."
   
     flag.topoly "k#{n}#{poly.name}"
 
+# 000000000  00000000   000   000  000   000   0000000   0000000   000000000  00000000  
+#    000     000   000  000   000  0000  000  000       000   000     000     000       
+#    000     0000000    000   000  000 0 000  000       000000000     000     0000000   
+#    000     000   000  000   000  000  0000  000       000   000     000     000       
+#    000     000   000   0000000   000   000   0000000  000   000     000     00000000  
+
+truncate = (poly, factor=0.5) ->
+
+    factor = clamp 0 1 factor
+    edgeMap = {}
+    
+    numFaces    = poly.faces.length
+    numVertices = poly.vertices.length
+    neighbors   = poly.neighbors()
+    
+    edge0 = poly.edge 0 neighbors[0][0]
+    depth = 0.5 * factor * edge0.length() 
+    
+    for vertexIndex in [0...numVertices]
+        
+        edgeMap[vertexIndex] ?= {}
+        face = []
+        
+        nl = neighbors[vertexIndex].length
+        for ii in [0...nl]
+            ni = neighbors[vertexIndex][ii]
+            edgeMap[vertexIndex][ni] = poly.vertices.length
+            vp = poly.edge vertexIndex, ni
+            vp.normalize()
+            vp.scaleInPlace depth
+            vp.addInPlace poly.vert vertexIndex
+            face.push poly.vertices.length
+            poly.vertices.push [vp.x, vp.y, vp.z]
+            
+        poly.faces.push face
+    
+    for fi in [0...numFaces]
+        face = poly.faces[fi]
+        newFace = []
+        for vi in [0...face.length]
+            ni = (vi+1) % face.length
+            newFace.push edgeMap[face[vi]][face[ni]]
+            if factor < 1
+                newFace.push edgeMap[face[ni]][face[vi]]
+        poly.faces[fi] = newFace
+      
+    poly.vertices.splice 0, numVertices
+    for face in poly.faces
+        for i in [0...face.length]
+            face[i] -= numVertices
+        
+    poly
+    
 #  0000000   00     00  0000000     0000000   
 # 000   000  000   000  000   000  000   000  
 # 000000000  000000000  0000000    000   000  
@@ -184,13 +215,12 @@ ambo = (poly) ->
         f = poly.faces[i]
         [v1, v2] = f.slice(-2)
         for v3 in f
-            if v1 < v2 # vertices are the midpoints of all edges of original poly
+            if v1 < v2
                 flag.vert midName(v1,v2), midpoint poly.vertices[v1], poly.vertices[v2]
-            # face corresponds to the original f
+
             flag.edge "orig#{i}"  midName(v1,v2), midName(v2,v3)
-            # face corresponds to (the truncated) v2
             flag.edge "dual#{v2}" midName(v2,v3), midName(v1,v2)
-            # shift over one
+
             [v1, v2] = [v2, v3]
   
     flag.topoly "a#{poly.name}"
@@ -296,15 +326,6 @@ chamfer = (poly, factor=0.5) ->
 # 000   000  000   000  000  000   000  000      
 # 00     00  000   000  000  000   000  0000000  
 
-# Gyro followed by truncation of vertices centered on original faces.
-# This create 2 new hexagons for every original edge.
-# (https:#en.wikipedia.org/wiki/Conway_polyhedron_notation#Operations_on_polyhedra)
-#
-# Possible extension: take a parameter n that means only whirl n-sided faces.
-# If we do that, the flags marked #* below will need to have their other sides
-# filled in one way or another, depending on whether the adjacent face is
-# whirled or not.
-
 whirl = (poly, n=0) ->
 
     flag = new Flag()
@@ -334,7 +355,7 @@ whirl = (poly, n=0) ->
             flag.edge fname, cv2name,   cv1name
             flag.edge "c#{i}", cv1name, cv2name
             
-            [v1, v2] = [v2, v3] # shift over one
+            [v1, v2] = [v2, v3]
   
     canonicalize flag.topoly "w#{poly.name}"
 
@@ -379,37 +400,31 @@ gyro = (poly) ->
 # 000 0000   000   000  000  000  0000     000     000   000  
 #  00000 00   0000000   000  000   000     000      0000000   
 
-quinto = (poly) -> # creates a pentagon for every point in the original face, as well as one new inset face.
+quinto = (poly) -> # creates a pentagon for every vertex and a new inset face
     
-    # klog "quinto of #{poly.name}"
     flag = new Flag()
   
-    # For each face f in the original poly
     for i in [0...poly.faces.length]
         f = poly.faces[i]
         centroid = calcCentroid f.map (idx) -> poly.vertices[idx]
-        # walk over face vertex-triplets
+
         [v1, v2] = f.slice -2
         for v3 in f
-            # for each face-corner, we make two new points:
             midpt = midpoint poly.vertices[v1], poly.vertices[v2]
             innerpt = midpoint midpt, centroid
             flag.vert midName(v1,v2), midpt
             flag.vert "inner_#{i}_" + midName(v1,v2), innerpt
-            # and add the old corner-vertex
             flag.vert "#{v2}" poly.vertices[v2]
           
-            # pentagon for each vertex in original face
             flag.edge "f#{i}_#{v2}", "inner_#{i}_"+midName(v1, v2), midName(v1, v2)
             flag.edge "f#{i}_#{v2}", midName(v1, v2), "#{v2}"
             flag.edge "f#{i}_#{v2}", "#{v2}", midName(v2, v3)
             flag.edge "f#{i}_#{v2}", midName(v2, v3), "inner_#{i}_"+midName(v2, v3)
             flag.edge "f#{i}_#{v2}", "inner_#{i}_"+midName(v2, v3), "inner_#{i}_"+midName(v1, v2)
       
-            # inner rotated face of same vertex-number as original
             flag.edge "f_in_#{i}", "inner_#{i}_"+midName(v1, v2), "inner_#{i}_"+midName(v2, v3)
       
-            [v1, v2] = [v2, v3] # shift over one
+            [v1, v2] = [v2, v3]
   
     flag.topoly "q#{poly.name}"
 
@@ -534,9 +549,7 @@ hollow = (poly, insetf, thickness) ->
 
 perspectiva = (poly) -> # an operation reverse-engineered from Perspectiva Corporum Regularium
 
-    # klog "stella of #{poly.name}"
-  
-    centers = poly.centers() # calculate face centers
+    centers = poly.centers()
   
     flag = new Flag()
     for i in [0...poly.vertices.length]
@@ -572,7 +585,7 @@ perspectiva = (poly) -> # an operation reverse-engineered from Perspectiva Corpo
             flag.edge "f#{v12}" v21, v12
             flag.edge "f#{v12}" v12, v1
       
-            [v1, v2] = [v2, v3]  # current becomes previous
+            [v1, v2] = [v2, v3]
             [vert1, vert2] = [vert2, vert3]
   
     flag.topoly "P#{poly.name}"
@@ -585,7 +598,6 @@ perspectiva = (poly) -> # an operation reverse-engineered from Perspectiva Corpo
 
 trisub = (poly, n=2) ->
     
-    # No-Op for non-triangular meshes
     for fn in [0...poly.faces.length]
         if poly.faces[fn].length != 3
             return poly
@@ -634,9 +646,6 @@ trisub = (poly, n=2) ->
                             uniqmap[vmap["v#{fn}-#{i}-#{j+1}"]], 
                             uniqmap[vmap["v#{fn}-#{i-1}-#{j+1}"]]]
   
-    # klog 'faces' faces
-    # klog 'vertices' uniqVs                         
-    
     new Polyhedron "u#{n}#{poly.name}" faces, uniqVs
 
 #  0000000   0000000   000   000   0000000   000   000  000   0000000   0000000   000      000  0000000  00000000  
@@ -659,11 +668,10 @@ trisub = (poly, n=2) ->
 
 canonicalize = (poly, iter=200) ->
 
-    # klog "canonicalize #{poly.name}"
     faces = poly.faces
     edges = poly.edges()
     verts = poly.vertices
-    maxChange = 1.0 # convergence tracker
+    maxChange = 1.0
     for i in [0..iter]
         oldVs = copyVecArray verts
         verts = tangentify verts, edges
@@ -672,20 +680,14 @@ canonicalize = (poly, iter=200) ->
         maxChange = _.max _.map _.zip(verts, oldVs), ([x, y]) -> mag sub x, y
         if maxChange < 1e-8
             break
-    # one should now rescale, but not rescaling here makes for very interesting numerical
-    # instabilities that make interesting mutants on multiple applications...
-    # more experience will tell what to do
     verts = rescale(verts)
-    # klog "[canonicalization done, last |deltaV|=#{maxChange}]"
     newpoly = new Polyhedron poly.name, poly.faces, verts
-    # klog "canonicalize" newpoly
     newpoly
     
 canonicalXYZ = (poly, iterations) ->
 
     iterations ?= 1
     dpoly = dual poly
-    # klog "canonicalXYZ #{poly.name}"
   
     for count in [0...iterations] # reciprocate face normals
         dpoly.vertices = reciprocalN poly
@@ -696,10 +698,9 @@ canonicalXYZ = (poly, iterations) ->
 flatten = (poly, iterations) -> # quick planarization
     
     iterations ?= 1
-    dpoly = dual poly # v's of dual are in order of arg's f's
-    # klog "flatten #{poly.name}"
+    dpoly = dual poly
   
-    for count in [0...iterations] # reciprocate face centers
+    for count in [0...iterations]
         dpoly.vertices = reciprocalC poly
         poly.vertices  = reciprocalC dpoly
   
@@ -714,6 +715,7 @@ flatten = (poly, iterations) -> # quick planarization
 module.exports =
     dual:           dual
     trisub:         trisub
+    truncate:       truncate
     perspectiva:    perspectiva
     kis:            kis
     ambo:           ambo
