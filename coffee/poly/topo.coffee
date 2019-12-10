@@ -112,8 +112,13 @@ dual = (poly) ->
 # Kis (abbreviated from triakis) transforms an N-sided face into an N-pyramid rooted at the
 # same base vertices. only kis n-sided faces, but n==0 means kis all.
 
-kis = (poly, apexdist=0, n=0) ->
+kis = (poly, apexdist=0.5, n=0) ->
 
+    apexdist = clamp -1 10 apexdist
+    
+    if apexdist < 0
+        apexdist = apexdist * poly.minFaceDist()
+    
     flag = new Flag()
     for i in [0...poly.vertices.length]
         p = poly.vertices[i]
@@ -161,8 +166,7 @@ truncate = (poly, factor=0.5) ->
     numVertices = poly.vertices.length
     neighbors   = poly.neighbors()
     
-    edge0 = poly.edge 0 neighbors[0][0]
-    depth = 0.5 * factor * edge0.length() 
+    depth = 0.5 * factor * poly.minEdgeLength()
     
     for vertexIndex in [0...numVertices]
         

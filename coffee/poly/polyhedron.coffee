@@ -9,7 +9,8 @@
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
 { _ } = require 'kxk'
-{ add, mult, normal } = require './math'
+{ add, mag, mult, normal } = require './math'
+{ min } = Math
 Vect = require '../vect'
 
 class Polyhedron 
@@ -89,7 +90,8 @@ class Polyhedron
     
         wings
         
-    faceToEdges: (face) -> # array of edges [v1,v2] for face
+    faceToEdges: (face) -> 
+        # array of edges [v1,v2] for face
         edges = []
         v1 = face[-1]
         for v2 in face
@@ -121,6 +123,15 @@ class Polyhedron
     edgeNormal: (v1, v2) ->
         
         @vertNormal(v1).add(@vertNormal(v2)).scale(0.5)
+        
+    minEdgeLength: ->
+        
+        minEdgeLength = Infinity
+        
+        for edge in @edges()
+            minEdgeLength = min minEdgeLength, @vert(edge[0]).dist @vert edge[1]
+            
+        minEdgeLength
         
     # 000   000  00000000  00000000   000000000  00000000  000   000  
     # 000   000  000       000   000     000     000        000 000   
@@ -154,6 +165,15 @@ class Polyhedron
                 fcenter = add fcenter, @vertices[vidx]
             centersArray.push mult 1.0/face.length, fcenter
         centersArray
+        
+    minFaceDist: ->
+        
+        minFaceDist = Infinity
+        
+        for center in @centers()
+            minFaceDist = min minFaceDist, mag center
+            
+        minFaceDist
   
     # 000   000   0000000   00000000   00     00   0000000   000       0000000  
     # 0000  000  000   000  000   000  000   000  000   000  000      000       

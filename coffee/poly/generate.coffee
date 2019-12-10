@@ -68,8 +68,8 @@ replacements = [
     [/b/g,      'ta']    # b    -> ta   bevel
     [/o/g,      'jj']    # o    -> jj   ortho
     [/m/g,      'kj']    # m    -> kj   meta
-    [/j/g,      'dad']   # j    -> dad  
-    [/s/g,      'dgd']   # s    -> dgd  
+    [/j/g,      'da']    # j    -> da
+    [/s/g,      'dg']    # s    -> dg
     [/dd/g,     '']      # dd   -> 
     [/ad/g,     'a']     # ad   -> a   
     [/gd/g,     'g']     # gd   -> g   

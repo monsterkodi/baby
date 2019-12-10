@@ -25,8 +25,8 @@ class Camera extends UniversalCamera
         height = @view.clientHeight
                 
         @size       = vec width, height
-        @dist       = 10
-        @maxDist    = 100
+        @dist       = 100
+        @maxDist    = 200
         @minDist    = 9
         @moveDist   = 0.1
         @center     = vec 10.5 3 6
