@@ -191,9 +191,14 @@ copyVecArray = (vecArray) -> # copies array of arrays by value (deep copy)
         newVecArray[i] = vecArray[i].slice 0
     newVecArray
 
-# adjusts vertices on edges such that each edge is tangent to an origin sphere
-tangentify = (vertices, edges) ->
+# 000000000   0000000   000   000   0000000   00000000  000   000  000000000  000  00000000  000   000  
+#    000     000   000  0000  000  000        000       0000  000     000     000  000        000 000   
+#    000     000000000  000 0 000  000  0000  0000000   000 0 000     000     000  000000      00000    
+#    000     000   000  000  0000  000   000  000       000  0000     000     000  000          000     
+#    000     000   000  000   000   0000000   00000000  000   000     000     000  000          000     
 
+tangentify = (vertices, edges) ->
+    # adjusts vertices on edges such that each edge is tangent to an origin sphere
     newVs = copyVecArray vertices
     for e in edges
         t = tangentPoint newVs[e[0]], newVs[e[1]] 
@@ -202,9 +207,14 @@ tangentify = (vertices, edges) ->
         newVs[e[1]] = add newVs[e[1]], c
     newVs
 
-# recenters entire polyhedron such that center of mass is at origin
-recenter = (vertices, edges) ->
+# 00000000   00000000   0000000  00000000  000   000  000000000  00000000  00000000   
+# 000   000  000       000       000       0000  000     000     000       000   000  
+# 0000000    0000000   000       0000000   000 0 000     000     0000000   0000000    
+# 000   000  000       000       000       000  0000     000     000       000   000  
+# 000   000  00000000   0000000  00000000  000   000     000     00000000  000   000  
 
+recenter = (vertices, edges) ->
+    # recenters entire polyhedron such that center of mass is at origin
     edgecenters = edges.map ([a, b]) -> tangentPoint vertices[a], vertices[b]
     
     polycenter = [0 0 0]
@@ -216,15 +226,27 @@ recenter = (vertices, edges) ->
 
     _.map vertices, (x) -> sub x, polycenter
 
-# rescales maximum radius of polyhedron to 1
+# 00000000   00000000   0000000   0000000   0000000   000      00000000  
+# 000   000  000       000       000       000   000  000      000       
+# 0000000    0000000   0000000   000       000000000  000      0000000   
+# 000   000  000            000  000       000   000  000      000       
+# 000   000  00000000  0000000    0000000  000   000  0000000  00000000  
+
 rescale = (vertices) ->
+    # rescales maximum radius of polyhedron to 1
     polycenter = [0 0 0]
     maxExtent = _.max _.map vertices, (x) -> mag x
     s = 1 / maxExtent
     _.map vertices, (x) -> [s*x[0], s*x[1], s*x[2]]
 
-# adjusts vertices in each face to improve its planarity
+# 00000000   000       0000000   000   000   0000000   00000000   000  0000000  00000000  
+# 000   000  000      000   000  0000  000  000   000  000   000  000     000   000       
+# 00000000   000      000000000  000 0 000  000000000  0000000    000    000    0000000   
+# 000        000      000   000  000  0000  000   000  000   000  000   000     000       
+# 000        0000000  000   000  000   000  000   000  000   000  000  0000000  00000000  
+
 planarize = (vertices, faces) ->
+    # adjusts vertices in each face to improve its planarity
     STABILITY_FACTOR = 0.1 # Hack to improve convergence
     newVs = copyVecArray vertices # copy vertices
     for f in faces
@@ -237,18 +259,24 @@ planarize = (vertices, faces) ->
             newVs[v] = add newVs[v], mult dot(mult(STABILITY_FACTOR, n), sub(c, vertices[v])), n
     newVs
 
+# 00000000   00000000   0000000  000  00000000   00000000    0000000    0000000   0000000   000      
+# 000   000  000       000       000  000   000  000   000  000   000  000       000   000  000      
+# 0000000    0000000   000       000  00000000   0000000    000   000  000       000000000  000      
+# 000   000  000       000       000  000        000   000  000   000  000       000   000  000      
+# 000   000  00000000   0000000  000  000        000   000   0000000    0000000  000   000  0000000  
+
 # Hacky Canonicalization Algorithm
 # Using center of gravity of vertices for each face to planarize faces
 
-# get the spherical reciprocals of face centers
 reciprocalC = (poly) ->
+    # get the spherical reciprocals of face centers
     centers = poly.centers()
     for c in centers
         c = mult 1.0/dot(c,c), c
     centers
 
-# make array of vertices reciprocal to given planes
 reciprocalN = (poly) ->
+    # make array of vertices reciprocal to given planes
     ans = []
     for f in poly.faces #for each face
         centroid    = [0 0 0] # running sum of vertex coords

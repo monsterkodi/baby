@@ -19,6 +19,20 @@ Polyhedron = require './polyhedron'
 
 midName = (v1, v2) -> v1<v2 and "#{v1}_#{v2}" or "#{v2}_#{v1}"
 
+#  0000000  00000000   000   000  00000000  00000000   000   0000000   0000000   000      000  0000000  00000000  
+# 000       000   000  000   000  000       000   000  000  000       000   000  000      000     000   000       
+# 0000000   00000000   000000000  0000000   0000000    000  000       000000000  000      000    000    0000000   
+#      000  000        000   000  000       000   000  000  000       000   000  000      000   000     000       
+# 0000000   000        000   000  00000000  000   000  000   0000000  000   000  0000000  000  0000000  00000000  
+
+sphericalize = (poly) ->
+
+    verts = []
+    for vertex,vi in poly.vertices
+        verts.push unit poly.vertices[vi]
+        
+    new Polyhedron "z#{poly.name}" poly.faces, verts
+
 # 0000000  000  00000000   000   000  000   000  000       0000000   00000000   000  0000000  00000000  
 #    000   000  000   000  000  000   000   000  000      000   000  000   000  000     000   000       
 #   000    000  0000000    0000000    000   000  000      000000000  0000000    000    000    0000000   
@@ -661,7 +675,7 @@ trisub = (poly, n=2) ->
 # Slow Canonicalization Algorithm
 #
 # This algorithm has some convergence problems, what really needs to be done is to
-# sum the three forcing factors together as a conherent force and to use a half-decent
+# sum the three forcing factors together as a coherent force and to use a half-decent
 # integrator to make sure that it converges well as opposed to the current hack of
 # ad-hoc stability multipliers.  Ideally one would implement a conjugate gradient
 # descent or similar pretty thing.
@@ -684,9 +698,8 @@ canonicalize = (poly, iter=200) ->
         maxChange = _.max _.map _.zip(verts, oldVs), ([x, y]) -> mag sub x, y
         if maxChange < 1e-8
             break
-    verts = rescale(verts)
-    newpoly = new Polyhedron poly.name, poly.faces, verts
-    newpoly
+    verts = rescale verts
+    new Polyhedron poly.name, poly.faces, verts
     
 canonicalXYZ = (poly, iterations) ->
 
@@ -732,6 +745,7 @@ module.exports =
     hollow:         hollow
     flatten:        flatten
     zirkularize:    zirkularize
+    sphericalize:   sphericalize
     canonicalize:   canonicalize
     canonicalXYZ:   canonicalXYZ
     

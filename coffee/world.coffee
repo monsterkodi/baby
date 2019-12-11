@@ -105,8 +105,8 @@ class World
                     p.material = new StandardMaterial 'mat' @scene
                     p.material.alpha = 1 # 0.8
                     p.material.diffuseColor = new Color3 i/12 (j/6)%1 1-j/12
-                      
-        rows = [
+                                          
+        rows0 = [
             ['tT' 'xT' 'nT' 'cT' 'hT'     '' 'pT''pC''pO''pD''pI'  ''  'mA3' 'qY3' 'jY8' 'sP3' 'bY8' ]
             ['tC' 'xC' 'nC' 'cC' 'hC'     '' 'eT''eC''eO''eD''eI'  ''  'mU3' 'qU3' 'jU3' 'sA3' 'bP3' ]
             ['tO' 'xO' 'nO' 'cO' 'hO'     '' 'kT''kC''kO''kD''kI'  ''  'mV3' 'qP6' 'jV3' 'sY6' 'bP7' ]
@@ -184,6 +184,11 @@ class World
             ['mV3''mV5''mV7''mV9''mV12' '' 'qV3''qV5''qV7''qV9''qV12' '' 'jV3''jV5''jV7''jV9''jV12']
             ]
             
+        rows=[]
+        rows.unshift [[]]
+        for alias,code of generate.alias
+            rows[0].push code 
+
         ri = 0
         for row in rows
             ci = 0
@@ -212,6 +217,7 @@ class World
                     f = (ci%6)/5
                     r = ri%6
                     p.material.diffuseColor = new Color3 f*((r&1)>>0), f*((r&2)>>1), f*((r&4)>>2)
+                    p.material.diffuseColor = new Color3 .25 .25 .25
             
     # 00     00   0000000   000   000   0000000  00000000  
     # 000   000  000   000  000   000  000       000       

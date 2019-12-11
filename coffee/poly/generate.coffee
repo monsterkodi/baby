@@ -62,6 +62,7 @@ opmap =
     f: topo.flatten
     v: topo.canonicalize
     z: topo.zirkularize
+    r: topo.sphericalize
 
 replacements = [
     [/e/g,      'aa']    # e    -> aa   explode
@@ -79,6 +80,46 @@ replacements = [
     [/gI/g,     'gD']    # gI   -> gD  
 ]
 
+alias = 
+    # platonic solids
+    #cube:                           'C'
+    #tetrahedron:                    'T'
+    #octahedron:                     'O'
+    #dodecahedron:                   'D'
+    #icosahedron:                    'I'
+    # archimedian solids
+    # 'truncated tetrahedron':        'tT'
+    # 'truncated cube':               'tC'
+    # 'truncated octahedron':         'tO'
+    # 'truncated dodecahedron':       'tD'
+    # 'truncated icosahedron':        'tI'
+    # 'truncated cuboctahedron':      'dmD'
+    # 'truncated icosidodecahedron':  'zdmC' #
+    # 'cuboctahedron':                'djC' #
+    # 'icosidodecahedron':            'djD' #
+    # 'rhombicuboctahedron':          'doC'
+    'rhombicosidodecahedron1':      'aD' 
+    'rhombicosidodecahedron3':      'vdaD'
+    'rhombicosidodecahedron4':      'avdaD'
+    'rhombicosidodecahedron':       'adaD' #'doD'
+    # 'snub cube':                    'dgC' #
+    # 'snub dodecahedron':            'dgD' #
+
+    # catalan solids
+    # 'triakis tetrahedron':          'vdtT' # 'kT' 
+    # 'triakis octahedron':           'vdtC' # 'kO' 
+    # 'tetrakis hexahedron':          'rdtO' # 'kC' 
+    # 'triakis icosahedron':          'vdtD' # 'kI' 
+    # 'pentakis dodecahedron':        'rkD' # 'k.2515D' 
+    # 'disdyakis triacontahedron':    'rmD' #
+    # 'disdyakis dodecahedron':       'vmC' #
+    # 'rhombic dodecahedron':         'vjC' #
+    # 'rhombic triacontahedron':      'vjD' #
+    # 'deltoidal icositetrahedron':   'voC' #
+    # 'deltoidal hexecontahedron':    'oD'  #
+    # 'pentagonal icositetrahedron':  'gC'  #
+    # 'pentagonal hexecontahedron':   'gD'  #
+    
 #  0000000   00000000  000   000  00000000  00000000    0000000   000000000  00000000
 # 000        000       0000  000  000       000   000  000   000     000     000     
 # 000  0000  0000000   000 0 000  0000000   0000000    000000000     000     0000000 
@@ -113,4 +154,6 @@ generate = (notation, normalize=true) ->
     poly.face   = poly.faces
     poly #.colorize()
 
+generate.alias = alias
+    
 module.exports = generate
