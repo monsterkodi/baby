@@ -119,11 +119,11 @@ class Vect extends Vector3
     length:    -> sqrt @x*@x + @y*@y + @z*@z
     dot:   (v) -> @x*v.x + @y*v.y + @z*v.z
     
-    add:   (v) -> @addInPlace v
+    sub:   (v) -> @subtractInPlace v
     mul:   (f) -> new Vect @x*f, @y*f, @z*f
     div:   (d) -> new Vect @x/d, @y/d, @z/d
-    plus:  (v) -> new Vect(v).add @
-    minus: (v) -> new Vect(v).neg().add @
+    plus:  (v) -> new Vect(v).addInPlace @
+    minus: (v) -> new Vect(v).neg().addInPlace @
     neg:       -> new Vect -@x, -@y, -@z
     to:    (v) -> new Vect(v).sub @
         

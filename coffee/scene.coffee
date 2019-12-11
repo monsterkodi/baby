@@ -44,7 +44,7 @@ class Scene extends babylon.Scene
         
         for i in [0...normals.length] by 3
             v1 = Vector3.FromArray positions, i
-            v2 = v1.add Vector3.FromArray(normals, i).scaleInPlace(size)
+            v2 = v1.addInPlace Vector3.FromArray(normals, i).scaleInPlace(size)
             lines.push [v1, v2]
             
         system = MeshBuilder.CreateLineSystem 'normals' lines:lines

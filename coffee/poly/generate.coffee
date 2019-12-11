@@ -63,9 +63,9 @@ opmap =
     v: topo.canonicalize
     z: topo.zirkularize
     r: topo.sphericalize
+    e: topo.expand
 
 replacements = [
-    [/e/g,      'aa']    # e    -> aa   explode
     [/b/g,      'ta']    # b    -> ta   bevel
     [/o/g,      'jj']    # o    -> jj   ortho
     [/m/g,      'kj']    # m    -> kj   meta
@@ -98,10 +98,11 @@ alias =
     # 'cuboctahedron':                'djC' #
     # 'icosidodecahedron':            'djD' #
     # 'rhombicuboctahedron':          'doC'
-    'rhombicosidodecahedron1':      'aD' 
-    'rhombicosidodecahedron3':      'vdaD'
-    'rhombicosidodecahedron4':      'avdaD'
-    'rhombicosidodecahedron':       'adaD' #'doD'
+    # 'rhombicosidodecahedron1':      'aD' 
+    # 'rhombicosidodecahedron3':      'vdaD'
+    # 'rhombicosidodecahedron4':      'avdaD'
+    # 'rhombicosidodecahedron5':      'adaD' #'doD'
+    'rhombicosidodecahedron':       'e1D'
     # 'snub cube':                    'dgC' #
     # 'snub dodecahedron':            'dgD' #
 

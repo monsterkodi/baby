@@ -188,6 +188,8 @@ class World
         rows.unshift [[]]
         for alias,code of generate.alias
             rows[0].push code 
+            
+        rows = [[0..10].map (i) -> "e#{0.8+i/100}D"]
 
         ri = 0
         for row in rows

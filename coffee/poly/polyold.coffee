@@ -92,7 +92,7 @@ class Poly
     
     @edgeNormal: (poly, v1, v2) ->
         
-        @vertexNormal(poly, v1).add(@vertexNormal(poly, v2)).scale(0.5)
+        @vertexNormal(poly, v1).addInPlace(@vertexNormal(poly, v2)).scale(0.5)
         
     # 000000000  00000000   000   000  000   000   0000000   0000000   000000000  00000000  
     #    000     000   000  000   000  0000  000  000       000   000     000     000       

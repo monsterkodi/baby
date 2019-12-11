@@ -9,8 +9,9 @@
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
 { _, clamp, klog } = require 'kxk'
-{ add, calcCentroid, copyVecArray, cross, intersect, mag, midpoint, mult, oneThird, planarize, rayPlane, rayRay, recenter, reciprocalC, reciprocalN, rescale, sub, tangentify, tween, unit } = require './math'
+{ add, calcCentroid, clockwise, copyVecArray, cross, intersect, mag, midpoint, mult, oneThird, planarize, rayPlane, rayRay, recenter, reciprocalC, reciprocalN, rescale, sub, tangentify, tween, unit } = require './math'
 { abs, min, sqrt } = Math
+Vect = require '../vect'
 
 ϕ = (sqrt(5)-1)/2
 
@@ -18,6 +19,52 @@ Flag = require './flag'
 Polyhedron = require './polyhedron'
 
 midName = (v1, v2) -> v1<v2 and "#{v1}_#{v2}" or "#{v2}_#{v1}"
+
+# 00000000  000   000  00000000    0000000   000   000  0000000    
+# 000        000 000   000   000  000   000  0000  000  000   000  
+# 0000000     00000    00000000   000000000  000 0 000  000   000  
+# 000        000 000   000        000   000  000  0000  000   000  
+# 00000000  000   000  000        000   000  000   000  0000000    
+
+expand = (poly, amount=0.5) ->
+
+    amount    = clamp 0 10 amount
+    oldedges  = poly.edges()
+    centers   = poly.centers()
+    neighbors = poly.neighbors()
+    wings     = poly.wings()
+        
+    verts = []
+    faces = []
+    vmap  = {}
+    imap  = {}
+    newV  = 0
+    for fi in [0...poly.faces.length]
+        d = sub mult(1+amount, centers[fi]), centers[fi]
+        f = poly.faces[fi]
+        face = []
+        for v,vi in f
+            vmap[v] ?= []
+            vmap[v].push newV
+            imap[newV] = v
+            verts.push add poly.vertices[v], d
+            nextV = newV+(vi==f.length-1 and -f.length+1 or 1)
+            face.push newV
+            newV++
+        faces.push face
+            
+    for wing in wings
+        [a,b] = wing
+        face = vmap[a].concat vmap[b]
+        face = face.filter (v) -> (v in faces[wing[2].fr]) or (v in faces[wing[2].fl])
+        clockwise verts, face
+        faces.push face
+
+    for o,n of vmap
+        clockwise verts, n
+        faces.push n
+        
+    new Polyhedron "e#{poly.name}" faces, verts
 
 #  0000000  00000000   000   000  00000000  00000000   000   0000000   0000000   000      000  0000000  00000000  
 # 000       000   000  000   000  000       000   000  000  000       000   000  000      000     000   000       
@@ -135,8 +182,7 @@ kis = (poly, apexdist=0.5, n=0) ->
     
     flag = new Flag()
     for i in [0...poly.vertices.length]
-        p = poly.vertices[i]
-        flag.vert "v#{i}" p
+        flag.vert "v#{i}" poly.vertices[i]
   
     normals = poly.normals()
     centers = poly.centers()
@@ -742,6 +788,7 @@ module.exports =
     quinto:         quinto
     inset:          inset
     extrude:        extrude
+    expand:         expand
     hollow:         hollow
     flatten:        flatten
     zirkularize:    zirkularize

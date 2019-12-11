@@ -8,11 +8,13 @@
 
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
     
-{ _, klog, rad2deg } = require 'kxk'
+{ _, first, klog, rad2deg } = require 'kxk'
 { E, abs, floor, pow, random, round, sqrt } = Math
 
 Vect = require '../vect'
 Quat = require '../quat'
+vec = (x,y,z) -> new Vect x, y, z
+quat = (x,y,z,w) -> new Quat x, y, z, w
 
 sigfigs = (N, nsigs) -> # string with nsigs digits ignoring magnitude
     
@@ -31,26 +33,26 @@ clone = (obj) -> # deep-copy
 
 randomchoice = (array) -> array[floor random()*array.length]
 
-neg      = (vec) -> [-vec[0], -vec[1], -vec[2]]
-mult     = (c, vec) -> [c*vec[0], c*vec[1], c*vec[2]]
+neg      = (v) -> [-v[0], -v[1], -v[2]]
+mult     = (c, v) -> [c*v[0], c*v[1], c*v[2]]
 _mult    = (v1, v2) -> [v1[0]*v2[0], v1[1]*v2[1], v1[2]*v2[2]]
 add      = (v1, v2) -> [v1[0]+v2[0], v1[1]+v2[1], v1[2]+v2[2]]
 sub      = (v1, v2) -> [v1[0]-v2[0], v1[1]-v2[1], v1[2]-v2[2]]
 dot      = (v1, v2) -> (v1[0]*v2[0]) + (v1[1]*v2[1]) + (v1[2]*v2[2])
 cross    = (d1, d2) -> [(d1[1]*d2[2]) - (d1[2]*d2[1]), (d1[2]*d2[0]) - (d1[0]*d2[2]), (d1[0]*d2[1]) - (d1[1]*d2[0])]
-mag      = (vec) -> sqrt dot vec, vec
-mag2     = (vec) -> dot vec, vec
-unit     = (vec) -> mult 1/sqrt(mag2(vec)), vec
+mag      = (v) -> sqrt dot v, v
+mag2     = (v) -> dot v, v
+unit     = (v) -> mult 1/sqrt(mag2(v)), v
 tween    = (v1, v2, t) -> [((1-t)*v1[0]) + (t*v2[0]), ((1-t)*v1[1]) + (t*v2[1]), ((1-t)*v1[2]) + (t*v2[2])]
 midpoint = (v1, v2) -> mult 0.5, add v1, v2
 oneThird = (v1, v2) -> tween v1, v2, 1/3.0
 
-rotate = (vec, axis, angle) ->
+rotate = (v, axis, angle) ->
     rot = Quat.axisAngle (new Vect axis), rad2deg angle
-    res = rot.rotated vec
+    res = rot.rotated v
     res.coords()
 
-reciprocal = (vec) -> mult 1.0/mag2(vec), vec # reflect in unit sphere
+reciprocal = (v) -> mult 1.0/mag2(v), v # reflect in unit sphere
 
 tangentPoint = (v1, v2) -> # point where line v1...v2 tangent to an origin sphere
     d = sub v2, v1
@@ -59,6 +61,27 @@ tangentPoint = (v1, v2) -> # point where line v1...v2 tangent to an origin spher
     sub v1, mult dot(d, v1)/l2, d
 
 edgeDist = (v1, v2) -> sqrt mag2 tangentPoint v1, v2 # distance of line v1...v2 to origin
+
+#  0000000  000       0000000    0000000  000   000  000   000  000   0000000  00000000  
+# 000       000      000   000  000       000  000   000 0 000  000  000       000       
+# 000       000      000   000  000       0000000    000000000  000  0000000   0000000   
+# 000       000      000   000  000       000  000   000   000  000       000  000       
+#  0000000  0000000   0000000    0000000  000   000  00     00  000  0000000   00000000  
+
+clockwise = (verts, indices) ->
+    
+    midp = new Vect
+    for v in indices
+        midp.addInPlace vec verts[v]
+    midp.normalize()
+    first = midp.to vec verts[indices[0]]
+    
+    indices.sort (a,b) ->
+        aa = Vect.GetAngleBetweenVectors first, new Vect(verts[a]), midp
+        bb = Vect.GetAngleBetweenVectors first, new Vect(verts[b]), midp
+        aa - bb
+        
+    indices
 
 # square of distance from point v3 to line segment v1...v2
 # http:#mathworld.wolfram.com/Point-LineDistance3-Dimensional.html
@@ -191,6 +214,55 @@ copyVecArray = (vecArray) -> # copies array of arrays by value (deep copy)
         newVecArray[i] = vecArray[i].slice 0
     newVecArray
 
+# 000   000  000  000   000   0000000    0000000  
+# 000 0 000  000  0000  000  000        000       
+# 000000000  000  000 0 000  000  0000  0000000   
+# 000   000  000  000  0000  000   000       000  
+# 00     00  000  000   000   0000000   0000000   
+
+facesToWings = (faces) ->
+    
+    nvert = {}
+    pvert = {}
+    epool = []
+    for fi in [0...faces.length]
+        edges = faceToEdges faces[fi]
+        edges.forEach (edge) -> 
+            nvert[fi] ?= {}
+            pvert[fi] ?= {}
+            nvert[fi][edge[0]] = edge[1]
+            pvert[fi][edge[1]] = edge[0]
+            edge.push fr:fi
+        epool = epool.concat edges
+        
+    wings = []
+    
+    while epool.length
+        edge = epool.shift()
+        edge[2].nr = nvert[edge[2].fr][edge[1]]
+        edge[2].pr = pvert[edge[2].fr][edge[0]]
+        for oi in [0...epool.length]
+            other = epool[oi]
+            if other[0] == edge[1] and other[1] == edge[0]
+                edge[2].fl = other[2].fr
+                edge[2].nl = pvert[edge[2].fl][edge[1]]
+                edge[2].pl = nvert[edge[2].fl][edge[0]]
+                epool.splice oi, 1
+                break
+        
+        wings.push edge
+
+    wings
+
+faceToEdges = (face) -> 
+    # array of edges [v1,v2] for face
+    edges = []
+    v1 = face[-1]
+    for v2 in face
+        edges.push [v1, v2]
+        v1 = v2
+    edges
+    
 # 000000000   0000000   000   000   0000000   00000000  000   000  000000000  000  00000000  000   000  
 #    000     000   000  0000  000  000        000       0000  000     000     000  000        000 000   
 #    000     000000000  000 0 000  000  0000  0000000   000 0 000     000     000  000000      00000    
@@ -298,6 +370,8 @@ reciprocalN = (poly) ->
     ans
     
 module.exports =
+    vec:            vec
+    quat:           quat
     add:            add
     sub:            sub
     dot:            dot
@@ -312,6 +386,9 @@ module.exports =
     rayRay:         rayRay
     oneThird:       oneThird
     midpoint:       midpoint
+    clockwise:      clockwise
+    faceToEdges:    faceToEdges
+    facesToWings:   facesToWings
     calcCentroid:   calcCentroid
     copyVecArray:   copyVecArray
     reciprocal:     reciprocal

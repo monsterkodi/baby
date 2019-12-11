@@ -9,7 +9,7 @@
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
 { _ } = require 'kxk'
-{ add, mag, mult, normal } = require './math'
+{ add, faceToEdges, facesToWings, mag, mult, normal } = require './math'
 { min } = Math
 Vect = require '../vect'
 
@@ -56,49 +56,8 @@ class Polyhedron
     # 000   000  000  000  0000  000   000       000  
     # 00     00  000  000   000   0000000   0000000   
     
-    wings: ->
-        
-        nvert = {}
-        pvert = {}
-        epool = []
-        for fi in [0...@faces.length]
-            edges = @faceToEdges @faces[fi]
-            edges.forEach (edge) -> 
-                nvert[fi] ?= {}
-                pvert[fi] ?= {}
-                nvert[fi][edge[0]] = edge[1]
-                pvert[fi][edge[1]] = edge[0]
-                edge.push fr:fi
-            epool = epool.concat edges
-            
-        wings = []
-        
-        while epool.length
-            edge = epool.shift()
-            edge[2].nr = nvert[edge[2].fr][edge[1]]
-            edge[2].pr = pvert[edge[2].fr][edge[0]]
-            for oi in [0...epool.length]
-                other = epool[oi]
-                if other[0] == edge[1] and other[1] == edge[0]
-                    edge[2].fl = other[2].fr
-                    edge[2].nl = pvert[edge[2].fl][edge[1]]
-                    edge[2].pl = nvert[edge[2].fl][edge[0]]
-                    epool.splice oi, 1
-                    break
-            
-            wings.push edge
-    
-        wings
-        
-    faceToEdges: (face) -> 
-        # array of edges [v1,v2] for face
-        edges = []
-        v1 = face[-1]
-        for v2 in face
-            edges.push [v1, v2]
-            v1 = v2
-        edges
-        
+    wings: -> facesToWings @faces
+                        
     # 00000000  0000000     0000000   00000000   0000000  
     # 000       000   000  000        000       000       
     # 0000000   000   000  000  0000  0000000   0000000   
@@ -108,7 +67,7 @@ class Polyhedron
     edges: ->
         
         uniqEdges = {}
-        faceEdges = @faces.map @faceToEdges
+        faceEdges = @faces.map faceToEdges
         for edgeSet in faceEdges
             for e in edgeSet
                 if e[0]<e[1] then [a, b] = e
@@ -122,7 +81,7 @@ class Polyhedron
     
     edgeNormal: (v1, v2) ->
         
-        @vertNormal(v1).add(@vertNormal(v2)).scale(0.5)
+        @vertNormal(v1).addInPlace(@vertNormal(v2)).scale(0.5)
         
     minEdgeLength: ->
         

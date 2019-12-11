@@ -171,7 +171,7 @@ class Camera extends UniversalCamera
         up = vec 0, y, 0 
         up.applyQuaternion @rotationQuaternion
         
-        @center.add right.plus up
+        @center.addInPlace right.plus up
         @centerTarget?.copy @center
         @navigate()
             
@@ -267,7 +267,7 @@ class Camera extends UniversalCamera
         
     moveRelative: (x, y, z) ->
         
-        @center.add @rotationQuaternion.rotate vec x, y, z
+        @center.addInPlace @rotationQuaternion.rotate vec x, y, z
             
     # 000   000  000   000  00000000  00000000  000      
     # 000 0 000  000   000  000       000       000      
