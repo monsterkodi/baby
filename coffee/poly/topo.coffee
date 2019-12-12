@@ -9,7 +9,7 @@
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
 { _, clamp, klog } = require 'kxk'
-{ add, angle, calcCentroid, clockwise, copyVecArray, cross, intersect, mag, midpoint, mult, oneThird, planarize, rayPlane, rayRay, recenter, reciprocalC, reciprocalN, rescale, rotate, sub, tangentify, tween, unit } = require './math'
+{ add, angle, calcCentroid, clockwise, copyVecArray, cross, faceToEdges, intersect, mag, midpoint, mult, oneThird, planarize, rayPlane, rayRay, recenter, reciprocalC, reciprocalN, rescale, rotate, sub, tangentify, tween, unit } = require './math'
 { min, sqrt } = Math
 Vect = require '../vect'
 
@@ -549,55 +549,74 @@ extrude = (poly, popout=1, insetf=0.5, n=0) ->
 # 000   000  000   000  000      000      000   000  000   000  
 # 000   000   0000000   0000000  0000000   0000000   00     00  
 
-hollow = (poly, insetf, thickness) ->
+hollow = (poly, insetf=0.5, thickness=0.5) ->
 
-    insetf ?= 0.5
-    insetf  = clamp 0.1 0.9 insetf
-    thickness ?= insetf*2/3
-    thickness = min insetf*2/3, thickness
-  
+    insetf = clamp 0.1 0.9 insetf
     dualnormals = dual(poly).normals()
     normals = poly.normals()
     centers = poly.centers()
-  
+    wings   = poly.wings()
+    
+    thickness ?= Infinity
+    for i in [0...poly.face.length]
+        for edge in faceToEdges poly.face[i]
+            e0 = poly.vertex[edge[0]]
+            e1 = poly.vertex[edge[1]]
+            n0 = tween e0, centers[i], insetf
+            n1 = tween e1, centers[i], insetf
+            mo = midpoint e0, e1
+            mn = midpoint n0, n1
+            thickness = min thickness, mag sub mo, mn
+    
+    klog insetf, thickness
+    
     flag = new Flag()
     for i in [0...poly.vertex.length]
         p = poly.vertex[i]
         flag.vert "v#{i}" p
-        flag.vert "downv#{i}" add p, mult -1*thickness,dualnormals[i]
+        # flag.vert "downv#{i}" add p, mult -thickness, dualnormals[i]
 
     for i in [0...poly.face.length]
         f = poly.face[i]
         for v in f
-            flag.vert "fin#{i}v#{v}" tween poly.vertex[v], centers[i], insetf
-            flag.vert "findown#{i}v#{v}" add tween(poly.vertex[v],centers[i],insetf), mult(-1*thickness,normals[i])
+            insetv = tween poly.vertex[v], centers[i], insetf
+            flag.vert "fin#{i}v#{v}" insetv
+            flag.vert "findown#{i}v#{v}" add insetv, mult -thickness, normals[i]
   
     for i in [0...poly.face.length]
         f = poly.face[i]
         v1 = "v#{f[f.length-1]}"
         for v in f
+            
             v2 = "v#{v}"
+            i1 = "fin#{i}#{v1}"
+            i2 = "fin#{i}#{v2}"
+            d1 = "down#{v1}"
+            d2 = "down#{v2}"
+            f1 = "findown#{i}#{v1}"
+            f2 = "findown#{i}#{v2}"
+            
             fname = i + v1
-            flag.edge fname, v1,            v2
-            flag.edge fname, v2,            "fin#{i}#{v2}"
-            flag.edge fname, "fin#{i}#{v2}" "fin#{i}#{v1}"
-            flag.edge fname, "fin#{i}#{v1}" v1
+            flag.edge fname, v1, v2
+            flag.edge fname, v2, i2
+            flag.edge fname, i2, i1
+            flag.edge fname, i1, v1
       
             fname = "sides#{i}#{v1}"
-            flag.edge fname, "fin#{i}#{v1}"     "fin#{i}#{v2}"
-            flag.edge fname, "fin#{i}#{v2}"     "findown#{i}#{v2}"
-            flag.edge fname, "findown#{i}#{v2}" "findown#{i}#{v1}"
-            flag.edge fname, "findown#{i}#{v1}" "fin#{i}#{v1}"
+            flag.edge fname, i1, i2
+            flag.edge fname, i2, f2
+            flag.edge fname, f2, f1
+            flag.edge fname, f1, i1
       
-            fname = "bottom#{i}#{v1}"
-            flag.edge fname,  "down#{v2}"        "down#{v1}"
-            flag.edge fname,  "down#{v1}"        "findown#{i}#{v1}"
-            flag.edge fname,  "findown#{i}#{v1}" "findown#{i}#{v2}"
-            flag.edge fname,  "findown#{i}#{v2}" "down#{v2}"
+            # fname = "bottom#{i}#{v1}"
+            # flag.edge fname, d2, d1
+            # flag.edge fname, d1, f1
+            # flag.edge fname, f1, f2
+            # flag.edge fname, f2, d2
       
             v1 = v2
   
-    flag.topoly "H#{poly.name}"
+    flag.topoly "h#{poly.name}"
 
 # 00000000   00000000  00000000    0000000  00000000   00000000   0000000  000000000  000  000   000   0000000 
 # 000   000  000       000   000  000       000   000  000       000          000     000  000   000  000   000

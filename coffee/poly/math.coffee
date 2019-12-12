@@ -9,18 +9,12 @@
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
     
 { _, first, klog } = require 'kxk'
-{ E, abs, floor, pow, random, round, sqrt } = Math
+{ E, LN10, abs, floor, pow, round, sqrt } = Math
 
 Vect = require '../vect'
 Quat = require '../quat'
-vec = (x,y,z) -> new Vect x, y, z
+vec  = (x,y,z)   -> new Vect x, y, z
 quat = (x,y,z,w) -> new Quat x, y, z, w
-
-sigfigs = (N, nsigs) -> # string with nsigs digits ignoring magnitude
-    
-  mantissa = N / pow 10 floor log(N)/LN10
-  truncated_mantissa = round mantissa * pow 10 nsigs-1
-  "#{truncated_mantissa}"
 
 clone = (obj) -> # deep-copy
     
@@ -30,8 +24,6 @@ clone = (obj) -> # deep-copy
     for key of obj 
         newInstance[key] = clone obj[key]
     newInstance
-
-randomchoice = (array) -> array[floor random()*array.length]
 
 neg      = (v) -> [-v[0], -v[1], -v[2]]
 mult     = (c, v) -> [c*v[0], c*v[1], c*v[2]]
@@ -84,33 +76,13 @@ clockwise = (verts, indices) ->
         aa - bb
         
     indices
-
-# square of distance from point v3 to line segment v1...v2
-# http:#mathworld.wolfram.com/Point-LineDistance3-Dimensional.html
-# calculates min distance from point v3 to finite line segment between v1 and v2
-
-linePointDist2 = (v1, v2, v3) ->
-
-    d21 = sub v2, v1
-    d13 = sub v1, v3
-    d23 = sub v2, v3
-    m2 = mag2 d21
-    t = -dot(d13, d21)/m2
-    if t <= 0
-        # closest to point beyond v1, clip to |v3-v1|^2
-        result = mag2 d13
-    else if (t >= 1) 
-        # closest to point beyond v2, clip to |v3-v2|^2
-        result = mag2 d23
-    else
-        # closest in-between v1, v2
-        result = mag2(cross d21, d13)/m2
-    result
     
-pointPlaneDist = (pos, planePos, planeNormal) ->
-    
-    mag sub pos, rayPlane pos, planeNormal, planePos, planeNormal
-    
+# 00000000    0000000   000   000  
+# 000   000  000   000   000 000   
+# 0000000    000000000    00000    
+# 000   000  000   000     000     
+# 000   000  000   000     000     
+
 rayPlane = (rayPos, rayDirection, planePos, planeNormal) ->
     
     x = dot(sub(planePos, rayPos), planeNormal) / dot(rayDirection, planeNormal)
@@ -154,8 +126,14 @@ calcCentroid = (vertices) ->
         centroidV = add centroidV, v
     mult 1 / vertices.length, centroidV 
 
-# calculate average normal vector for array of vertices
+# 000   000   0000000   00000000   00     00   0000000   000      
+# 0000  000  000   000  000   000  000   000  000   000  000      
+# 000 0 000  000   000  0000000    000000000  000000000  000      
+# 000  0000  000   000  000   000  000 0 000  000   000  000      
+# 000   000   0000000   000   000  000   000  000   000  0000000  
+
 normal = (vertices) ->
+    # average normal vector for array of vertices
     normalV = [0 0 0] 
     [v1, v2] = vertices.slice -2
     for v3 in vertices
@@ -173,9 +151,21 @@ planararea = (vertices) ->
         [v1, v2] = [v2, v3]
     area = abs dot(normal(vertices), vsum) / 2.0
 
-# congruence signature for assigning same colors to congruent faces
+#  0000000  000   0000000   000   000   0000000   000000000  000   000  00000000   00000000  
+# 000       000  000        0000  000  000   000     000     000   000  000   000  000       
+# 0000000   000  000  0000  000 0 000  000000000     000     000   000  0000000    0000000   
+#      000  000  000   000  000  0000  000   000     000     000   000  000   000  000       
+# 0000000   000   0000000   000   000  000   000     000      0000000   000   000  00000000  
+
+sigfigs = (N, nsigs) -> # string with nsigs digits ignoring magnitude
+    
+  mantissa = N / pow 10 floor Math.log(N) / LN10
+  truncated_mantissa = round mantissa * pow 10 nsigs-1
+  "#{truncated_mantissa}"
+
 faceSignature = (vertices, sensitivity) ->
 
+    # congruence signature for assigning same colors to congruent faces
     cross_array = []
     [v1, v2] = vertices.slice -2
     for v3 in vertices
@@ -195,18 +185,6 @@ faceSignature = (vertices, sensitivity) ->
     for x in cross_array.reverse() 
         sig += sigfigs x, sensitivity
     sig
-
-# projects 3d polyhedral face to 2d polygon for triangulation and face display
-project2dface = (verts) ->
-    tmpverts = clone verts
-    v0 = verts[0]
-    tmpverts = _.map (tmpverts,x) -> x-v0
-  
-    n = normal verts
-    c = unit calcCentroid verts #XXX: correct?
-    p = cross n, c
-  
-    tmpverts.map (v) -> [dot(n, v), dot(p, v)]
 
 copyVecArray = (vecArray) -> # copies array of arrays by value (deep copy)
     
@@ -373,12 +351,12 @@ reciprocalN = (poly) ->
     
 module.exports =
     vec:            vec
-    quat:           quat
     add:            add
     sub:            sub
     dot:            dot
     mag:            mag
     neg:            neg
+    quat:           quat
     mult:           mult
     unit:           unit
     angle:          angle
@@ -387,25 +365,27 @@ module.exports =
     normal:         normal
     rotate:         rotate
     rayRay:         rayRay
+    sigfigs:        sigfigs
+    rescale:        rescale
+    recenter:       recenter
+    edgeDist:       edgeDist
     oneThird:       oneThird
     midpoint:       midpoint
+    rayPlane:       rayPlane
+    intersect:      intersect
     clockwise:      clockwise
+    planarize:      planarize
+    tangentify:     tangentify
+    planararea:     planararea
+    orthogonal:     orthogonal
+    reciprocal:     reciprocal
+    reciprocalN:    reciprocalN
+    reciprocalC:    reciprocalC
     faceToEdges:    faceToEdges
     facesToWings:   facesToWings
     calcCentroid:   calcCentroid
     copyVecArray:   copyVecArray
-    reciprocal:     reciprocal
-    edgeDist:       edgeDist
-    intersect:      intersect
-    orthogonal:     orthogonal
     tangentPoint:   tangentPoint
-    pointPlaneDist: pointPlaneDist
-    rayPlane:       rayPlane
-    rescale:        rescale
-    recenter:       recenter
-    planarize:      planarize
-    reciprocalN:    reciprocalN
-    reciprocalC:    reciprocalC
-    tangentify:     tangentify
+    faceSignature:  faceSignature
     
     

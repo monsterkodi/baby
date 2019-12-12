@@ -6,7 +6,7 @@
  0000000  000   000  000   000  00000000  000   000  000   000
 ###
 
-{ clamp, deg2rad, gamepad, reduce } = require 'kxk'
+{ clamp, deg2rad, gamepad, klog, prefs, reduce } = require 'kxk'
 { Camera, PointLight, UniversalCamera } = require 'babylonjs'
 
 Vect = require './vect'
@@ -23,16 +23,20 @@ class Camera extends UniversalCamera
         
         width  = @view.clientWidth
         height = @view.clientHeight
-                
+             
+        values = prefs.get 'camera' dist:10 degree:90 rotate:0, pos:{x:0,y:0,z:0}
+        
+        klog values
+        
         @size       = vec width, height
-        @dist       = 10
+        @dist       = values.dist
         @maxDist    = 200
         @minDist    = 9
         @moveDist   = 0.1
         @center     = vec 0 0 0
         @moveFade   = vec 0 0 0
-        @degree     = 90
-        @rotate     = 90
+        @degree     = values.degree
+        @rotate     = values.rotate
         @wheelInert = 0
         @pivotX     = 0
         @pivotY     = 0
@@ -45,7 +49,8 @@ class Camera extends UniversalCamera
 
         @fov = deg2rad 20
         @rotationQuaternion = new Quat()
-        @setTarget @center
+        @position = vec values.pos
+        # @setTarget @center
                 
         @inertia = 0.8
         
@@ -334,11 +339,11 @@ class Camera extends UniversalCamera
         
     setFov: (fov) -> @fov = Math.max(2.0 Math.min fov, 175.0)
     
-    # 000   000  00000000   0000000     0000000   000000000  00000000  
-    # 000   000  000   000  000   000  000   000     000     000       
-    # 000   000  00000000   000   000  000000000     000     0000000   
-    # 000   000  000        000   000  000   000     000     000       
-    #  0000000   000        0000000    000   000     000     00000000  
+    # 000   000   0000000   000   000  000   0000000    0000000   000000000  00000000  
+    # 0000  000  000   000  000   000  000  000        000   000     000     000       
+    # 000 0 000  000000000   000 000   000  000  0000  000000000     000     0000000   
+    # 000  0000  000   000     000     000  000   000  000   000     000     000       
+    # 000   000  000   000      0      000   0000000   000   000     000     00000000  
     
     navigate: -> 
         
@@ -347,8 +352,10 @@ class Camera extends UniversalCamera
         yaw   = deg2rad @rotate
         pitch = deg2rad @degree
         @rotationQuaternion.copyFrom Quat.RotationYawPitchRoll yaw, pitch, 0
-        @position.copyFrom @center.plus @rotationQuaternion.rotate vec(0 0 -@dist)
+        @position.copyFrom @center.plus @rotationQuaternion.rotate vec 0 0 -@dist
         @setTarget @center
+        
+        prefs.set 'camera' rotate:@rotate, degree:@degree, dist:@dist, pos:{x:@position.x, y:@position.y, z:@position.z}
         
         if 18*@minDist/@dist >= 8
             @scene.style.fontSize = 18*@minDist/@dist

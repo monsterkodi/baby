@@ -9,7 +9,7 @@
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
 { _ } = require 'kxk'
-{ add, faceToEdges, facesToWings, mag, mult, normal } = require './math'
+{ add, faceSignature, faceToEdges, facesToWings, mag, mult, normal, planararea, sigfigs } = require './math'
 { min } = Math
 Vect = require '../vect'
 

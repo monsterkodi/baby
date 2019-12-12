@@ -6,11 +6,10 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ deg2rad, elem, empty, klog, prefs } = require 'kxk'
-{ Camera, Color3, DirectionalLight, Engine, HemisphericLight, Mesh, MeshBuilder, Scene, ShadowGenerator, StandardMaterial, Vector3 } = require 'babylonjs'
+{ colors, deg2rad, elem, empty, prefs } = require 'kxk'
+{ Camera, Color3, Color4, DirectionalLight, Engine, HemisphericLight, Mesh, MeshBuilder, Scene, ShadowGenerator, StandardMaterial, Vector3 } = require 'babylonjs'
 
 generate = require './poly/generate'
-Poly     = require './poly/polyold'
 Vect     = require './vect'
 Camera   = require './camera'
 Scene    = require './scene'
@@ -74,39 +73,8 @@ class World
         window.addEventListener 'pointerdown' @onMouseDown
         window.addEventListener 'pointermove' @onMouseMove
         window.addEventListener 'pointerup'   @onMouseUp
-            
-        if 0
-            names = [
-                'tetrahedron'
-                'cube'
-                'octahedron'
-                'dodecahedron'
-                'icosahedron'
-                'cuboctahedron'
-                'icosidodecahedron'
-                'truncatedicosidodecahedron' 
-                'rhombicosidodecahedron' 
-                'rhombicubocahedron' 
-                'snubicosidodecahedron' 
-                'snubcuboctahedron'
-            ]
-            
-            for m,j in names
-                
-                for i in [0..10]
-                    poly = Poly.truncate Poly[m](), i*0.1
-                    p = Mesh.CreatePolyhedron m, {custom:poly}, @scene
-                    @scene.showFaces p, poly
-                    p.receiveShadows = true
-                    p.convertToFlatShadedMesh()
-                    p.position.x = -3*j
-                    p.position.z = -3*i
-                    shadowGenerator.addShadowCaster p
-                    p.material = new StandardMaterial 'mat' @scene
-                    p.material.alpha = 1 # 0.8
-                    p.material.diffuseColor = new Color3 i/12 (j/6)%1 1-j/12
-                                          
-        rows0 = [
+                                                      
+        rows = [
             ['tT' 'xT' 'nT' 'cT' 'hT'     '' 'pT''pC''pO''pD''pI'  ''  'mA3' 'qY3' 'jY8' 'sP3' 'bY8' ]
             ['tC' 'xC' 'nC' 'cC' 'hC'     '' 'eT''eC''eO''eD''eI'  ''  'mU3' 'qU3' 'jU3' 'sA3' 'bP3' ]
             ['tO' 'xO' 'nO' 'cO' 'hO'     '' 'kT''kC''kO''kD''kI'  ''  'mV3' 'qP6' 'jV3' 'sY6' 'bP7' ]
@@ -187,11 +155,22 @@ class World
         rows=[]
         rows.unshift [[]]
         for alias,code of generate.alias
-            rows[0].push code 
+            rows[0].push 'h'+code 
             
-        # rows = [[0..10].map (i) -> "e#{0.8541228+i/10000000}D"]
-        # rows = [[""]]
-
+        rows = [['hT']]
+            
+        colors = [
+            new Color4  0  0  1 1
+            new Color4  1  0  0 1
+            new Color4  0  1  0 1
+            new Color4  1  0  1 1
+            new Color4 .5 .5 .5 1
+            new Color4  0  1  1 1
+            new Color4 .7 .7 .7 1
+            new Color4  1  1  1 1
+            new Color4 .2 .2 .2 1
+        ]
+        
         ri = 0
         for row in rows
             ci = 0
@@ -199,11 +178,15 @@ class World
             for code in row
                 ci++
                 continue if empty code
-                # for d,y in ['' 'c.64' 'c.64c.64']
                 for d,y in ['']
                     poly = generate d+code, true
-                    klog parseInt(poly.maxEdgeDifference() * 1000), d+code
-                    p = Mesh.CreatePolyhedron d+code, {custom:poly}, @scene
+                    # klog parseInt(poly.maxEdgeDifference() * 1000), d+code
+                    
+                    poly.colorize 'signature'
+                    # klog 'colors' poly.colors
+                    faceColors = poly.colors.map (ci) -> colors[ci]
+                    
+                    p = Mesh.CreatePolyhedron d+code, {custom:poly, faceColors:faceColors}, @scene
                     # @scene.showNormals p
                     @scene.showFaces p, poly
                     # @scene.showDebug p, poly

@@ -48,23 +48,23 @@ basemap =
 opmap =
     a: topo.ambo
     b: topo.bevel
-    d: topo.dual
-    k: topo.kis
-    t: topo.truncate
     c: topo.chamfer
+    d: topo.dual
+    e: topo.expand
+    f: topo.flatten
     g: topo.gyro
-    w: topo.whirl
+    h: topo.hollow
+    k: topo.kis
     n: topo.inset
-    x: topo.extrude
     p: topo.perspectiva
     q: topo.quinto
-    u: topo.trisub
-    h: topo.hollow
-    f: topo.flatten
-    v: topo.canonicalize
-    z: topo.zirkularize
     r: topo.sphericalize
-    e: topo.expand
+    t: topo.truncate
+    u: topo.trisub
+    v: topo.canonicalize
+    w: topo.whirl
+    x: topo.extrude
+    z: topo.zirkularize
 
 replacements = [
     [/o/g,      'jj']    # o    -> jj   ortho
@@ -81,28 +81,27 @@ replacements = [
 ]
 
 alias = 
-    # platonic solids
-    # cube:                           'C'
-    # tetrahedron:                    'T'
-    # octahedron:                     'O'
-    # dodecahedron:                   'D'
-    # icosahedron:                    'I'
-    #archimedian solids
-    'truncated tetrahedron':          't.6667T'
-    'truncated cube':                 't.5858C'
-    'truncated octahedron':           't.6667O'
-    'truncated dodecahedron':         't.5528D'
-    'truncated icosahedron':          't.667I'
-    'truncated cuboctahedron':        'z1.151b.667C'
-    'truncated icosidodecahedron':    'z1.226b.667D'
-    'cuboctahedron':                  'djC' 
-    'icosidodecahedron':              'djD' 
-    'rhombicuboctahedron':            'e1.414C'
-    'rhombicosidodecahedron':         'e.8541D'
-    'snub cube':                      'dgC' 
-    'snub dodecahedron':              'dgD' 
-
-    # catalan solids
+    # platonic
+    cube:                           'C'
+    tetrahedron:                    'T'
+    octahedron:                     'O'
+    dodecahedron:                   'D'
+    icosahedron:                    'I'
+    # archimedian
+    'truncated tetrahedron':        't.6667T'
+    'truncated cube':               't.5858C'
+    'truncated octahedron':         't.6667O'
+    'truncated dodecahedron':       't.5528D'
+    'truncated icosahedron':        't.667I'
+    'truncated cuboctahedron':      'z1.151b.667C'
+    'truncated icosidodecahedron':  'z1.226b.667D'
+    'cuboctahedron':                'djC' 
+    'icosidodecahedron':            'djD' 
+    'rhombicuboctahedron':          'e1.414C'
+    'rhombicosidodecahedron':       'e.8541D'
+    'snub cube':                    'dgC' 
+    'snub dodecahedron':            'dgD' 
+    # catalan
     'triakis tetrahedron':          'vdtT' # 'kT' 
     'triakis octahedron':           'vdtC' # 'kO' 
     'tetrakis hexahedron':          'rdtO' # 'kC' 
@@ -147,7 +146,7 @@ generate = (notation, normalize=true) ->
         poly.vertex = recenter poly.vertex, poly.edges()
         poly.vertex = rescale  poly.vertex
   
-    poly #.colorize()
+    poly
 
 generate.alias = alias
     
