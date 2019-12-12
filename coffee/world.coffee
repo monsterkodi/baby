@@ -6,7 +6,7 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ deg2rad, elem, empty, prefs } = require 'kxk'
+{ deg2rad, elem, empty, klog, prefs } = require 'kxk'
 { Camera, Color3, DirectionalLight, Engine, HemisphericLight, Mesh, MeshBuilder, Scene, ShadowGenerator, StandardMaterial, Vector3 } = require 'babylonjs'
 
 generate = require './poly/generate'
@@ -189,7 +189,8 @@ class World
         for alias,code of generate.alias
             rows[0].push code 
             
-        rows = [[0..10].map (i) -> "e#{0.8+i/100}D"]
+        # rows = [[0..10].map (i) -> "e#{0.8541228+i/10000000}D"]
+        # rows = [[""]]
 
         ri = 0
         for row in rows
@@ -201,7 +202,7 @@ class World
                 # for d,y in ['' 'c.64' 'c.64c.64']
                 for d,y in ['']
                     poly = generate d+code, true
-                    # klog poly
+                    klog parseInt(poly.maxEdgeDifference() * 1000), d+code
                     p = Mesh.CreatePolyhedron d+code, {custom:poly}, @scene
                     # @scene.showNormals p
                     @scene.showFaces p, poly

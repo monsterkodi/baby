@@ -25,14 +25,14 @@ class Camera extends UniversalCamera
         height = @view.clientHeight
                 
         @size       = vec width, height
-        @dist       = 100
+        @dist       = 10
         @maxDist    = 200
         @minDist    = 9
         @moveDist   = 0.1
-        @center     = vec 10.5 3 6
+        @center     = vec 0 0 0
         @moveFade   = vec 0 0 0
         @degree     = 90
-        @rotate     = 0
+        @rotate     = 90
         @wheelInert = 0
         @pivotX     = 0
         @pivotY     = 0
@@ -41,7 +41,7 @@ class Camera extends UniversalCamera
         @moveZ      = 0
         @quat       = quat()
         
-        super 'Camera' vec(0 -10 0), @scene
+        super 'Camera' vec(0 0 0), @scene
 
         @fov = deg2rad 20
         @rotationQuaternion = new Quat()

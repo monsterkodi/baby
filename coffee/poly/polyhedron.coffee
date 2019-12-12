@@ -15,11 +15,11 @@ Vect = require '../vect'
 
 class Polyhedron 
 
-    @: (@name, @faces, @vertices) ->
+    @: (@name, @face, @vertex) ->
 
-        @faces    ?= []
-        @vertices ?= [] 
-        @name     ?= "polyhedron"
+        @face   ?= []
+        @vertex ?= [] 
+        @name   ?= "polyhedron"
 
     # 000   000  00000000  000   0000000   000   000  0000000     0000000   00000000    0000000  
     # 0000  000  000       000  000        000   000  000   000  000   000  000   000  000       
@@ -29,8 +29,8 @@ class Polyhedron
     
     neighbors: ->
 
-        neighbors = ([] for v in @vertices)
-        for face in @faces
+        neighbors = ([] for v in @vertex)
+        for face in @face
             for vi in [0...face.length]
                 ni = (vi+1) % face.length
                 if face[ni] not in neighbors[face[vi]]
@@ -56,7 +56,7 @@ class Polyhedron
     # 000   000  000  000  0000  000   000       000  
     # 00     00  000  000   000   0000000   0000000   
     
-    wings: -> facesToWings @faces
+    wings: -> facesToWings @face
                         
     # 00000000  0000000     0000000   00000000   0000000  
     # 000       000   000  000        000       000       
@@ -67,7 +67,7 @@ class Polyhedron
     edges: ->
         
         uniqEdges = {}
-        faceEdges = @faces.map faceToEdges
+        faceEdges = @face.map faceToEdges
         for edgeSet in faceEdges
             for e in edgeSet
                 if e[0]<e[1] then [a, b] = e
@@ -91,6 +91,15 @@ class Polyhedron
             minEdgeLength = min minEdgeLength, @vert(edge[0]).dist @vert edge[1]
             
         minEdgeLength
+
+    maxEdgeDifference: ->
+        diffs = []
+        for face in @face
+            length = []
+            for edge in faceToEdges face
+                length.push @vert(edge[0]).to(@vert(edge[1])).length()
+            diffs.push _.max(length) - _.min(length)
+        _.max diffs
         
     # 000   000  00000000  00000000   000000000  00000000  000   000  
     # 000   000  000       000   000     000     000        000 000   
@@ -100,7 +109,7 @@ class Polyhedron
     
     vert: (vi) -> 
     
-        new Vect @vertices[vi]
+        new Vect @vertex[vi]
                 
     vertNormal: (vi) ->
          
@@ -118,10 +127,10 @@ class Polyhedron
     
     centers: -> 
         centersArray = []
-        for face in @faces
+        for face in @face
             fcenter = [0 0 0]
             for vidx in face
-                fcenter = add fcenter, @vertices[vidx]
+                fcenter = add fcenter, @vertex[vidx]
             centersArray.push mult 1.0/face.length, fcenter
         centersArray
         
@@ -142,13 +151,13 @@ class Polyhedron
     
     normals: -> 
         normalsArray = []
-        for face in @faces
-            normalsArray.push normal face.map (vidx) => @vertices[vidx]
+        for face in @face
+            normalsArray.push normal face.map (vidx) => @vertex[vidx]
         normalsArray
   
     data: ->
-        nEdges = (@faces.length + @vertices.length) - 2; # E = V + F - 2
-        "#{@faces.length} faces, #{nEdges} edges, #{@vertices.length} vertices"
+        nEdges = (@face.length + @vertex.length) - 2; # E = V + F - 2
+        "#{@face.length} faces, #{nEdges} edges, #{@vertex.length} vertices"
         
     colorize: (method='sidedness') -> # assign color indices to faces
         
@@ -156,13 +165,13 @@ class Polyhedron
         colormemory = {}
         colorassign = (hash) -> colormemory[hash] ?= _.size colormemory
       
-        for f in @faces
+        for f in @face
             switch method
                 when 'area' # color by face planar area assuming flatness
-                    face_verts = f.map (v) => @vertices[v]
+                    face_verts = f.map (v) => @vertex[v]
                     clr = colorassign sigfigs planararea(face_verts), 2
                 when 'signature' # color by congruence signature
-                    face_verts = f.map (v) => @vertices[v]
+                    face_verts = f.map (v) => @vertex[v]
                     clr = colorassign faceSignature face_verts, 2
                 else # color by face-sidedness
                     clr = f.length - 3

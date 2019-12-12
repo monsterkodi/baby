@@ -9,8 +9,8 @@
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
 { _, clamp, klog } = require 'kxk'
-{ add, calcCentroid, clockwise, copyVecArray, cross, intersect, mag, midpoint, mult, oneThird, planarize, rayPlane, rayRay, recenter, reciprocalC, reciprocalN, rescale, sub, tangentify, tween, unit } = require './math'
-{ abs, min, sqrt } = Math
+{ add, angle, calcCentroid, clockwise, copyVecArray, cross, intersect, mag, midpoint, mult, oneThird, planarize, rayPlane, rayRay, recenter, reciprocalC, reciprocalN, rescale, rotate, sub, tangentify, tween, unit } = require './math'
+{ min, sqrt } = Math
 Vect = require '../vect'
 
 ϕ = (sqrt(5)-1)/2
@@ -39,15 +39,15 @@ expand = (poly, amount=0.5) ->
     vmap  = {}
     imap  = {}
     newV  = 0
-    for fi in [0...poly.faces.length]
+    for fi in [0...poly.face.length]
         d = sub mult(1+amount, centers[fi]), centers[fi]
-        f = poly.faces[fi]
+        f = poly.face[fi]
         face = []
         for v,vi in f
             vmap[v] ?= []
             vmap[v].push newV
             imap[newV] = v
-            verts.push add poly.vertices[v], d
+            verts.push add poly.vertex[v], d
             nextV = newV+(vi==f.length-1 and -f.length+1 or 1)
             face.push newV
             newV++
@@ -75,10 +75,10 @@ expand = (poly, amount=0.5) ->
 sphericalize = (poly) ->
 
     verts = []
-    for vertex,vi in poly.vertices
-        verts.push unit poly.vertices[vi]
+    for vertex,vi in poly.vertex
+        verts.push unit poly.vertex[vi]
         
-    new Polyhedron "z#{poly.name}" poly.faces, verts
+    new Polyhedron "z#{poly.name}" poly.face, verts
 
 # 0000000  000  00000000   000   000  000   000  000       0000000   00000000   000  0000000  00000000  
 #    000   000  000   000  000  000   000   000  000      000   000  000   000  000     000   000       
@@ -86,35 +86,23 @@ sphericalize = (poly) ->
 #  000     000  000   000  000  000   000   000  000      000   000  000   000  000   000     000       
 # 0000000  000  000   000  000   000   0000000   0000000  000   000  000   000  000  0000000  00000000  
 
-zirkularize = (poly, n) ->
-    
-    n ?= 0
+zirkularize = (poly, grow=1, n=6) ->
+
     vertices = []
     
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
-        if f.length == n or n == 0
-            [v1, v2] = f.slice -2
-            for v3 in f
-                v12 = sub poly.vertices[v2], poly.vertices[v1]
-                v32 = sub poly.vertices[v2], poly.vertices[v3]
-                if abs(mag(v12) - mag(v32)) > 0.001
-                    m12 = midpoint poly.vertices[v1], poly.vertices[v2]
-                    m32 = midpoint poly.vertices[v3], poly.vertices[v2]
-                    u12 = unit m12
-                    u32 = unit m32
-                    nc = add u12, u32
-                    pn = cross nc, cross poly.vertices[v1], poly.vertices[v3]
-                    if mag(v12) > mag(v32)
-                        r = rayPlane poly.vertices[v3], v32, [0 0 0], pn
-                    else
-                        r = rayPlane poly.vertices[v1], v12, [0 0 0], pn
-                    vertices[v2] = r
-                [v1, v2] = [v2, v3]
-  
-    verts = [0...poly.vertices.length].map (i) -> vertices[i] ? poly.vertices[i]
+    centers = poly.centers()
     
-    new Polyhedron "z#{poly.name}" poly.faces, verts
+    for f,fi in poly.face
+
+        if f.length == n or n == 0
+            for v in f
+                axis = cross centers[fi], poly.vertex[v]
+                angl = angle centers[fi], poly.vertex[v]
+                vertices[v] = rotate centers[fi], axis, angl * grow
+                
+    verts = [0...poly.vertex.length].map (i) -> vertices[i] ? poly.vertex[i]
+     
+    new Polyhedron "z#{poly.name}" poly.face, verts
 
 # 0000000    000   000   0000000   000      
 # 000   000  000   000  000   000  000      
@@ -127,11 +115,11 @@ dual = (poly) ->
     flag = new Flag()
   
     face = [] 
-    for i in [0...poly.vertices.length] 
+    for i in [0...poly.vertex.length] 
         face[i] = {}
 
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
+    for i in [0...poly.face.length]
+        f = poly.face[i]
         v1 = f[-1]
         for v2 in f
             face[v1]["v#{v2}"] = "#{i}"
@@ -139,11 +127,11 @@ dual = (poly) ->
   
     centers = poly.centers()
     
-    for i in [0...poly.faces.length]
+    for i in [0...poly.face.length]
         flag.vert "#{i}" centers[i]
   
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
+    for i in [0...poly.face.length]
+        f = poly.face[i]
         v1 = f[-1]
         for v2 in f
             flag.edge v1, face[v2]["v#{v1}"], "#{i}"
@@ -152,10 +140,10 @@ dual = (poly) ->
     dpoly = flag.topoly()
   
     sortF = []
-    for f in dpoly.faces
-        k = intersect poly.faces[f[0]], poly.faces[f[1]], poly.faces[f[2]]
+    for f in dpoly.face
+        k = intersect poly.face[f[0]], poly.face[f[1]], poly.face[f[2]]
         sortF[k] = f
-    dpoly.faces = sortF
+    dpoly.face = sortF
   
     if poly.name[0] != "d"
         dpoly.name = "d#{poly.name}"
@@ -181,14 +169,14 @@ kis = (poly, apexdist=0.5, n=0) ->
         apexdist = apexdist * poly.minFaceDist()
     
     flag = new Flag()
-    for i in [0...poly.vertices.length]
-        flag.vert "v#{i}" poly.vertices[i]
+    for i in [0...poly.vertex.length]
+        flag.vert "v#{i}" poly.vertex[i]
   
     normals = poly.normals()
     centers = poly.centers()
     foundAny = false
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
+    for i in [0...poly.face.length]
+        f = poly.face[i]
         v1 = "v#{f[f.length-1]}"
         for v in f
             v2 = "v#{v}"
@@ -222,8 +210,8 @@ truncate = (poly, factor=0.5) ->
     factor = clamp 0 1 factor
     edgeMap = {}
     
-    numFaces    = poly.faces.length
-    numVertices = poly.vertices.length
+    numFaces    = poly.face.length
+    numVertices = poly.vertex.length
     neighbors   = poly.neighbors()
     
     depth = 0.5 * factor * poly.minEdgeLength()
@@ -236,28 +224,28 @@ truncate = (poly, factor=0.5) ->
         nl = neighbors[vertexIndex].length
         for ii in [0...nl]
             ni = neighbors[vertexIndex][ii]
-            edgeMap[vertexIndex][ni] = poly.vertices.length
+            edgeMap[vertexIndex][ni] = poly.vertex.length
             vp = poly.edge vertexIndex, ni
             vp.normalize()
             vp.scaleInPlace depth
             vp.addInPlace poly.vert vertexIndex
-            face.push poly.vertices.length
-            poly.vertices.push [vp.x, vp.y, vp.z]
+            face.push poly.vertex.length
+            poly.vertex.push [vp.x, vp.y, vp.z]
             
-        poly.faces.push face
+        poly.face.push face
     
     for fi in [0...numFaces]
-        face = poly.faces[fi]
+        face = poly.face[fi]
         newFace = []
         for vi in [0...face.length]
             ni = (vi+1) % face.length
             newFace.push edgeMap[face[vi]][face[ni]]
             if factor < 1
                 newFace.push edgeMap[face[ni]][face[vi]]
-        poly.faces[fi] = newFace
+        poly.face[fi] = newFace
       
-    poly.vertices.splice 0, numVertices
-    for face in poly.faces
+    poly.vertex.splice 0, numVertices
+    for face in poly.face
         for i in [0...face.length]
             face[i] -= numVertices
         
@@ -275,12 +263,12 @@ ambo = (poly) ->
     
     flag = new Flag()
   
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
+    for i in [0...poly.face.length]
+        f = poly.face[i]
         [v1, v2] = f.slice(-2)
         for v3 in f
             if v1 < v2
-                flag.vert midName(v1,v2), midpoint poly.vertices[v1], poly.vertices[v2]
+                flag.vert midName(v1,v2), midpoint poly.vertex[v1], poly.vertex[v2]
 
             flag.edge "orig#{i}"  midName(v1,v2), midName(v2,v3)
             flag.edge "dual#{v2}" midName(v2,v3), midName(v1,v2)
@@ -289,6 +277,12 @@ ambo = (poly) ->
   
     flag.topoly "a#{poly.name}"
 
+bevel = (poly, factor=0.5) ->
+    
+    p = truncate ambo(poly), factor
+    p.name = "b#{poly.name}"
+    p
+    
 #  0000000  000   000   0000000   00     00  00000000  00000000  00000000   
 # 000       000   000  000   000  000   000  000       000       000   000  
 # 000       000000000  000000000  000000000  000000    0000000   0000000    
@@ -306,12 +300,12 @@ chamfer = (poly, factor=0.5) ->
     minEdgeLength = Infinity
     
     for edge in wings
-        e0 = poly.vertices[edge[0]]
-        e1 = poly.vertices[edge[1]]
+        e0 = poly.vertex[edge[0]]
+        e1 = poly.vertex[edge[1]]
         ed = unit sub e1, e0
         
-        nr = unit sub poly.vertices[edge[2].nr], e1
-        pr = unit sub poly.vertices[edge[2].pr], e0
+        nr = unit sub poly.vertex[edge[2].nr], e1
+        pr = unit sub poly.vertex[edge[2].pr], e0
         cr = rayRay [e1, mult 0.5, add add(e1, nr), sub(e1, ed)],
                     [e0, mult 0.5, add add(e0, pr), add(e0, ed)]
 
@@ -325,14 +319,14 @@ chamfer = (poly, factor=0.5) ->
         
     moved = {}
     for edge in wings
-        e0  = poly.vertices[edge[0]]
-        e1  = poly.vertices[edge[1]]
+        e0  = poly.vertex[edge[0]]
+        e1  = poly.vertex[edge[1]]
         rr = [
-            add(e0, mult minEdgeLength, unit sub poly.vertices[edge[2].pr], e0),
-            add(e1, mult minEdgeLength, unit sub poly.vertices[edge[2].nr], e1)]
+            add(e0, mult minEdgeLength, unit sub poly.vertex[edge[2].pr], e0),
+            add(e1, mult minEdgeLength, unit sub poly.vertex[edge[2].nr], e1)]
         lr = [
-            add(e0, mult minEdgeLength, unit sub poly.vertices[edge[2].pl], e0),
-            add(e1, mult minEdgeLength, unit sub poly.vertices[edge[2].nl], e1)]
+            add(e0, mult minEdgeLength, unit sub poly.vertex[edge[2].pl], e0),
+            add(e1, mult minEdgeLength, unit sub poly.vertex[edge[2].nl], e1)]
             
         moved["#{edge[1]}▸#{edge[0]}l"] = rr
         moved["#{edge[0]}▸#{edge[1]}r"] = rr
@@ -340,8 +334,8 @@ chamfer = (poly, factor=0.5) ->
         moved["#{edge[0]}▸#{edge[1]}l"] = lr
             
     for edge in wings
-        e0   = poly.vertices[edge[0]]
-        e1   = poly.vertices[edge[1]]
+        e0   = poly.vertex[edge[0]]
+        e1   = poly.vertex[edge[1]]
         
         nf  = "#{edge[0]}▸#{edge[1]}" 
         n_h = "#{edge[1]}"
@@ -394,18 +388,18 @@ whirl = (poly, n=0) ->
 
     flag = new Flag()
   
-    for i in [0...poly.vertices.length]
-        flag.vert "v#{i}" unit poly.vertices[i]
+    for i in [0...poly.vertex.length]
+        flag.vert "v#{i}" unit poly.vertex[i]
 
     centers = poly.centers()
   
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
+    for i in [0...poly.face.length]
+        f = poly.face[i]
         [v1, v2] = f.slice -2
         for j in [0...f.length]
             v = f[j]
             v3 = v
-            v1_2 = oneThird poly.vertices[v1], poly.vertices[v2]
+            v1_2 = oneThird poly.vertex[v1], poly.vertex[v2]
             flag.vert(v1+"~"+v2, v1_2)
             cv1name = "center#{i}~#{v1}"
             cv2name = "center#{i}~#{v2}"
@@ -433,21 +427,21 @@ gyro = (poly) ->
 
     flag = new Flag()
   
-    for i in [0...poly.vertices.length]
-        flag.vert "v#{i}" unit poly.vertices[i]
+    for i in [0...poly.vertex.length]
+        flag.vert "v#{i}" unit poly.vertex[i]
 
     centers = poly.centers()
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
+    for i in [0...poly.face.length]
+        f = poly.face[i]
         flag.vert "center#{i}" unit centers[i]
   
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
+    for i in [0...poly.face.length]
+        f = poly.face[i]
         [v1, v2] = f.slice(-2)
         for j in [0...f.length]
             v = f[j]
             v3 = v
-            flag.vert v1+"~"+v2, oneThird poly.vertices[v1],poly.vertices[v2]
+            flag.vert v1+"~"+v2, oneThird poly.vertex[v1],poly.vertex[v2]
             fname = i+"f"+v1
             flag.edge fname, "center#{i}"  v1+"~"+v2
             flag.edge fname, v1+"~"+v2,  v2+"~"+v1
@@ -468,17 +462,17 @@ quinto = (poly) -> # creates a pentagon for every vertex and a new inset face
     
     flag = new Flag()
   
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
-        centroid = calcCentroid f.map (idx) -> poly.vertices[idx]
+    for i in [0...poly.face.length]
+        f = poly.face[i]
+        centroid = calcCentroid f.map (idx) -> poly.vertex[idx]
 
         [v1, v2] = f.slice -2
         for v3 in f
-            midpt = midpoint poly.vertices[v1], poly.vertices[v2]
+            midpt = midpoint poly.vertex[v1], poly.vertex[v2]
             innerpt = midpoint midpt, centroid
             flag.vert midName(v1,v2), midpt
             flag.vert "inner_#{i}_" + midName(v1,v2), innerpt
-            flag.vert "#{v2}" poly.vertices[v2]
+            flag.vert "#{v2}" poly.vertex[v2]
           
             flag.edge "f#{i}_#{v2}", "inner_#{i}_"+midName(v1, v2), midName(v1, v2)
             flag.edge "f#{i}_#{v2}", midName(v1, v2), "#{v2}"
@@ -503,21 +497,21 @@ inset = (poly, inset=0.5, popout=-0.2, n=0) ->
     inset = clamp 0.25 0.99 inset
     popout = min popout, inset
     flag = new Flag()
-    for i in [0...poly.vertices.length]
-        p = poly.vertices[i]
+    for i in [0...poly.vertex.length]
+        p = poly.vertex[i]
         flag.vert "v#{i}" p
 
     normals = poly.normals()
     centers = poly.centers()
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
+    for i in [0...poly.face.length]
+        f = poly.face[i]
         if f.length == n or n == 0
             for v in f
-                flag.vert "f#{i}v#{v}" add tween(poly.vertices[v],centers[i],inset), mult(popout,normals[i])
+                flag.vert "f#{i}v#{v}" add tween(poly.vertex[v],centers[i],inset), mult(popout,normals[i])
   
     foundAny = false # alert if don't find any
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
+    for i in [0...poly.face.length]
+        f = poly.face[i]
         v1 = "v#{f[f.length-1]}"
         for v in f
             v2 = "v#{v}";
@@ -567,19 +561,19 @@ hollow = (poly, insetf, thickness) ->
     centers = poly.centers()
   
     flag = new Flag()
-    for i in [0...poly.vertices.length]
-        p = poly.vertices[i]
+    for i in [0...poly.vertex.length]
+        p = poly.vertex[i]
         flag.vert "v#{i}" p
         flag.vert "downv#{i}" add p, mult -1*thickness,dualnormals[i]
 
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
+    for i in [0...poly.face.length]
+        f = poly.face[i]
         for v in f
-            flag.vert "fin#{i}v#{v}" tween poly.vertices[v], centers[i], insetf
-            flag.vert "findown#{i}v#{v}" add tween(poly.vertices[v],centers[i],insetf), mult(-1*thickness,normals[i])
+            flag.vert "fin#{i}v#{v}" tween poly.vertex[v], centers[i], insetf
+            flag.vert "findown#{i}v#{v}" add tween(poly.vertex[v],centers[i],insetf), mult(-1*thickness,normals[i])
   
-    for i in [0...poly.faces.length]
-        f = poly.faces[i]
+    for i in [0...poly.face.length]
+        f = poly.face[i]
         v1 = "v#{f[f.length-1]}"
         for v in f
             v2 = "v#{v}"
@@ -616,19 +610,19 @@ perspectiva = (poly) -> # an operation reverse-engineered from Perspectiva Corpo
     centers = poly.centers()
   
     flag = new Flag()
-    for i in [0...poly.vertices.length]
-        flag.vert "v#{i}" poly.vertices[i]
+    for i in [0...poly.vertex.length]
+        flag.vert "v#{i}" poly.vertex[i]
   
-    for i in [0...poly.faces.length]
+    for i in [0...poly.face.length]
         
-        f = poly.faces[i]
+        f = poly.face[i]
         v1 = "v#{f[f.length-2]}"
         v2 = "v#{f[f.length-1]}"
-        vert1 = poly.vertices[f[f.length-2]]
-        vert2 = poly.vertices[f[f.length-1]]
+        vert1 = poly.vertex[f[f.length-2]]
+        vert2 = poly.vertex[f[f.length-1]]
         for v in f
             v3 = "v#{v}"
-            vert3 = poly.vertices[v]
+            vert3 = poly.vertex[v]
             v12 = v1+"~"+v2
             v21 = v2+"~"+v1
             v23 = v2+"~"+v3
@@ -662,19 +656,19 @@ perspectiva = (poly) -> # an operation reverse-engineered from Perspectiva Corpo
 
 trisub = (poly, n=2) ->
     
-    for fn in [0...poly.faces.length]
-        if poly.faces[fn].length != 3
+    for fn in [0...poly.face.length]
+        if poly.face[fn].length != 3
             return poly
   
     verts = []
     vmap = {}
     pos = 0
-    for fn in [0...poly.faces.length]
-        f = poly.faces[fn]
+    for fn in [0...poly.face.length]
+        f = poly.face[fn]
         [i1, i2, i3] = f.slice -3
-        v1 = poly.vertices[i1]
-        v2 = poly.vertices[i2]
-        v3 = poly.vertices[i3]
+        v1 = poly.vertex[i1]
+        v2 = poly.vertex[i2]
+        v3 = poly.vertex[i3]
         v21 = sub v2, v1
         v31 = sub v3, v1
         for i in [0..n]
@@ -698,7 +692,7 @@ trisub = (poly, n=2) ->
         newpos++
   
     faces = []
-    for fn in [0...poly.faces.length]
+    for fn in [0...poly.face.length]
         for i in [0...n]
             for j in [0...n-i]
                 faces.push [uniqmap[vmap["v#{fn}-#{i}-#{j}"]], 
@@ -732,9 +726,9 @@ trisub = (poly, n=2) ->
 
 canonicalize = (poly, iter=200) ->
 
-    faces = poly.faces
+    faces = poly.face
     edges = poly.edges()
-    verts = poly.vertices
+    verts = poly.vertex
     maxChange = 1.0
     for i in [0..iter]
         oldVs = copyVecArray verts
@@ -745,7 +739,7 @@ canonicalize = (poly, iter=200) ->
         if maxChange < 1e-8
             break
     verts = rescale verts
-    new Polyhedron poly.name, poly.faces, verts
+    new Polyhedron poly.name, poly.face, verts
     
 canonicalXYZ = (poly, iterations) ->
 
@@ -753,10 +747,10 @@ canonicalXYZ = (poly, iterations) ->
     dpoly = dual poly
   
     for count in [0...iterations] # reciprocate face normals
-        dpoly.vertices = reciprocalN poly
-        poly.vertices  = reciprocalN dpoly
+        dpoly.vertex = reciprocalN poly
+        poly.vertex  = reciprocalN dpoly
   
-    new Polyhedron poly.name, poly.faces, poly.vertices
+    new Polyhedron poly.name, poly.face, poly.vertex
 
 flatten = (poly, iterations) -> # quick planarization
     
@@ -764,10 +758,10 @@ flatten = (poly, iterations) -> # quick planarization
     dpoly = dual poly
   
     for count in [0...iterations]
-        dpoly.vertices = reciprocalC poly
-        poly.vertices  = reciprocalC dpoly
+        dpoly.vertex = reciprocalC poly
+        poly.vertex  = reciprocalC dpoly
   
-    new Polyhedron poly.name, poly.faces, poly.vertices
+    new Polyhedron poly.name, poly.face, poly.vertex
     
 # 00000000  000   000  00000000    0000000   00000000   000000000   0000000  
 # 000        000 000   000   000  000   000  000   000     000     000       
@@ -777,6 +771,7 @@ flatten = (poly, iterations) -> # quick planarization
 
 module.exports =
     dual:           dual
+    bevel:          bevel
     trisub:         trisub
     truncate:       truncate
     perspectiva:    perspectiva

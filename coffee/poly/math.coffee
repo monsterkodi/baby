@@ -8,7 +8,7 @@
 
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
     
-{ _, first, klog, rad2deg } = require 'kxk'
+{ _, first, klog } = require 'kxk'
 { E, abs, floor, pow, random, round, sqrt } = Math
 
 Vect = require '../vect'
@@ -47,8 +47,10 @@ tween    = (v1, v2, t) -> [((1-t)*v1[0]) + (t*v2[0]), ((1-t)*v1[1]) + (t*v2[1]),
 midpoint = (v1, v2) -> mult 0.5, add v1, v2
 oneThird = (v1, v2) -> tween v1, v2, 1/3.0
 
+angle = (v1, v2) -> vec(v1).angle vec(v2)
+
 rotate = (v, axis, angle) ->
-    rot = Quat.axisAngle (new Vect axis), rad2deg angle
+    rot = Quat.axisAngle vec(axis), angle
     res = rot.rotated v
     res.coords()
 
@@ -350,16 +352,16 @@ reciprocalC = (poly) ->
 reciprocalN = (poly) ->
     # make array of vertices reciprocal to given planes
     ans = []
-    for f in poly.faces #for each face
+    for f in poly.face #for each face
         centroid    = [0 0 0] # running sum of vertex coords
         normalV     = [0 0 0] # running sum of normal vectors
         avgEdgeDist = 0.0 # running sum for avg edge distance
     
         [v1, v2] = f.slice -2
         for v3 in f
-            centroid     = add centroid, poly.vertices[v3]
-            normalV      = add normalV, orthogonal poly.vertices[v1], poly.vertices[v2], poly.vertices[v3]
-            avgEdgeDist += edgeDist poly.vertices[v1], poly.vertices[v2]
+            centroid     = add centroid, poly.vertex[v3]
+            normalV      = add normalV, orthogonal poly.vertex[v1], poly.vertex[v2], poly.vertex[v3]
+            avgEdgeDist += edgeDist poly.vertex[v1], poly.vertex[v2]
             [v1, v2] = [v2, v3]
     
         centroid    = mult 1.0/f.length, centroid
@@ -379,6 +381,7 @@ module.exports =
     neg:            neg
     mult:           mult
     unit:           unit
+    angle:          angle
     cross:          cross
     tween:          tween
     normal:         normal

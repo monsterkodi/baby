@@ -98,14 +98,14 @@ prism = (n) ->
     poly = new Polyhedron "P#{n}"
   
     for i in [0...n] # vertex #'s 0 to n-1 around one face
-        poly.vertices.push [-cos(i*theta), -sin(i*theta), -h]
+        poly.vertex.push [-cos(i*theta), -sin(i*theta), -h]
     for i in [0...n] # vertex #'s n to 2n-1 around other
-        poly.vertices.push [-cos(i*theta), -sin(i*theta), h]
+        poly.vertex.push [-cos(i*theta), -sin(i*theta), h]
   
-    poly.faces.push [n-1..0]  # top
-    poly.faces.push [n...2*n] # bottom
+    poly.face.push [n-1..0]  # top
+    poly.face.push [n...2*n] # bottom
     for i in [0...n] #n square sides
-        poly.faces.push [i, (i+1)%n, ((i+1)%n)+n, i+n]
+        poly.face.push [i, (i+1)%n, ((i+1)%n)+n, i+n]
     flatten poly, 1
 
 #  0000000   000   000  000000000  000  00000000   00000000   000   0000000  00     00  
@@ -126,15 +126,15 @@ antiprism = (n) ->
     poly = new Polyhedron "A#{n}"
   
     for i in [0...n] # vertex #'s 0...n-1 around one face
-      poly.vertices.push [r * cos(i*theta), r * sin(i*theta), h]
+      poly.vertex.push [r * cos(i*theta), r * sin(i*theta), h]
     for i in [0...n] # vertex #'s n...2n-1 around other
-      poly.vertices.push [r * cos((i+0.5)*theta), r * sin((i+0.5)*theta), -h]
+      poly.vertex.push [r * cos((i+0.5)*theta), r * sin((i+0.5)*theta), -h]
   
-    poly.faces.push [n-1..0]     # top
-    poly.faces.push [n..(2*n)-1] # bottom
+    poly.face.push [n-1..0]     # top
+    poly.face.push [n..(2*n)-1] # bottom
     for i in [0...n] # 2n triangular sides
-      poly.faces.push [i, (i+1)%n, i+n]
-      poly.faces.push [i, i+n, ((((n+i)-1)%n)+n)]
+      poly.face.push [i, (i+1)%n, i+n]
+      poly.face.push [i, i+n, ((((n+i)-1)%n)+n)]
   
     flatten poly,1 
 
@@ -151,12 +151,12 @@ pyramid = (n) ->
     poly = new Polyhedron "Y#{n}"
   
     for i in [0...n] # vertex #'s 0...n-1 around one face
-        poly.vertices.push [-cos(i*theta), -sin(i*theta), -0.2]
-    poly.vertices.push [0 0 height] # apex
+        poly.vertex.push [-cos(i*theta), -sin(i*theta), -0.2]
+    poly.vertex.push [0 0 height] # apex
   
-    poly.faces.push [n-1..0] # base
+    poly.face.push [n-1..0] # base
     for i in [0...n] # n triangular sides
-        poly.faces.push [i, (i+1)%n, n]
+        poly.face.push [i, (i+1)%n, n]
   
     canonicalXYZ poly, 3
 
@@ -184,18 +184,18 @@ cupola = (n, alpha, height) ->
             height = s * sqrt(1 - 1 / 4 / sin(PI/n) / sin(PI/n))
 
     for i in [0...3*n]
-        poly.vertices.push [0,0,0]
+        poly.vertex.push [0,0,0]
         
     for i in [0...n]
-      poly.vertices[2*i  ] = [rb * cos(PI*(2*i)/n + PI/2/n+alpha), rb * sin(PI*(2*i)/n + PI/2/n+alpha), 0.0]
-      poly.vertices[2*i+1] = [rb * cos(PI*(2*i+1)/n + PI/2/n-alpha), rb * sin(PI*(2*i+1)/n + PI/2/n-alpha), 0.0]
-      poly.vertices[2*n+i] = [rt * cos(2*PI*i/n), rt * sin(2*PI*i/n), height]
+      poly.vertex[2*i  ] = [rb * cos(PI*(2*i)/n + PI/2/n+alpha), rb * sin(PI*(2*i)/n + PI/2/n+alpha), 0.0]
+      poly.vertex[2*i+1] = [rb * cos(PI*(2*i+1)/n + PI/2/n-alpha), rb * sin(PI*(2*i+1)/n + PI/2/n-alpha), 0.0]
+      poly.vertex[2*n+i] = [rt * cos(2*PI*i/n), rt * sin(2*PI*i/n), height]
     
-    poly.faces.push [2*n-1..0]   # base
-    poly.faces.push [2*n..3*n-1] # top
+    poly.face.push [2*n-1..0]   # base
+    poly.face.push [2*n..3*n-1] # top
     for i in [0...n] # n triangular sides and n square sides
-        poly.faces.push [(2*i+1)%(2*n), (2*i+2)%(2*n), 2*n+(i+1)%n]
-        poly.faces.push [2*i, (2*i+1)%(2*n), 2*n+(i+1)%n, 2*n+i]
+        poly.face.push [(2*i+1)%(2*n), (2*i+2)%(2*n), 2*n+(i+1)%n]
+        poly.face.push [2*i, (2*i+1)%(2*n), 2*n+(i+1)%n, 2*n+i]
   
     poly
 
@@ -222,20 +222,20 @@ anticupola = (n, alpha, height) ->
         height = rb - rt
 
     for i in [0...3*n]
-        poly.vertices.push [0,0,0]
+        poly.vertex.push [0,0,0]
 
     for i in [0...n] # fill vertices
-        poly.vertices[2*i  ] = [rb * cos(PI*(2*i)/n + alpha), rb * sin(PI*(2*i)/n + alpha), 0.0]
-        poly.vertices[2*i+1] = [rb * cos(PI*(2*i+1)/n - alpha), rb * sin(PI*(2*i+1)/n - alpha), 0.0]
-        poly.vertices[2*n+i] = [rt * cos(2*PI*i/n), rt * sin(2*PI*i/n), height]
+        poly.vertex[2*i  ] = [rb * cos(PI*(2*i)/n + alpha), rb * sin(PI*(2*i)/n + alpha), 0.0]
+        poly.vertex[2*i+1] = [rb * cos(PI*(2*i+1)/n - alpha), rb * sin(PI*(2*i+1)/n - alpha), 0.0]
+        poly.vertex[2*n+i] = [rt * cos(2*PI*i/n), rt * sin(2*PI*i/n), height]
     
-    poly.faces.push [2*n-1..0]   # base
-    poly.faces.push [2*n..3*n-1] # top
+    poly.face.push [2*n-1..0]   # base
+    poly.face.push [2*n..3*n-1] # top
     
     for i in [0...n] # n triangular sides and n square sides
-        poly.faces.push [(2*i)%(2*n), (2*i+1)%(2*n), 2*n+(i)%n]
-        poly.faces.push [2*n+(i+1)%n, (2*i+1)%(2*n), (2*i+2)%(2*n)]
-        poly.faces.push [2*n+(i+1)%n, 2*n+(i)%n, (2*i+1)%(2*n)]
+        poly.face.push [(2*i)%(2*n), (2*i+1)%(2*n), 2*n+(i)%n]
+        poly.face.push [2*n+(i+1)%n, (2*i+1)%(2*n), (2*i+2)%(2*n)]
+        poly.face.push [2*n+(i+1)%n, 2*n+(i)%n, (2*i+1)%(2*n)]
   
     poly  
     

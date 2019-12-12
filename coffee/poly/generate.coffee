@@ -46,8 +46,9 @@ basemap =
     V: poly.anticupola # n
         
 opmap =
-    d: topo.dual
     a: topo.ambo
+    b: topo.bevel
+    d: topo.dual
     k: topo.kis
     t: topo.truncate
     c: topo.chamfer
@@ -66,7 +67,6 @@ opmap =
     e: topo.expand
 
 replacements = [
-    [/b/g,      'ta']    # b    -> ta   bevel
     [/o/g,      'jj']    # o    -> jj   ortho
     [/m/g,      'kj']    # m    -> kj   meta
     [/j/g,      'da']    # j    -> da
@@ -82,44 +82,40 @@ replacements = [
 
 alias = 
     # platonic solids
-    #cube:                           'C'
-    #tetrahedron:                    'T'
-    #octahedron:                     'O'
-    #dodecahedron:                   'D'
-    #icosahedron:                    'I'
-    # archimedian solids
-    # 'truncated tetrahedron':        'tT'
-    # 'truncated cube':               'tC'
-    # 'truncated octahedron':         'tO'
-    # 'truncated dodecahedron':       'tD'
-    # 'truncated icosahedron':        'tI'
-    # 'truncated cuboctahedron':      'dmD'
-    # 'truncated icosidodecahedron':  'zdmC' #
-    # 'cuboctahedron':                'djC' #
-    # 'icosidodecahedron':            'djD' #
-    # 'rhombicuboctahedron':          'doC'
-    # 'rhombicosidodecahedron1':      'aD' 
-    # 'rhombicosidodecahedron3':      'vdaD'
-    # 'rhombicosidodecahedron4':      'avdaD'
-    # 'rhombicosidodecahedron5':      'adaD' #'doD'
-    'rhombicosidodecahedron':       'e1D'
-    # 'snub cube':                    'dgC' #
-    # 'snub dodecahedron':            'dgD' #
+    # cube:                           'C'
+    # tetrahedron:                    'T'
+    # octahedron:                     'O'
+    # dodecahedron:                   'D'
+    # icosahedron:                    'I'
+    #archimedian solids
+    'truncated tetrahedron':          't.6667T'
+    'truncated cube':                 't.5858C'
+    'truncated octahedron':           't.6667O'
+    'truncated dodecahedron':         't.5528D'
+    'truncated icosahedron':          't.667I'
+    'truncated cuboctahedron':        'z1.151b.667C'
+    'truncated icosidodecahedron':    'z1.226b.667D'
+    'cuboctahedron':                  'djC' 
+    'icosidodecahedron':              'djD' 
+    'rhombicuboctahedron':            'e1.414C'
+    'rhombicosidodecahedron':         'e.8541D'
+    'snub cube':                      'dgC' 
+    'snub dodecahedron':              'dgD' 
 
     # catalan solids
-    # 'triakis tetrahedron':          'vdtT' # 'kT' 
-    # 'triakis octahedron':           'vdtC' # 'kO' 
-    # 'tetrakis hexahedron':          'rdtO' # 'kC' 
-    # 'triakis icosahedron':          'vdtD' # 'kI' 
-    # 'pentakis dodecahedron':        'rkD' # 'k.2515D' 
-    # 'disdyakis triacontahedron':    'rmD' #
-    # 'disdyakis dodecahedron':       'vmC' #
-    # 'rhombic dodecahedron':         'vjC' #
-    # 'rhombic triacontahedron':      'vjD' #
-    # 'deltoidal icositetrahedron':   'voC' #
-    # 'deltoidal hexecontahedron':    'oD'  #
-    # 'pentagonal icositetrahedron':  'gC'  #
-    # 'pentagonal hexecontahedron':   'gD'  #
+    'triakis tetrahedron':          'vdtT' # 'kT' 
+    'triakis octahedron':           'vdtC' # 'kO' 
+    'tetrakis hexahedron':          'rdtO' # 'kC' 
+    'triakis icosahedron':          'vdtD' # 'kI' 
+    'pentakis dodecahedron':        'rkD' # 'k.2515D' 
+    'disdyakis triacontahedron':    'rmD' #
+    'disdyakis dodecahedron':       'vmC' #
+    'rhombic dodecahedron':         'vjC' #
+    'rhombic triacontahedron':      'vjD' #
+    'deltoidal icositetrahedron':   'voC' #
+    'deltoidal hexecontahedron':    'oD'  #
+    'pentagonal icositetrahedron':  'gC'  #
+    'pentagonal hexecontahedron':   'gD'  #
     
 #  0000000   00000000  000   000  00000000  00000000    0000000   000000000  00000000
 # 000        000       0000  000  000       000   000  000   000     000     000     
@@ -148,11 +144,9 @@ generate = (notation, normalize=true) ->
         poly   = dispatch opfunc, opargs
 
     if normalize
-        poly.vertices = recenter poly.vertices, poly.edges()
-        poly.vertices = rescale  poly.vertices
+        poly.vertex = recenter poly.vertex, poly.edges()
+        poly.vertex = rescale  poly.vertex
   
-    poly.vertex = poly.vertices
-    poly.face   = poly.faces
     poly #.colorize()
 
 generate.alias = alias

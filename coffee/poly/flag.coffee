@@ -40,7 +40,7 @@ class Flag
         nm2idx = {}
         ctr = 0
         for name,v of @vertices
-            poly.vertices[ctr] = @vertices[name]
+            poly.vertex[ctr] = @vertices[name]
             nm2idx[name] = ctr++
             
         ctr = 0
@@ -59,7 +59,7 @@ class Flag
                 if faceCount++ > 100 # prevent infinite loop
                     kerror "Bad flag with neverending face:" i, @flags[i]
                     break
-            poly.faces[ctr] = newFace
+            poly.face[ctr] = newFace
             ctr++
             
         poly
