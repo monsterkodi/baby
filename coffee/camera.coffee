@@ -6,7 +6,7 @@
  0000000  000   000  000   000  00000000  000   000  000   000
 ###
 
-{ clamp, deg2rad, gamepad, klog, prefs, reduce } = require 'kxk'
+{ clamp, deg2rad, gamepad, prefs, reduce } = require 'kxk'
 { Camera, PointLight, UniversalCamera } = require 'babylonjs'
 
 Vect = require './vect'
@@ -26,8 +26,6 @@ class Camera extends UniversalCamera
              
         values = prefs.get 'camera' dist:10 degree:90 rotate:0, pos:{x:0,y:0,z:0}
         
-        klog values
-        
         @size       = vec width, height
         @dist       = values.dist
         @maxDist    = 200
@@ -38,8 +36,6 @@ class Camera extends UniversalCamera
         @degree     = values.degree
         @rotate     = values.rotate
         @wheelInert = 0
-        @pivotX     = 0
-        @pivotY     = 0
         @moveX      = 0
         @moveY      = 0
         @moveZ      = 0
@@ -50,7 +46,6 @@ class Camera extends UniversalCamera
         @fov = deg2rad 20
         @rotationQuaternion = new Quat()
         @position = vec values.pos
-        # @setTarget @center
                 
         @inertia = 0.8
         

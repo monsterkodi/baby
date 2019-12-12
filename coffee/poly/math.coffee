@@ -56,6 +56,18 @@ tangentPoint = (v1, v2) -> # point where line v1...v2 tangent to an origin spher
 
 edgeDist = (v1, v2) -> sqrt mag2 tangentPoint v1, v2 # distance of line v1...v2 to origin
 
+pointRayDist = (v, rp, rd) ->
+    
+    vp = sub rp, v
+    cr = cross rd, vp
+    pn = cross cr, rd
+    pointPlaneDist v, rp, pn
+    
+pointPlaneDist = (v, pp, pn) ->
+    
+    rp = rayPlane v, pn, pp, pn
+    mag sub rp, v
+
 #  0000000  000       0000000    0000000  000   000  000   000  000   0000000  00000000  
 # 000       000      000   000  000       000  000   000 0 000  000  000       000       
 # 000       000      000   000  000       0000000    000000000  000  0000000   0000000   
@@ -382,10 +394,12 @@ module.exports =
     reciprocalN:    reciprocalN
     reciprocalC:    reciprocalC
     faceToEdges:    faceToEdges
+    pointRayDist:   pointRayDist
     facesToWings:   facesToWings
     calcCentroid:   calcCentroid
     copyVecArray:   copyVecArray
     tangentPoint:   tangentPoint
     faceSignature:  faceSignature
+    pointPlaneDist: pointPlaneDist
     
     

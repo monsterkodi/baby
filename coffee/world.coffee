@@ -7,7 +7,7 @@
 ###
 
 { colors, deg2rad, elem, empty, prefs } = require 'kxk'
-{ Camera, Color3, Color4, DirectionalLight, Engine, HemisphericLight, Mesh, MeshBuilder, Scene, ShadowGenerator, StandardMaterial, Vector3 } = require 'babylonjs'
+{ Camera, Color3, DirectionalLight, Engine, HemisphericLight, Mesh, MeshBuilder, Scene, ShadowGenerator, StandardMaterial, Vector3 } = require 'babylonjs'
 
 generate = require './poly/generate'
 Vect     = require './vect'
@@ -152,23 +152,24 @@ class World
             ['mV3''mV5''mV7''mV9''mV12' '' 'qV3''qV5''qV7''qV9''qV12' '' 'jV3''jV5''jV7''jV9''jV12']
             ]
             
-        rows=[]
-        rows.unshift [[]]
-        for alias,code of generate.alias
-            rows[0].push 'h'+code 
+        # rows=[]
+        # rows.unshift [[]]
+        # for alias,code of generate.alias
+            # rows[0].push 'h(.3,.1)'+code
             
-        rows = [['hT']]
+        # rows = [['h(.5,.1)C']]
             
         colors = [
-            new Color4  0  0  1 1
-            new Color4  1  0  0 1
-            new Color4  0  1  0 1
-            new Color4  1  0  1 1
-            new Color4 .5 .5 .5 1
-            new Color4  0  1  1 1
-            new Color4 .7 .7 .7 1
-            new Color4  1  1  1 1
-            new Color4 .2 .2 .2 1
+            new Color3 .3 .3 .3
+            new Color3  1  1  1
+            new Color3 .5 .5  1
+            new Color3 .4 .4  .9
+            new Color3 .3 .3  .8
+            new Color3 .2 .2  .7
+            new Color3 .1 .1  .6
+            new Color3  0  0  .5
+            new Color3  1  1  1
+            new Color3 .2 .2 .2
         ]
         
         ri = 0
