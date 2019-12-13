@@ -24,17 +24,24 @@ class Camera extends UniversalCamera
         width  = @view.clientWidth
         height = @view.clientHeight
              
-        values = prefs.get 'camera' dist:10 degree:90 rotate:0, pos:{x:0,y:0,z:0}
+        info = 
+            dist:   10 
+            degree: 90 
+            rotate: 0 
+            pos:    {x:0,y:0,z:0}
+            center: {x:0,y:0,z:0}
+            
+        values = prefs.get 'camera' 
         
         @size       = vec width, height
-        @dist       = values.dist
-        @maxDist    = 200
-        @minDist    = 9
-        @moveDist   = 0.1
-        @center     = vec 0 0 0
         @moveFade   = vec 0 0 0
+        @center     = vec values.center
         @degree     = values.degree
         @rotate     = values.rotate
+        @dist       = values.dist
+        @minDist    = 9
+        @maxDist    = 200
+        @moveDist   = 0.1
         @wheelInert = 0
         @moveX      = 0
         @moveY      = 0
@@ -202,8 +209,7 @@ class Camera extends UniversalCamera
         
         @center.fade @centerTarget, deltaSeconds
         @navigate()
-        
-        if @center.dist(@centerTarget) > 0.00001
+        if @center.dist(@centerTarget) > 0.05
             animate @fadeCenter
             true
         else
@@ -320,19 +326,20 @@ class Camera extends UniversalCamera
 
         @setDist 1 - clamp -0.02 0.02 @wheelInert
         @wheelInert = reduce @wheelInert, deltaSeconds*0.2
-        if Math.abs(@wheelInert) > 0.00000001
-            animate @inertZoom
-            true
-        else
-            delete @zooming
-            @wheelInert = 0
+        if Math.abs(@wheelInert) > 0.001
+            if @wheelInert > 0 and @dist > @minDist or @wheelInert < 0 and @dist < @maxDist
+                animate @inertZoom
+                return true
+
+        delete @zooming
+        @wheelInert = 0
     
     setDist: (factor) =>
                 
         @dist = clamp @minDist, @maxDist, @dist*factor
         @navigate()
         
-    setFov: (fov) -> @fov = Math.max(2.0 Math.min fov, 175.0)
+    setFov: (fov) -> @fov = Math.max 2.0 Math.min fov, 175.0
     
     # 000   000   0000000   000   000  000   0000000    0000000   000000000  00000000  
     # 0000  000  000   000  000   000  000  000        000   000     000     000       
@@ -350,7 +357,14 @@ class Camera extends UniversalCamera
         @position.copyFrom @center.plus @rotationQuaternion.rotate vec 0 0 -@dist
         @setTarget @center
         
-        prefs.set 'camera' rotate:@rotate, degree:@degree, dist:@dist, pos:{x:@position.x, y:@position.y, z:@position.z}
+        info = 
+            rotate: @rotate 
+            degree: @degree 
+            dist:   @dist
+            pos:    {x:@position.x, y:@position.y, z:@position.z}
+            center: {x:@center.x, y:@center.y, z:@center.z}
+        # klog info
+        prefs.set 'camera' info
         
         if 18*@minDist/@dist >= 8
             @scene.style.fontSize = 18*@minDist/@dist

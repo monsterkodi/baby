@@ -9,7 +9,7 @@
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
 { add, mult, normal } = require './math'
-{ canonicalXYZ, flatten } = require './topo'
+{ flatten } = require './topo'
 { PI, cos, pow, sin, sqrt } = Math
 Polyhedron = require './polyhedron'
 
@@ -158,7 +158,7 @@ pyramid = (n) ->
     for i in [0...n] # n triangular sides
         poly.face.push [i, (i+1)%n, n]
   
-    canonicalXYZ poly, 3
+    poly
 
 #  0000000  000   000  00000000    0000000   000       0000000   
 # 000       000   000  000   000  000   000  000      000   000  

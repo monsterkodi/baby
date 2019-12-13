@@ -8,17 +8,47 @@
 
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
-{ _, clamp, klog } = require 'kxk'
-{ add, angle, calcCentroid, clockwise, copyVecArray, cross, intersect, mag, midpoint, mult, neg, oneThird, planarize, rayPlane, rayRay, recenter, reciprocalC, reciprocalN, rescale, rotate, sub, tangentify, tween, unit } = require './math'
-{ min, sqrt } = Math
+{ _, clamp, klog, valid } = require 'kxk'
+{ add, angle, calcCentroid, clockwise, copyVecArray, cross, intersect, mag, midpoint, mult, neg, oneThird, planarize, pointPlaneDist, rayPlane, rayRay, recenter, rescale, rotate, sub, tangentify, tween, unit } = require './math'
+{ min } = Math
+
 Vect = require '../vect'
-
-ϕ = (sqrt(5)-1)/2
-
 Flag = require './flag'
 Polyhedron = require './polyhedron'
 
 midName = (v1, v2) -> v1<v2 and "#{v1}_#{v2}" or "#{v2}_#{v1}"
+
+# 00000000  000       0000000   000000000  000000000  00000000  000   000  
+# 000       000      000   000     000        000     000       0000  000  
+# 000000    000      000000000     000        000     0000000   000 0 000  
+# 000       000      000   000     000        000     000       000  0000  
+# 000       0000000  000   000     000        000     00000000  000   000  
+
+flatten = (poly, iterations=1) ->
+    
+    normals = poly.normals()
+    centers = poly.centers()
+    
+    nonplanar = {}
+    for face,fi in poly.face
+        for vi in face
+            d = pointPlaneDist poly.vertex[vi], centers[fi], normals[fi]
+            if d > 0.0001
+                nonplanar[fi] ?= 0
+                nonplanar[fi] += d
+    
+    if valid nonplanar
+        klog "nonplanar #{poly.name}"
+        for fi,d of nonplanar
+            klog "fi #{fi} numv #{poly.face[fi].length} #{d}"
+            for vi in poly.face[fi]
+                # klog "#{vi}"
+                for nf in poly.facesAtVertex vi
+                    if nf != fi
+                        # klog "#{vi} #{nf} #{poly.face[nf].length}"
+                        klog "#{poly.face[nf].length}"
+        
+    new Polyhedron poly.name, poly.face, poly.vertex
 
 # 000   000   0000000   000      000       0000000   000   000  
 # 000   000  000   000  000      000      000   000  000 0 000  
@@ -795,29 +825,7 @@ canonicalize = (poly, iter=200) ->
             break
     verts = rescale verts
     new Polyhedron poly.name, poly.face, verts
-    
-canonicalXYZ = (poly, iterations) ->
-
-    iterations ?= 1
-    dpoly = dual poly
-  
-    for count in [0...iterations] # reciprocate face normals
-        dpoly.vertex = reciprocalN poly
-        poly.vertex  = reciprocalN dpoly
-  
-    new Polyhedron poly.name, poly.face, poly.vertex
-
-flatten = (poly, iterations) -> # quick planarization
-    
-    iterations ?= 1
-    dpoly = dual poly
-  
-    for count in [0...iterations]
-        dpoly.vertex = reciprocalC poly
-        poly.vertex  = reciprocalC dpoly
-  
-    new Polyhedron poly.name, poly.face, poly.vertex
-    
+        
 # 00000000  000   000  00000000    0000000   00000000   000000000   0000000  
 # 000        000 000   000   000  000   000  000   000     000     000       
 # 0000000     00000    00000000   000   000  0000000       000     0000000   
@@ -844,5 +852,4 @@ module.exports =
     zirkularize:    zirkularize
     sphericalize:   sphericalize
     canonicalize:   canonicalize
-    canonicalXYZ:   canonicalXYZ
     

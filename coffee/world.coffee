@@ -157,11 +157,17 @@ class World
         # for alias,code of generate.alias
             # rows[0].push 'h(.3,.1)'+code
             
-        # rows = [['h(.5,.1)C']]
+        # rows = [[ 'Y7' 'Y12' 'P9' 'U7' 'V9' ]
+                # [ 'fY7' 'fY12' 'fP9' 'fU7' 'fV9' ]
+                # [ 'aY7' 'aY12' 'aP9' 'aU7' 'aV9' ]
+                # [ 'jY7' 'jY12' 'jP9' 'jU7' 'jV9' ]
+                # [ 'oY7' 'oY12' 'oP9' 'oU7' 'oV9' ]
+                # ]
+        # rows = [['faV9']]
             
         colors = [
-            new Color3 .3 .3 .3
-            new Color3  1  1  1
+            new Color3 .5 .5 .5
+            new Color3 .8 .8  1
             new Color3 .5 .5  1
             new Color3 .4 .4  .9
             new Color3 .3 .3  .8
@@ -179,12 +185,12 @@ class World
             for code in row
                 ci++
                 continue if empty code
-                for d,y in ['']
+                for d,y in ['f']
                     poly = generate d+code, true
                     # klog parseInt(poly.maxEdgeDifference() * 1000), d+code
                     
                     poly.colorize 'signature'
-                    # klog 'colors' poly.colors
+                    # klog 'colors' poly.name, poly.colors
                     faceColors = poly.colors.map (ci) -> colors[ci]
                     
                     p = Mesh.CreatePolyhedron d+code, {custom:poly, faceColors:faceColors}, @scene

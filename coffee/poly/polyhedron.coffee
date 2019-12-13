@@ -8,8 +8,8 @@
 
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
-{ _ } = require 'kxk'
-{ add, faceSignature, faceToEdges, facesToWings, mag, mult, normal, planararea, sigfigs } = require './math'
+{ _, rad2deg } = require 'kxk'
+{ add, cross, faceToEdges, facesToWings, mag, mult, normal, sub } = require './math'
 { min } = Math
 Vect = require '../vect'
 
@@ -119,6 +119,14 @@ class Polyhedron
         sum.normalize()
         sum
                 
+    facesAtVertex: (vi) ->
+        
+        faces = []
+        for face,fi in @face
+            if vi in face
+                faces.push fi
+        faces
+        
     #  0000000  00000000  000   000  000000000  00000000  00000000    0000000  
     # 000       000       0000  000     000     000       000   000  000       
     # 000       0000000   000 0 000     000     0000000   0000000    0000000   
@@ -150,13 +158,15 @@ class Polyhedron
     # 000   000   0000000   000   000  000   000  000   000  0000000  0000000   
     
     normals: -> 
+        
         normalsArray = []
         for face in @face
             normalsArray.push normal face.map (vidx) => @vertex[vidx]
         normalsArray
   
     data: ->
-        nEdges = (@face.length + @vertex.length) - 2; # E = V + F - 2
+        
+        nEdges = (@face.length + @vertex.length) - 2 # E = V + F - 2
         "#{@face.length} faces, #{nEdges} edges, #{@vertex.length} vertices"
         
     colorize: (method='sidedness') -> # assign color indices to faces
@@ -165,20 +175,32 @@ class Polyhedron
         colormemory = {}
         colorassign = (hash) -> colormemory[hash] ?= _.size colormemory
       
-        for f in @face
-            switch method
-                when 'area' # color by face planar area assuming flatness
-                    face_verts = f.map (v) => @vertex[v]
-                    clr = colorassign sigfigs planararea(face_verts), 2
-                when 'signature' # color by congruence signature
-                    face_verts = f.map (v) => @vertex[v]
-                    clr = colorassign faceSignature face_verts, 2
-                else # color by face-sidedness
-                    clr = f.length - 3
-            @colors.push clr
+        switch method
+            when 'signature' # color by congruence signature
+                @colors = @face.map (f) => colorassign @signature f
+            else # color by face-sidedness
+                @colors = @face.map (f) -> f.length - 3
     
         # klog "#{_.size(colormemory)+1} colors:" @colors
         @
 
+    #  0000000  000   0000000   000   000   0000000   000000000  000   000  00000000   00000000  
+    # 000       000  000        0000  000  000   000     000     000   000  000   000  000       
+    # 0000000   000  000  0000  000 0 000  000000000     000     000   000  0000000    0000000   
+    #      000  000  000   000  000  0000  000   000     000     000   000  000   000  000       
+    # 0000000   000   0000000   000   000  000   000     000      0000000   000   000  00000000  
+    
+    signature: (face) ->
+    
+        vertices = face.map (v) => @vertex[v]
+        angles = []
+        
+        [v1, v2] = vertices.slice -2
+        for v3 in vertices # accumulate inner angles        
+            angles.push parseInt rad2deg mag cross sub(v1, v2), sub(v3, v2)
+            [v1, v2] = [v2, v3]
+    
+        angles.sort().join '_'
+        
 module.exports = Polyhedron
     

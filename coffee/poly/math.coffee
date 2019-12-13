@@ -9,7 +9,7 @@
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
     
 { _, first, klog } = require 'kxk'
-{ E, LN10, abs, floor, pow, round, sqrt } = Math
+{ E, sqrt } = Math
 
 Vect = require '../vect'
 Quat = require '../quat'
@@ -45,8 +45,6 @@ rotate = (v, axis, angle) ->
     rot = Quat.axisAngle vec(axis), angle
     res = rot.rotated v
     res.coords()
-
-reciprocal = (v) -> mult 1.0/mag2(v), v # reflect in unit sphere
 
 tangentPoint = (v1, v2) -> # point where line v1...v2 tangent to an origin sphere
     d = sub v2, v1
@@ -145,58 +143,13 @@ calcCentroid = (vertices) ->
 # 000   000   0000000   000   000  000   000  000   000  0000000  
 
 normal = (vertices) ->
-    # average normal vector for array of vertices
-    normalV = [0 0 0] 
+
+    nv = [0 0 0] 
     [v1, v2] = vertices.slice -2
     for v3 in vertices
-        normalV = add normalV, orthogonal v1, v2, v3
+        nv = add nv, orthogonal v1, v2, v3
         [v1, v2] = [v2, v3]
-    unit normalV
-
-# calculates area planar face by summing over subtriangle areas, assumes planarity.
-planararea = (vertices) ->
-    area = 0.0
-    vsum = [0 0 0]
-    [v1, v2] = vertices.slice(-2)
-    for v3 in vertices
-        vsum = add vsum, cross v1, v2
-        [v1, v2] = [v2, v3]
-    area = abs dot(normal(vertices), vsum) / 2.0
-
-#  0000000  000   0000000   000   000   0000000   000000000  000   000  00000000   00000000  
-# 000       000  000        0000  000  000   000     000     000   000  000   000  000       
-# 0000000   000  000  0000  000 0 000  000000000     000     000   000  0000000    0000000   
-#      000  000  000   000  000  0000  000   000     000     000   000  000   000  000       
-# 0000000   000   0000000   000   000  000   000     000      0000000   000   000  00000000  
-
-sigfigs = (N, nsigs) -> # string with nsigs digits ignoring magnitude
-    
-  mantissa = N / pow 10 floor Math.log(N) / LN10
-  truncated_mantissa = round mantissa * pow 10 nsigs-1
-  "#{truncated_mantissa}"
-
-faceSignature = (vertices, sensitivity) ->
-
-    # congruence signature for assigning same colors to congruent faces
-    cross_array = []
-    [v1, v2] = vertices.slice -2
-    for v3 in vertices
-        # accumulate inner angles
-        cross_array.push mag cross sub(v1, v2), sub(v3, v2)
-        [v1, v2] = [v2, v3]
-
-    # sort angles to create unique sequence
-    cross_array.sort (a,b) -> a-b
-  
-    # render sorted angles as quantized digit strings
-    # this is the congruence signature
-    sig = ''
-    for x in cross_array 
-        sig += sigfigs x, sensitivity
-    # hack to make reflected faces share the same signature
-    for x in cross_array.reverse() 
-        sig += sigfigs x, sensitivity
-    sig
+    unit nv
 
 copyVecArray = (vecArray) -> # copies array of arrays by value (deep copy)
     
@@ -247,7 +200,7 @@ facesToWings = (faces) ->
     wings
 
 faceToEdges = (face) -> 
-    # array of edges [v1,v2] for face
+    # array of edges [v1,v2] for list of vertices
     edges = []
     v1 = face[-1]
     for v2 in face
@@ -322,44 +275,6 @@ planarize = (vertices, faces) ->
         for v in f # project (vertex - centroid) onto normal, subtract off this component
             newVs[v] = add newVs[v], mult dot(mult(STABILITY_FACTOR, n), sub(c, vertices[v])), n
     newVs
-
-# 00000000   00000000   0000000  000  00000000   00000000    0000000    0000000   0000000   000      
-# 000   000  000       000       000  000   000  000   000  000   000  000       000   000  000      
-# 0000000    0000000   000       000  00000000   0000000    000   000  000       000000000  000      
-# 000   000  000       000       000  000        000   000  000   000  000       000   000  000      
-# 000   000  00000000   0000000  000  000        000   000   0000000    0000000  000   000  0000000  
-
-# Hacky Canonicalization Algorithm
-# Using center of gravity of vertices for each face to planarize faces
-
-reciprocalC = (poly) ->
-    # get the spherical reciprocals of face centers
-    centers = poly.centers()
-    for c in centers
-        c = mult 1.0/dot(c,c), c
-    centers
-
-reciprocalN = (poly) ->
-    # make array of vertices reciprocal to given planes
-    ans = []
-    for f in poly.face #for each face
-        centroid    = [0 0 0] # running sum of vertex coords
-        normalV     = [0 0 0] # running sum of normal vectors
-        avgEdgeDist = 0.0 # running sum for avg edge distance
-    
-        [v1, v2] = f.slice -2
-        for v3 in f
-            centroid     = add centroid, poly.vertex[v3]
-            normalV      = add normalV, orthogonal poly.vertex[v1], poly.vertex[v2], poly.vertex[v3]
-            avgEdgeDist += edgeDist poly.vertex[v1], poly.vertex[v2]
-            [v1, v2] = [v2, v3]
-    
-        centroid    = mult 1.0/f.length, centroid
-        normalV     = unit normalV
-        avgEdgeDist = avgEdgeDist / f.length
-        tmp   = reciprocal mult dot(centroid, normalV), normalV # based on face
-        ans.push mult (1 + avgEdgeDist) / 2, tmp
-    ans
     
 module.exports =
     vec:            vec
@@ -377,7 +292,6 @@ module.exports =
     normal:         normal
     rotate:         rotate
     rayRay:         rayRay
-    sigfigs:        sigfigs
     rescale:        rescale
     recenter:       recenter
     edgeDist:       edgeDist
@@ -388,18 +302,13 @@ module.exports =
     clockwise:      clockwise
     planarize:      planarize
     tangentify:     tangentify
-    planararea:     planararea
     orthogonal:     orthogonal
-    reciprocal:     reciprocal
-    reciprocalN:    reciprocalN
-    reciprocalC:    reciprocalC
     faceToEdges:    faceToEdges
     pointRayDist:   pointRayDist
     facesToWings:   facesToWings
     calcCentroid:   calcCentroid
     copyVecArray:   copyVecArray
     tangentPoint:   tangentPoint
-    faceSignature:  faceSignature
     pointPlaneDist: pointPlaneDist
     
     
