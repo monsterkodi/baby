@@ -8,8 +8,8 @@
 
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
-{ _, clamp, klog, valid } = require 'kxk'
-{ add, angle, calcCentroid, clockwise, copyVecArray, cross, dot, intersect, mag, midpoint, mult, neg, oneThird, planarize, pointPlaneDist, rayPlane, rayRay, recenter, rescale, rotate, sub, tangentify, tween, unit } = require './math'
+{ _, clamp, klog } = require 'kxk'
+{ add, angle, calcCentroid, clockwise, copyVecArray, cross, intersect, mag, midpoint, mult, neg, oneThird, planarize, rayPlane, rayRay, rotate, sub, tangentify, tween, unit } = require './math'
 { min } = Math
 
 Vect = require '../vect'
@@ -27,46 +27,30 @@ midName = (v1, v2) -> v1<v2 and "#{v1}_#{v2}" or "#{v2}_#{v1}"
 flatten = (poly, iterations=1) ->
     
     normals = poly.normals()
-    centers = poly.centers()
-    
-    nonplanar = {}
-    vertexdist = {}
-    for face,fi in poly.face
-        for vi in face
-            d = pointPlaneDist poly.vertex[vi], centers[fi], normals[fi]
-            if d > 0.0001
-                nonplanar[fi] ?= 0
-                nonplanar[fi] += d
-                
-                s = dot(normals[fi],sub(poly.vertex[vi],centers[fi]))>0 and 1 or -1
-                
-                vertexdist[vi] ?= 0
-                vertexdist[vi] += s*d
-    
-    # klog vertexdist
-    if valid nonplanar
-        klog "nonplanar #{poly.name}"
-        # klog vertexdist
-        for fi,d of nonplanar
-            fi = parseInt fi
-            klog "fi #{fi} numv #{poly.face[fi].length} #{d}"
-            for vi in poly.face[fi]
-                # klog "#{vi} d:#{vertexdist[vi]}"
-                saveToMove = true
-                for nf in poly.facesAtVertex vi
-                    if nf != fi
-                        # klog "#{fi} #{nf} v:#{poly.face[nf].length}"
-                        if poly.face[nf].length > 3
-                            saveToMove = false
-                            break
-                if saveToMove
-                    d = -vertexdist[vi]
-                    klog "move #{vi} by #{d}"
-                    poly.vertex[vi] = add poly.vertex[vi], mult d, normals[fi]
-    else
-        klog "flach wie ''ne plunder #{poly.name}"
+    neighbors = poly.neighbors()
+    [flatness,vertexdist,offsets] = poly.flatness()
+
+    if flatness > 0.001
+        poly.debug = []
+    debug = true
+    while iterations and flatness > 0.001
+        klog "#{poly.name} #{iterations} #{flatness}"
+        iterations -= 1
+                                    
+        for vi in [0...poly.vertex.length]
+            continue if neighbors[vi].length <= 2
+            continue if neighbors[vi].length >= 6
+
+            if debug
+                poly.debugLine poly.vertex[vi], add poly.vertex[vi], offsets[vi]
+            poly.vertex[vi] = add poly.vertex[vi], mult 0.3, offsets[vi]
         
-    new Polyhedron poly.name, poly.face, poly.vertex
+        debug = false
+        [flatness,vertexdist,offsets] = poly.flatness()            
+    # else
+        # klog "flach wie eine flunder #{poly.name}"
+        
+    poly
 
 # 000   000   0000000   000      000       0000000   000   000  
 # 000   000  000   000  000      000      000   000  000 0 000  
@@ -836,13 +820,15 @@ canonicalize = (poly, iter=200) ->
     for i in [0..iter]
         oldVs = copyVecArray verts
         verts = tangentify verts, edges
-        verts = recenter verts, edges
+        # verts = recenter verts, edges
         verts = planarize verts, faces
         maxChange = _.max _.map _.zip(verts, oldVs), ([x, y]) -> mag sub x, y
         if maxChange < 1e-8
             break
-    verts = rescale verts
-    new Polyhedron poly.name, poly.face, verts
+    # verts = rescale verts
+    # new Polyhedron poly.name, poly.face, verts
+    poly.verts = verts
+    poly.rescale()
         
 # 00000000  000   000  00000000    0000000   00000000   000000000   0000000  
 # 000        000 000   000   000  000   000  000   000     000     000       

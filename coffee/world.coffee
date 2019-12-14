@@ -6,7 +6,7 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ colors, deg2rad, elem, empty, prefs } = require 'kxk'
+{ colors, deg2rad, elem, empty, klog, prefs } = require 'kxk'
 { Camera, Color3, DirectionalLight, Engine, HemisphericLight, Mesh, MeshBuilder, Scene, ShadowGenerator, StandardMaterial, Vector3 } = require 'babylonjs'
 
 generate = require './poly/generate'
@@ -157,13 +157,17 @@ class World
         # for alias,code of generate.alias
             # rows[0].push 'h(.3,.1)'+code
             
-        rows = [[ 'Y7' 'Y12' 'P9' 'U7' 'V9' ]
-                [ 'fY7' 'fY12' 'fP9' 'fU7' 'fV9' ]
-                [ 'aY7' 'aY12' 'aP9' 'aU7' 'aV9' ]
-                [ 'jY7' 'jY12' 'jP9' 'jU7' 'jV9' ]
-                [ 'oY7' 'oY12' 'oP9' 'oU7' 'oV9' ]
-                ]
-        rows = [['jY5''jP5']]
+        # rows = [[ 'Y7' 'Y12' 'P9' 'U7' 'V9' ]
+                # [ 'fY7' 'fY12' 'fP9' 'fU7' 'fV9' ]
+                # [ 'aY7' 'aY12' 'aP9' 'aU7' 'aV9' ]
+                # [ 'jY7' 'jY12' 'jP9' 'jU7' 'jV9' ]
+                # [ 'oY7' 'oY12' 'oP9' 'oU7' 'oV9' ]
+                # ]
+        # rows = [['jP5']]
+        # rows = [['jY5']]
+        # rows = [['Y5']]
+        # rows = [['cV5''bV5''cY5']
+            # ['wT' 'wC' 'wO' 'wD' 'wI']]
             
         colors = [
             new Color3 .5 .5 .5
@@ -185,10 +189,9 @@ class World
             for code in row
                 ci++
                 continue if empty code
-                for d,y in ['f']
+                for d,y in ['' 'f200']
                     poly = generate d+code, true
-                    # klog parseInt(poly.maxEdgeDifference() * 1000), d+code
-                    
+                    klog '---------' d+code, poly.flatness()[0]
                     poly.colorize 'signature'
                     # klog 'colors' poly.name, poly.colors
                     faceColors = poly.colors.map (ci) -> colors[ci]
@@ -197,7 +200,7 @@ class World
                     # @scene.showNormals p
                     @scene.showFaces p, poly
                     # @scene.showIndices p, poly
-                    # @scene.showDebug p, poly
+                    @scene.showDebug p, poly
                     # @scene.label p
                     p.receiveShadows = true
                     p.position.x = 3*ci

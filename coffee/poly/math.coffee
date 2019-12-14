@@ -8,7 +8,7 @@
 
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
     
-{ _, first, klog } = require 'kxk'
+{ first, klog } = require 'kxk'
 { E, sqrt } = Math
 
 Vect = require '../vect'
@@ -34,7 +34,7 @@ dot      = (v1, v2) -> (v1[0]*v2[0]) + (v1[1]*v2[1]) + (v1[2]*v2[2])
 cross    = (d1, d2) -> [(d1[1]*d2[2]) - (d1[2]*d2[1]), (d1[2]*d2[0]) - (d1[0]*d2[2]), (d1[0]*d2[1]) - (d1[1]*d2[0])]
 mag      = (v) -> sqrt dot v, v
 mag2     = (v) -> dot v, v
-unit     = (v) -> mult 1/sqrt(mag2(v)), v
+unit     = (v) -> if l = mag(v) then mult(1/l, v) else [1 0 0]
 tween    = (v1, v2, t) -> [((1-t)*v1[0]) + (t*v2[0]), ((1-t)*v1[1]) + (t*v2[1]), ((1-t)*v1[2]) + (t*v2[2])]
 midpoint = (v1, v2) -> mult 0.5, add v1, v2
 oneThird = (v1, v2) -> tween v1, v2, 1/3.0
@@ -150,6 +150,13 @@ normal = (vertices) ->
         nv = add nv, orthogonal v1, v2, v3
         [v1, v2] = [v2, v3]
     unit nv
+    
+center = (vertices) ->
+
+    ctr = [0 0 0]
+    for v in vertices
+        ctr = add ctr, v
+    mult 1.0/vertices.length, ctr
 
 copyVecArray = (vecArray) -> # copies array of arrays by value (deep copy)
     
@@ -224,38 +231,6 @@ tangentify = (vertices, edges) ->
         newVs[e[1]] = add newVs[e[1]], c
     newVs
 
-# 00000000   00000000   0000000  00000000  000   000  000000000  00000000  00000000   
-# 000   000  000       000       000       0000  000     000     000       000   000  
-# 0000000    0000000   000       0000000   000 0 000     000     0000000   0000000    
-# 000   000  000       000       000       000  0000     000     000       000   000  
-# 000   000  00000000   0000000  00000000  000   000     000     00000000  000   000  
-
-recenter = (vertices, edges) ->
-    # recenters entire polyhedron such that center of mass is at origin
-    edgecenters = edges.map ([a, b]) -> tangentPoint vertices[a], vertices[b]
-    
-    polycenter = [0 0 0]
-
-    for v in edgecenters
-        polycenter = add polycenter, v
-        
-    polycenter = mult 1/edges.length, polycenter
-
-    _.map vertices, (x) -> sub x, polycenter
-
-# 00000000   00000000   0000000   0000000   0000000   000      00000000  
-# 000   000  000       000       000       000   000  000      000       
-# 0000000    0000000   0000000   000       000000000  000      0000000   
-# 000   000  000            000  000       000   000  000      000       
-# 000   000  00000000  0000000    0000000  000   000  0000000  00000000  
-
-rescale = (vertices) ->
-    # rescales maximum radius of polyhedron to 1
-    polycenter = [0 0 0]
-    maxExtent = _.max _.map vertices, (x) -> mag x
-    s = 1 / maxExtent
-    _.map vertices, (x) -> [s*x[0], s*x[1], s*x[2]]
-
 # 00000000   000       0000000   000   000   0000000   00000000   000  0000000  00000000  
 # 000   000  000      000   000  0000  000  000   000  000   000  000     000   000       
 # 00000000   000      000000000  000 0 000  000000000  0000000    000    000    0000000   
@@ -290,10 +265,9 @@ module.exports =
     cross:          cross
     tween:          tween
     normal:         normal
+    center:         center
     rotate:         rotate
     rayRay:         rayRay
-    rescale:        rescale
-    recenter:       recenter
     edgeDist:       edgeDist
     oneThird:       oneThird
     midpoint:       midpoint

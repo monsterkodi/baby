@@ -8,19 +8,44 @@
 
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
-{ _, rad2deg } = require 'kxk'
-{ add, cross, faceToEdges, facesToWings, mag, mult, normal, sub } = require './math'
-{ min } = Math
+{ _, rad2deg, valid } = require 'kxk'
+{ add, center, cross, dot, faceToEdges, facesToWings, mag, mult, normal, pointPlaneDist, sub, tangentPoint, vec } = require './math'
+{ abs, min } = Math
 Vect = require '../vect'
 
 class Polyhedron 
 
     @: (@name, @face, @vertex) ->
 
+        @name   ?= "polyhedron"
         @face   ?= []
         @vertex ?= [] 
-        @name   ?= "polyhedron"
+        @debug   = []
 
+    # 0000000    00000000  0000000    000   000   0000000   
+    # 000   000  000       000   000  000   000  000        
+    # 000   000  0000000   0000000    000   000  000  0000  
+    # 000   000  000       000   000  000   000  000   000  
+    # 0000000    00000000  0000000     0000000    0000000   
+    
+    debugLine: (v1, v2) ->
+        
+        if v1.constructor.name == 'Number'
+            v1 = @vertex[v1]
+        else if v1.toArray?
+            a = []
+            v1.toArray a
+            v1 = a
+
+        if v2.constructor.name == 'Number'
+            v2 = @vertex[v2]
+        else if v2.toArray?
+            a = []
+            v2 = v2.toArray a
+            v2 = a
+        
+        @debug.push [v1, v2]
+        
     # 000   000  00000000  000   0000000   000   000  0000000     0000000   00000000    0000000  
     # 0000  000  000       000  000        000   000  000   000  000   000  000   000  000       
     # 000 0 000  0000000   000  000  0000  000000000  0000000    000   000  0000000    0000000   
@@ -50,7 +75,7 @@ class Polyhedron
                     
         neighbors
         
-    neighborsAndFaces: ->
+    neighborsAndFaces: -> # unused
 
         neighbors = ([] for v in @vertex)
         for face,fi in @face
@@ -158,29 +183,113 @@ class Polyhedron
             v[2] *= factor
         @
         
+    normalize: ->
+        
+        @recenter()
+        @rescale()
+        @        
+        
+    # 00000000   00000000   0000000  00000000  000   000  000000000  00000000  00000000   
+    # 000   000  000       000       000       0000  000     000     000       000   000  
+    # 0000000    0000000   000       0000000   000 0 000     000     0000000   0000000    
+    # 000   000  000       000       000       000  0000     000     000       000   000  
+    # 000   000  00000000   0000000  00000000  000   000     000     00000000  000   000  
+    
+    recenter: ->
+        # recenters entire polyhedron such that center of mass is at origin
+        edges = @edges()
+        edgecenters = edges.map ([a, b]) => tangentPoint @vertex[a], @vertex[b]
+        
+        polycenter = [0 0 0]
+    
+        for v in edgecenters
+            polycenter = add polycenter, v
+            
+        polycenter = mult 1/edges.length, polycenter
+    
+        @vertex = _.map @vertex, (x) -> sub x, polycenter
+        @debug = _.map @debug, (dbg) -> dbg.map (x) -> sub x, polycenter
+        @
+    
+    # 00000000   00000000   0000000   0000000   0000000   000      00000000  
+    # 000   000  000       000       000       000   000  000      000       
+    # 0000000    0000000   0000000   000       000000000  000      0000000   
+    # 000   000  000            000  000       000   000  000      000       
+    # 000   000  00000000  0000000    0000000  000   000  0000000  00000000  
+    
+    rescale: ->
+        # rescales maximum radius of polyhedron to 1
+        polycenter = [0 0 0]
+        maxExtent = _.max _.map @vertex, (x) -> mag x
+        s = 1 / maxExtent
+        @vertex = _.map @vertex, (x) -> [s*x[0], s*x[1], s*x[2]]
+        @debug = _.map @debug, (dbg) -> dbg.map (x) -> [s*x[0], s*x[1], s*x[2]]
+        @
+            
     #  0000000  00000000  000   000  000000000  00000000  00000000    0000000  
     # 000       000       0000  000     000     000       000   000  000       
     # 000       0000000   000 0 000     000     0000000   0000000    0000000   
     # 000       000       000  0000     000     000       000   000       000  
     #  0000000  00000000  000   000     000     00000000  000   000  0000000   
     
-    centers: -> 
-        centersArray = []
-        for face in @face
-            fcenter = [0 0 0]
-            for vidx in face
-                fcenter = add fcenter, @vertex[vidx]
-            centersArray.push mult 1.0/face.length, fcenter
-        centersArray
+    centers: -> @face.map (f) => center f.map (vi) => @vertex[vi]
         
     minFaceDist: ->
         
         minFaceDist = Infinity
         
-        for center in @centers()
-            minFaceDist = min minFaceDist, mag center
+        for ctr in @centers()
+            minFaceDist = min minFaceDist, mag ctr
             
         minFaceDist
+
+    # 00000000  000       0000000   000000000  000   000  00000000   0000000   0000000  
+    # 000       000      000   000     000     0000  000  000       000       000       
+    # 000000    000      000000000     000     000 0 000  0000000   0000000   0000000   
+    # 000       000      000   000     000     000  0000  000            000       000  
+    # 000       0000000  000   000     000     000   000  00000000  0000000   0000000   
+    
+    flatness: ->
+        
+        vertexdist = {}
+        offsets = {}
+        neighbors = @neighbors()
+        
+        for face,fi in @face
+            continue if face.length <= 3
+            # continue if face.length >= 6
+            for vi in face
+                others = face.filter((v) => v != vi).map (v) => @vertex[v]
+                norm = normal others
+                cent = center others
+                d = pointPlaneDist @vertex[vi], cent, norm
+                s = dot(norm,sub(@vertex[vi],cent))>0 and 1 or -1
+                vertexdist["#{fi}▸#{vi}"] = s*d
+                    
+        avg = @vertex.map (v) -> vec()
+        
+        for face,fi in @face
+            continue if face.length <= 3
+            # continue if face.length >= 6
+            fi = parseInt fi
+            face = @face[fi]
+            for vi in face
+                others = face.filter((v) -> v != vi).map (v) => @vertex[v]
+                norm = normal others
+                vdist = vertexdist["#{fi}▸#{vi}"]
+                avg[vi].addInPlace vec mult -vdist, norm
+        
+        for vi in [0...@vertex.length]
+            offsets[vi] = avg[vi].mul(1/neighbors[vi].length).coords()
+
+        flatness = 0
+        
+        if valid vertexdist
+            for k,vd of vertexdist
+                flatness += abs vd
+            flatness /= _.size vertexdist
+            
+        [ flatness, vertexdist, offsets ]
   
     # 000   000   0000000   00000000   00     00   0000000   000       0000000  
     # 0000  000  000   000  000   000  000   000  000   000  000      000       

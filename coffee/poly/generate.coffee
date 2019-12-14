@@ -9,7 +9,6 @@
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
     
 { klog } = require 'kxk'
-{ recenter, rescale } = require './math'
 
 poly = require './poly'
 topo = require './topo'
@@ -143,8 +142,7 @@ generate = (notation, normalize=true) ->
         poly   = dispatch opfunc, opargs
 
     if normalize
-        poly.vertex = recenter poly.vertex, poly.edges()
-        poly.vertex = rescale  poly.vertex
+        poly.normalize()
   
     poly
 

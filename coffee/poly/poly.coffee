@@ -210,7 +210,7 @@ anticupola = (n, alpha, height) ->
     n ?= 3
     alpha ?= 0.0
   
-    poly = new Polyhedron "U#{n}"
+    poly = new Polyhedron "V#{n}"
   
     if n < 3 then return poly
   

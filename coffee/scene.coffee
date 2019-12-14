@@ -6,9 +6,9 @@
 0000000    0000000  00000000  000   000  00000000
 ###
 
-{ klog } = require 'kxk'
+{ valid } = require 'kxk'
 { Color3, Mesh, MeshBuilder, Scene, StandardMaterial, Vector3, VertexBuffer } = require 'babylonjs'
-
+{ vec } = require './poly/math'
 babylon  = require 'babylonjs'
 GUI      = require 'babylonjs-gui'
 Vect     = require './vect'
@@ -61,18 +61,18 @@ class Scene extends babylon.Scene
         mesh.addChild system
         system
         
-    # 00000000   0000000    0000000  00000000   0000000  
-    # 000       000   000  000       000       000       
-    # 000000    000000000  000       0000000   0000000   
-    # 000       000   000  000       000            000  
-    # 000       000   000   0000000  00000000  0000000   
+    # 0000000    00000000  0000000    000   000   0000000   
+    # 000   000  000       000   000  000   000  000        
+    # 000   000  0000000   0000000    000   000  000  0000  
+    # 000   000  000       000   000  000   000  000   000  
+    # 0000000    00000000  0000000     0000000    0000000   
     
     showDebug: (mesh, poly)->
         
-        if poly.debug
-            lines = poly.debug.map (dbg) -> dbg.map (v) -> new Vector3 v[0], v[1], v[2]
+        if valid poly.debug
+            lines = poly.debug.map (dbg) -> dbg.map (v) -> vec v
             system = MeshBuilder.CreateLineSystem 'faces' lines:lines
-            system.scaling = new Vector3 1.03 1.03 1.03
+            # system.scaling = vec 1.03 1.03 1.03
             system.color = new Color3 1 1 0
             system.alpha = 0.5
             mesh.addChild system
@@ -90,14 +90,14 @@ class Scene extends babylon.Scene
         lines  = []
 
         for face in poly.face
-            v1 = new Vect poly.vertex[face[-1]]
+            v1 = poly.vert face[-1]
             for vi in [0...face.length]
-                v2 = new Vect poly.vertex[face[vi]]
+                v2 = poly.vert face[vi]
                 lines.push [v1, v2]
                 v1 = v2
             
         system = MeshBuilder.CreateLineSystem 'faces' lines:lines
-        system.scaling = new Vector3 1.005 1.005 1.005
+        system.scaling = vec 1.005 1.005 1.005
         system.color = color
         mesh.addChild system
         system
@@ -115,7 +115,7 @@ class Scene extends babylon.Scene
             d.material = @vertIndexMat
             mesh.addChild d
             d.locallyTranslate poly.vert vi
-            d.lookAt poly.vert(vi).plus new Vect poly.vertexNormal vi
+            d.lookAt poly.vert(vi).plus vec poly.vertexNormal vi
             @label d 
             
         normals = poly.normals()
@@ -124,8 +124,8 @@ class Scene extends babylon.Scene
             c = Mesh.CreatePolyhedron "#{fi}" {custom:generate('C').scale(0.1)}, @
             c.material = @faceIndexMat
             mesh.addChild c
-            c.locallyTranslate new Vect ctr
-            c.lookAt new Vect(ctr).plus normals[fi]
+            c.locallyTranslate vec ctr
+            c.lookAt vec(ctr).plus normals[fi]
             @label c 
         
     # 000       0000000   0000000    00000000  000      
