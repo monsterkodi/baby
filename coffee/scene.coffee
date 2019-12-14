@@ -7,12 +7,13 @@
 ###
 
 { klog } = require 'kxk'
-{ Color3, MeshBuilder, Scene, Vector3, VertexBuffer } = require 'babylonjs'
+{ Color3, Mesh, MeshBuilder, Scene, StandardMaterial, Vector3, VertexBuffer } = require 'babylonjs'
 
-babylon = require 'babylonjs'
-GUI     = require 'babylonjs-gui'
-Vect    = require './vect'
-Legend  = require './legend'
+babylon  = require 'babylonjs'
+GUI      = require 'babylonjs-gui'
+Vect     = require './vect'
+Legend   = require './legend'
+generate = require './poly/generate'
 
 class Scene extends babylon.Scene 
 
@@ -23,8 +24,16 @@ class Scene extends babylon.Scene
         
         @legend = new Legend @ui
         
+        @faceIndexMat = new StandardMaterial 'faceIndexMat'
+        @faceIndexMat.diffuseColor = new Color3 .5 .5 1            
+        @faceIndexMat.alpha = 0.5
+
+        @vertIndexMat = new StandardMaterial 'vertIndexMat'
+        @vertIndexMat.diffuseColor = new Color3 1 1 1
+        @vertIndexMat.alpha = 0.5
+        
         @style = @ui.createStyle()
-        @style.fontSize = 12
+        @style.fontSize = 10
         @style.fontFamily = 'fontMono'
         @style.height = "20px"
 
@@ -92,6 +101,32 @@ class Scene extends babylon.Scene
         system.color = color
         mesh.addChild system
         system
+    
+    # 000  000   000  0000000    000   0000000  00000000   0000000  
+    # 000  0000  000  000   000  000  000       000       000       
+    # 000  000 0 000  000   000  000  000       0000000   0000000   
+    # 000  000  0000  000   000  000  000       000            000  
+    # 000  000   000  0000000    000   0000000  00000000  0000000   
+    
+    showIndices: (mesh, poly) ->
+
+        for vx,vi in poly.vertex
+            d = Mesh.CreatePolyhedron "#{vi}" {custom:generate('O').scale(0.1)}, @
+            d.material = @vertIndexMat
+            mesh.addChild d
+            d.locallyTranslate poly.vert vi
+            d.lookAt poly.vert(vi).plus new Vect poly.vertexNormal vi
+            @label d 
+            
+        normals = poly.normals()
+            
+        for ctr,fi in poly.centers()
+            c = Mesh.CreatePolyhedron "#{fi}" {custom:generate('C').scale(0.1)}, @
+            c.material = @faceIndexMat
+            mesh.addChild c
+            c.locallyTranslate new Vect ctr
+            c.lookAt new Vect(ctr).plus normals[fi]
+            @label c 
         
     # 000       0000000   0000000    00000000  000      
     # 000      000   000  000   000  000       000      
@@ -101,15 +136,15 @@ class Scene extends babylon.Scene
     
     label: (mesh, name=mesh.name) ->
         
-        label = new GUI.Rectangle "label_#{mesh.name}"
-        label.background = "white"
-        label.height = "20px"
-        label.alpha = 0
-        label.width = "#{name.length*8}px"
-        label.cornerRadius = 10
-        label.thickness = 0
-        @ui.addControl label
-        label.linkWithMesh mesh
+        # label = new GUI.Rectangle "label_#{mesh.name}"
+        # label.background = "white"
+        # label.height = "20px"
+        # label.alpha = 1
+        # label.width = "#{name.length*8}px"
+        # label.cornerRadius = 10
+        # label.thickness = 0
+        # @ui.addControl label
+        # label.linkWithMesh mesh
 
         text = new GUI.TextBlock()
         text.text = name

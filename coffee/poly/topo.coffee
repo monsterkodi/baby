@@ -9,7 +9,7 @@
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
 
 { _, clamp, klog, valid } = require 'kxk'
-{ add, angle, calcCentroid, clockwise, copyVecArray, cross, intersect, mag, midpoint, mult, neg, oneThird, planarize, pointPlaneDist, rayPlane, rayRay, recenter, rescale, rotate, sub, tangentify, tween, unit } = require './math'
+{ add, angle, calcCentroid, clockwise, copyVecArray, cross, dot, intersect, mag, midpoint, mult, neg, oneThird, planarize, pointPlaneDist, rayPlane, rayRay, recenter, rescale, rotate, sub, tangentify, tween, unit } = require './math'
 { min } = Math
 
 Vect = require '../vect'
@@ -30,23 +30,41 @@ flatten = (poly, iterations=1) ->
     centers = poly.centers()
     
     nonplanar = {}
+    vertexdist = {}
     for face,fi in poly.face
         for vi in face
             d = pointPlaneDist poly.vertex[vi], centers[fi], normals[fi]
             if d > 0.0001
                 nonplanar[fi] ?= 0
                 nonplanar[fi] += d
+                
+                s = dot(normals[fi],sub(poly.vertex[vi],centers[fi]))>0 and 1 or -1
+                
+                vertexdist[vi] ?= 0
+                vertexdist[vi] += s*d
     
+    # klog vertexdist
     if valid nonplanar
         klog "nonplanar #{poly.name}"
+        # klog vertexdist
         for fi,d of nonplanar
+            fi = parseInt fi
             klog "fi #{fi} numv #{poly.face[fi].length} #{d}"
             for vi in poly.face[fi]
-                # klog "#{vi}"
+                # klog "#{vi} d:#{vertexdist[vi]}"
+                saveToMove = true
                 for nf in poly.facesAtVertex vi
                     if nf != fi
-                        # klog "#{vi} #{nf} #{poly.face[nf].length}"
-                        klog "#{poly.face[nf].length}"
+                        # klog "#{fi} #{nf} v:#{poly.face[nf].length}"
+                        if poly.face[nf].length > 3
+                            saveToMove = false
+                            break
+                if saveToMove
+                    d = -vertexdist[vi]
+                    klog "move #{vi} by #{d}"
+                    poly.vertex[vi] = add poly.vertex[vi], mult d, normals[fi]
+    else
+        klog "flach wie ''ne plunder #{poly.name}"
         
     new Polyhedron poly.name, poly.face, poly.vertex
 

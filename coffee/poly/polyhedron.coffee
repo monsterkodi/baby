@@ -36,7 +36,7 @@ class Polyhedron
                 if face[ni] not in neighbors[face[vi]]
                     neighbors[face[vi]].push face[ni]
                 if face[vi] not in neighbors[face[ni]]
-                    neighbors[face[ni]].push face[vi]          
+                    neighbors[face[ni]].push face[vi]
               
         for vi in [0...neighbors.length]
             toVertex = @vert vi
@@ -46,6 +46,29 @@ class Polyhedron
             neighbors[vi].sort (a,b) =>
                 aa = Vect.GetAngleBetweenVectors perp, @vert(a), toVertex
                 bb = Vect.GetAngleBetweenVectors perp, @vert(b), toVertex
+                aa - bb
+                    
+        neighbors
+        
+    neighborsAndFaces: ->
+
+        neighbors = ([] for v in @vertex)
+        for face,fi in @face
+            for vi in [0...face.length]
+                ni = (vi+1) % face.length
+                if face[ni] not in neighbors[face[vi]]
+                    neighbors[face[vi]].push vertex:face[ni], face:fi
+                if face[vi] not in neighbors[face[ni]]
+                    neighbors[face[ni]].push vertex:face[vi], face:fi
+              
+        for vi in [0...neighbors.length]
+            toVertex = @vert vi
+            toVertex.normalize()
+            toN0 = @vert neighbors[vi][0]
+            perp = toVertex.crossed toN0
+            neighbors[vi].sort (a,b) =>
+                aa = Vect.GetAngleBetweenVectors perp, @vert(a.vertex), toVertex
+                bb = Vect.GetAngleBetweenVectors perp, @vert(b.vertex), toVertex
                 aa - bb
                     
         neighbors
@@ -81,7 +104,7 @@ class Polyhedron
     
     edgeNormal: (v1, v2) ->
         
-        @vertNormal(v1).addInPlace(@vertNormal(v2)).scale(0.5)
+        @vertexNormal(v1).addInPlace(@vertexNormal(v2)).scale(0.5)
         
     minEdgeLength: ->
         
@@ -111,9 +134,9 @@ class Polyhedron
     
         new Vect @vertex[vi]
                 
-    vertNormal: (vi) ->
+    vertexNormal: (vi) ->
          
-        sum = new Vector3 0 0 0
+        sum = new Vect 0 0 0
         for ni in @neighbors(vi)
             sum.addInPlace @edge vi, ni
         sum.normalize()
@@ -126,6 +149,14 @@ class Polyhedron
             if vi in face
                 faces.push fi
         faces
+        
+    scale: (factor) ->
+        
+        for v in @vertex
+            v[0] *= factor
+            v[1] *= factor
+            v[2] *= factor
+        @
         
     #  0000000  00000000  000   000  000000000  00000000  00000000    0000000  
     # 000       000       0000  000     000     000       000   000  000       

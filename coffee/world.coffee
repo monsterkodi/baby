@@ -157,13 +157,13 @@ class World
         # for alias,code of generate.alias
             # rows[0].push 'h(.3,.1)'+code
             
-        # rows = [[ 'Y7' 'Y12' 'P9' 'U7' 'V9' ]
-                # [ 'fY7' 'fY12' 'fP9' 'fU7' 'fV9' ]
-                # [ 'aY7' 'aY12' 'aP9' 'aU7' 'aV9' ]
-                # [ 'jY7' 'jY12' 'jP9' 'jU7' 'jV9' ]
-                # [ 'oY7' 'oY12' 'oP9' 'oU7' 'oV9' ]
-                # ]
-        # rows = [['faV9']]
+        rows = [[ 'Y7' 'Y12' 'P9' 'U7' 'V9' ]
+                [ 'fY7' 'fY12' 'fP9' 'fU7' 'fV9' ]
+                [ 'aY7' 'aY12' 'aP9' 'aU7' 'aV9' ]
+                [ 'jY7' 'jY12' 'jP9' 'jU7' 'jV9' ]
+                [ 'oY7' 'oY12' 'oP9' 'oU7' 'oV9' ]
+                ]
+        rows = [['jY5''jP5']]
             
         colors = [
             new Color3 .5 .5 .5
@@ -196,6 +196,7 @@ class World
                     p = Mesh.CreatePolyhedron d+code, {custom:poly, faceColors:faceColors}, @scene
                     # @scene.showNormals p
                     @scene.showFaces p, poly
+                    # @scene.showIndices p, poly
                     # @scene.showDebug p, poly
                     # @scene.label p
                     p.receiveShadows = true
@@ -258,9 +259,9 @@ class World
         
     highlight: (mesh) ->
         
-        @highlightMesh?.material.diffuseColor = @preHighlightColor
-        @preHighlightColor = mesh.material.diffuseColor
-        mesh.material.diffuseColor = @preHighlightColor.multiply new Color3 1.5 1.5 1.5
+        @highlightMesh?.material?.diffuseColor = @preHighlightColor
+        @preHighlightColor = mesh?.material?.diffuseColor
+        mesh?.material?.diffuseColor = @preHighlightColor.multiply new Color3 1.5 1.5 1.5
         @highlightMesh = mesh        
                 
     # 000  000   000   0000000  00000000   00000000   0000000  000000000   0000000   00000000   

@@ -366,7 +366,9 @@ class Camera extends UniversalCamera
         # klog info
         prefs.set 'camera' info
         
-        if 18*@minDist/@dist >= 8
-            @scene.style.fontSize = 18*@minDist/@dist
+        if 12*@minDist/@dist >= 8
+            @scene.style.fontSize = 12*@minDist/@dist
+        else
+            @scene.style.fontSize = 0
         
 module.exports = Camera
