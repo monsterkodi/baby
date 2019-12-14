@@ -31,7 +31,7 @@ class Camera extends UniversalCamera
             pos:    {x:0,y:0,z:0}
             center: {x:0,y:0,z:0}
             
-        values = prefs.get 'camera' 
+        values = prefs.get 'camera' info
         
         @size       = vec width, height
         @moveFade   = vec 0 0 0

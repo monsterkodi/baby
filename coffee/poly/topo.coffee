@@ -554,7 +554,8 @@ whirl = (poly, n=0) ->
             
             [v1, v2] = [v2, v3]
   
-    canonicalize flag.topoly "w#{poly.name}"
+    # canonicalize 
+    flag.topoly "w#{poly.name}"
 
 #  0000000   000   000  00000000    0000000   
 # 000         000 000   000   000  000   000  
@@ -562,17 +563,19 @@ whirl = (poly, n=0) ->
 # 000   000     000     000   000  000   000  
 #  0000000      000     000   000   0000000   
 
-gyro = (poly) ->
+gyro = (poly,factor=0.5) ->
 
+    factor = clamp 0.2, 0.8, factor
     flag = new Flag()
   
     for i in [0...poly.vertex.length]
-        flag.vert "v#{i}" unit poly.vertex[i]
+        # flag.vert "v#{i}" unit poly.vertex[i]
+        flag.vert "v#{i}" poly.vertex[i]
 
     centers = poly.centers()
     for i in [0...poly.face.length]
-        f = poly.face[i]
-        flag.vert "center#{i}" unit centers[i]
+        # flag.vert "center#{i}" unit centers[i]
+        flag.vert "center#{i}" centers[i]
   
     for i in [0...poly.face.length]
         f = poly.face[i]
@@ -580,7 +583,7 @@ gyro = (poly) ->
         for j in [0...f.length]
             v = f[j]
             v3 = v
-            flag.vert v1+"~"+v2, oneThird poly.vertex[v1],poly.vertex[v2]
+            flag.vert v1+"~"+v2, tween poly.vertex[v1],poly.vertex[v2], factor
             fname = i+"f"+v1
             flag.edge fname, "center#{i}"  v1+"~"+v2
             flag.edge fname, v1+"~"+v2,  v2+"~"+v1
@@ -589,7 +592,8 @@ gyro = (poly) ->
             flag.edge fname, v2+"~"+v3,  "center#{i}"
             [v1, v2] = [v2, v3]
   
-    canonicalize flag.topoly "g#{poly.name}"
+    # canonicalize 
+    flag.topoly "g#{poly.name}"
     
 #  0000000   000   000  000  000   000  000000000   0000000   
 # 000   000  000   000  000  0000  000     000     000   000  
