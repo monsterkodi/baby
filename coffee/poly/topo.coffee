@@ -24,31 +24,29 @@ midName = (v1, v2) -> v1<v2 and "#{v1}_#{v2}" or "#{v2}_#{v1}"
 # 000       000      000   000     000        000     000       000  0000  
 # 000       0000000  000   000     000        000     00000000  000   000  
 
-flatten = (poly, iterations=1) ->
+flatten = (poly, iterations=100) ->
     
     normals = poly.normals()
     neighbors = poly.neighbors()
     [flatness,vertexdist,offsets] = poly.flatness()
 
-    if flatness > 0.001
-        poly.debug = []
-    debug = true
+    # if flatness > 0.001
+        # poly.debug = []
+    # debug = true
     while iterations and flatness > 0.001
-        klog "#{poly.name} #{iterations} #{flatness}"
+        # klog "#{poly.name} #{iterations} #{flatness}"
         iterations -= 1
                                     
         for vi in [0...poly.vertex.length]
             continue if neighbors[vi].length <= 2
             continue if neighbors[vi].length >= 6
 
-            if debug
-                poly.debugLine poly.vertex[vi], add poly.vertex[vi], offsets[vi]
+            # if debug
+                # poly.debugLine poly.vertex[vi], add poly.vertex[vi], offsets[vi]
             poly.vertex[vi] = add poly.vertex[vi], mult 0.3, offsets[vi]
         
         debug = false
         [flatness,vertexdist,offsets] = poly.flatness()            
-    # else
-        # klog "flach wie eine flunder #{poly.name}"
         
     poly
 
@@ -200,12 +198,10 @@ expand = (poly, amount=0.5) ->
         [a,b] = wing
         face = vmap[a].concat vmap[b]
         face = face.filter (v) -> (v in faces[wing[2].fr]) or (v in faces[wing[2].fl])
-        clockwise verts, face
-        faces.push face
+        faces.push clockwise verts, face
 
     for o,n of vmap
-        clockwise verts, n
-        faces.push n
+        faces.push clockwise verts, n
         
     new Polyhedron "e#{poly.name}" faces, verts
 

@@ -6,7 +6,7 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ colors, deg2rad, elem, empty, klog, prefs } = require 'kxk'
+{ colors, deg2rad, elem, empty, prefs } = require 'kxk'
 { Camera, Color3, DirectionalLight, Engine, HemisphericLight, Mesh, MeshBuilder, Scene, ShadowGenerator, StandardMaterial, Vector3 } = require 'babylonjs'
 
 generate = require './poly/generate'
@@ -75,23 +75,23 @@ class World
         window.addEventListener 'pointerup'   @onMouseUp
                                                       
         rows = [
-            ['tT' 'xT' 'nT' 'cT' 'hT'     '' 'pT''pC''pO''pD''pI'  ''  'mA3' 'qY3' 'jY8' 'sP3' 'bY8' ]
-            ['tC' 'xC' 'nC' 'cC' 'hC'     '' 'eT''eC''eO''eD''eI'  ''  'mU3' 'qU3' 'jU3' 'sA3' 'bP3' ]
-            ['tO' 'xO' 'nO' 'cO' 'hO'     '' 'kT''kC''kO''kD''kI'  ''  'mV3' 'qP6' 'jV3' 'sY6' 'bP7' ]
-            ['tD' 'xD' 'nD' 'cD' 'hD'     '' 'qT''qC''qO''qD''qI'  ''  'mA8' 'qA3' 'jU5' 'sP7' 'bU3' ]
-            ['tI' 'xI' 'nI' 'cI' 'hI'     '' 'uT''uC''uO''uD''uI'  ''  'mV6' 'qV3' 'jU7' 'sA8' 'bU7' ]
+            ['tT' 'xT' 'nT' 'cT' 'hT'     '' 'pT''pC''pO''pD''pI'  ''  'mA3' 'qY3' 'fjY8' 'sP3' 'bY8' ]
+            ['tC' 'xC' 'nC' 'cC' 'hC'     '' 'eT''eC''eO''eD''eI'  ''  'mU3' 'qU3' 'fjU3' 'sA3' 'bP3' ]
+            ['tO' 'xO' 'nO' 'cO' 'hO'     '' 'kT''kC''kO''kD''kI'  ''  'mV3' 'qP6' 'fjV3' 'sY6' 'bP7' ]
+            ['tD' 'xD' 'nD' 'cD' 'hD'     '' 'qT''qC''qO''qD''qI'  ''  'mA8' 'qA3' 'fjU5' 'sP7' 'bU3' ]
+            ['tI' 'xI' 'nI' 'cI' 'hI'     '' 'uT''uC''uO''uD''uI'  ''  'mV6' 'qV3' 'fjU7' 'sA8' 'bU7' ]
             ['']
-            ['sT' 'k-.5T' 'kT' 'k4T' 'wT' '' 'aT' 'gT' 'vjT' 'x(0,0)T' 'dztT'  ''  'oY7'  'kU3'  'xY6' 'pY3' 'cU3']
-            ['sC' 'k-.5C' 'kC' 'k4C' 'wC' '' 'aC' 'gC' 'vjC' 'x(0,1)C' 'dztC'  ''  'oY12' 'kV3'  'xP8' 'pA3' 'cV3']
-            ['sO' 'k-.5O' 'kO' 'k4O' 'wO' '' 'aO' 'gO' 'vjO' 'x(0,2)O' 'dztO'  ''  'oP9'  'kP7'  'xA3' 'pU3' 'hU3']
-            ['sD' 'k-.5D' 'kD' 'k4D' 'wD' '' 'aD' 'gD' 'vjD' 'x(0,3)D' 'dztD'  ''  'oU7'  'kV7'  'xU6' 'pP6' 'eU6']
-            ['sI' 'k-.5I' 'kI' 'k4I' 'wI' '' 'aI' 'gI' 'vjI' 'x(0,4)I' 'dztI'  ''  'oV9'  'kP12' 'xV3' 'pY8' 'eU3']
+            ['sT' 'k-.5T' 'kT' 'k4T' 'fwT' '' 'aT' 'fgT' 'fjT' 'x(0,0)T' 'dztT'  ''  'foY7'  'kU3'  'xY6' 'pY3' 'fcU3']
+            ['sC' 'k-.5C' 'kC' 'k4C' 'fwC' '' 'aC' 'fgC' 'fjC' 'x(0,1)C' 'dztC'  ''  'foY12' 'kV3'  'xP8' 'pA3' 'fcV3']
+            ['sO' 'k-.5O' 'kO' 'k4O' 'fwO' '' 'aO' 'fgO' 'fjO' 'x(0,2)O' 'dztO'  ''  'foP9'  'kP7'  'xA3' 'pU3' 'hU3']
+            ['sD' 'k-.5D' 'kD' 'k4D' 'fwD' '' 'aD' 'fgD' 'fjD' 'x(0,3)D' 'dztD'  ''  'foU7'  'kV7'  'xU6' 'pP6' 'eU6']
+            ['sI' 'k-.5I' 'kI' 'k4I' 'fwI' '' 'aI' 'fgI' 'fjI' 'x(0,4)I' 'dztI'  ''  'foV9'  'kP12' 'xV3' 'pY8' 'feU3']
             ['']
-            ['Y5''eY5''oY5''cY5''bY5' '' 'kY5''xY5''mY5''sY5''pY5' '' 'qY5''jY5''hY5''nY5''aY5']
-            ['P5''eP5''oP5''cP5''bP5' '' 'kP5''xP5''mP5''sP5''pP5' '' 'qP5''jP5''hP5''nP5''aP5']
-            ['A5''eA5''oA5''cA5''bA5' '' 'kA5''xA5''mA5''sA5''pA5' '' 'qA5''jA5''hA5''nA5''aA5']
-            ['U5''eU5''oU5''cU5''bU5' '' 'kU5''xU5''mU5''sU5''pU5' '' 'qU5''jU5''hU5''nU5''aU5']
-            ['V5''eV5''oV5''cV5''bV5' '' 'kV5''xV5''mV5''sV5''pV5' '' 'qV5''jV5''hV5''nV5''aV5']
+            ['Y5' 'eY5''foY5''fcY5' 'bY5' '' 'kY5''xY5''mY5''sY5''pY5' '' 'qY5''fjY5''hY5''nY5' 'aY5']
+            ['P5' 'eP5''foP5''fcP5' 'bP5' '' 'kP5''xP5''mP5''sP5''pP5' '' 'qP5''fjP5''hP5''nP5' 'aP5']
+            ['A5''feA5''foA5''fcA5' 'bA5' '' 'kA5''xA5''mA5''sA5''pA5' '' 'qA5''fjA5''hA5''nA5' 'aA5']
+            ['U5' 'eU5''foU5''fcU5' 'bU5' '' 'kU5''xU5''mU5''sU5''pU5' '' 'qU5''fjU5''hU5''nU5' 'aU5']
+            ['V5''feV5''foV5''fcV5''fbV5' '' 'kV5''xV5''mV5''sV5''pV5' '' 'qV5''fjV5''hV5''nV5''faV5']
             ]
             
         rows1 = [
@@ -127,11 +127,11 @@ class World
             ['U3''U4''U5''U6''U7' '' 'U8''U9''U10''U11''U12' '' 'eU3''eU5''eU7''eU9''eU12']
             ['V3''V4''V5''V6''V7' '' 'V8''V9''V10''V11''V12' '' 'eV3''eV5''eV7''eV9''eV12']
             ['']
-            ['hY3''hY5''hY7''hY9''hY12' '' 'cY3''cY5''cY7''cY9''cY12' '' 'pY3''pY5''pY7''pY9''pY12']
-            ['hP3''hP5''hP7''hP9''hP12' '' 'cP3''cP5''cP7''cP9''cP12' '' 'pP3''pP5''pP7''pP9''pP12']
-            ['hA3''hA5''hA7''hA9''hA12' '' 'cA3''cA5''cA7''cA9''cA12' '' 'pA3''pA5''pA7''pA9''pA12']
-            ['hU3''hU5''hU7''hU9''hU12' '' 'cU3''cU5''cU7''cU9''cU12' '' 'pU3''pU5''pU7''pU9''pU12']
-            ['hV3''hV5''hV7''hV9''hV12' '' 'cV3''cV5''cV7''cV9''cV12' '' 'pV3''pV5''pV7''pV9''pV12']
+            ['hY3''hY5''hY7''hY9''hY12' '' 'cY3''fcY5''cY7''cY9''cY12' '' 'pY3''pY5''pY7''pY9''pY12']
+            ['hP3''hP5''hP7''hP9''hP12' '' 'cP3''fcP5''cP7''cP9''cP12' '' 'pP3''pP5''pP7''pP9''pP12']
+            ['hA3''hA5''hA7''hA9''hA12' '' 'cA3''fcA5''cA7''cA9''cA12' '' 'pA3''pA5''pA7''pA9''pA12']
+            ['hU3''hU5''hU7''hU9''hU12' '' 'cU3''fcU5''cU7''cU9''cU12' '' 'pU3''pU5''pU7''pU9''pU12']
+            ['hV3''hV5''hV7''hV9''hV12' '' 'cV3''fcV5''cV7''cV9''cV12' '' 'pV3''pV5''pV7''pV9''pV12']
             ['']
             ['kY3''kY5''kY7''kY9''kY12' '' 'xY3''xY5''xY7''xY9''xY12' '' 'nY3''nY5''nY7''nY9''nY12']
             ['kP3''kP5''kP7''kP9''kP12' '' 'xP3''xP5''xP7''xP9''xP12' '' 'nP3''nP5''nP7''nP9''nP12']
@@ -165,7 +165,7 @@ class World
                 # ]
         # rows = [['jP5']]
         # rows = [['jY5']]
-        # rows = [['Y5']]
+        # rows = [['eU3']]
         # rows = [['cV5''bV5''cY5']
             # ['wT' 'wC' 'wO' 'wD' 'wI']]
             
@@ -189,9 +189,9 @@ class World
             for code in row
                 ci++
                 continue if empty code
-                for d,y in ['' 'f200']
+                for d,y in ['']
                     poly = generate d+code, true
-                    klog '---------' d+code, poly.flatness()[0]
+                    # klog '---------' d+code, poly.flatness()[0]
                     poly.colorize 'signature'
                     # klog 'colors' poly.name, poly.colors
                     faceColors = poly.colors.map (ci) -> colors[ci]
@@ -200,7 +200,7 @@ class World
                     # @scene.showNormals p
                     @scene.showFaces p, poly
                     # @scene.showIndices p, poly
-                    @scene.showDebug p, poly
+                    # @scene.showDebug p, poly
                     # @scene.label p
                     p.receiveShadows = true
                     p.position.x = 3*ci

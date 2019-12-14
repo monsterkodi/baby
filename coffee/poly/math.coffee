@@ -8,7 +8,7 @@
 
 # Polyhédronisme, Copyright 2019, Anselm Levskaya, MIT License
     
-{ first, klog } = require 'kxk'
+{ klog } = require 'kxk'
 { E, sqrt } = Math
 
 Vect = require '../vect'
@@ -74,16 +74,30 @@ pointPlaneDist = (v, pp, pn) ->
 
 clockwise = (verts, indices) ->
     
-    midp = new Vect
-    for v in indices
-        midp.addInPlace vec verts[v]
-    midp.normalize()
-    first = midp.to vec verts[indices[0]]
-    
+    # klog 'indices' indices
+    vl = indices.map (vi) -> verts[vi]
+    # klog 'vl' vl
+    midp = center vl
+    # klog 'midp' midp
+    frst = sub vl[0], midp
+    crss = cross frst, midp
+    # klog 'frst' frst
+    # klog 'crss' crss
     indices.sort (a,b) ->
-        aa = Vect.GetAngleBetweenVectors first, new Vect(verts[a]), midp
-        bb = Vect.GetAngleBetweenVectors first, new Vect(verts[b]), midp
-        aa - bb
+        av = sub verts[a], midp
+        aa = angle frst, av
+        aa *= -1 if dot(crss, av) < 0
+        
+        bv = sub verts[b], midp
+        bb = angle frst, bv
+        bb *= -1 if dot(crss, bv) < 0
+        
+        bb - aa
+        
+    # for vi in indices
+        # av = sub verts[vi], midp
+        # sg = if dot(crss, av) < 0 then -1 else 1
+        # klog "#{vi}" sg * angle frst, av
         
     indices
     

@@ -137,7 +137,16 @@ class Vect extends Vector3
                 p = v.x / o
                 q = v.y / o
                 r = v.z / o
-                return rad2deg acos x*p + y*q + z*r
+                
+                f = x*p + y*q + z*r
+                a = abs f
+
+                if 0 < a < 1
+                    return rad2deg acos f
+                else if f >= 1
+                    return 0
+                else if f <= -1
+                    return 180
         0    
     
     negate:  -> @scale -1
