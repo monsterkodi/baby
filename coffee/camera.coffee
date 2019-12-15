@@ -19,8 +19,10 @@ quat = (x,y,z,w) -> new Quat x, y, z, w
 
 class Camera extends UniversalCamera
 
-    @: (@scene, @view, @canvas) ->
+    @: (@world) ->
         
+        {@scene, @canvas, @view} = @world
+
         width  = @view.clientWidth
         height = @view.clientHeight
              
@@ -39,8 +41,8 @@ class Camera extends UniversalCamera
         @degree     = values.degree
         @rotate     = values.rotate
         @dist       = values.dist
-        @minDist    = 9
-        @maxDist    = 200
+        @minDist    = 2
+        @maxDist    = 300
         @moveDist   = 0.1
         @wheelInert = 0
         @moveX      = 0
@@ -50,7 +52,10 @@ class Camera extends UniversalCamera
         
         super 'Camera' vec(0 0 0), @scene
 
-        @fov = deg2rad 20
+        @maxZ       = 100000
+        @minZ       = 1
+        
+        @fov = deg2rad 60
         @rotationQuaternion = new Quat()
         @position = vec values.pos
                 
@@ -58,7 +63,10 @@ class Camera extends UniversalCamera
         
         @light = new PointLight 'spot' @position, @scene
         @light.intensity = 0.5
-                        
+                      
+        @gamepad = new gamepad true
+        @gamepad.on 'button' @onPadButton
+        
         @view.addEventListener 'mousewheel' @onMouseWheel
         @navigate()
 
@@ -71,9 +79,16 @@ class Camera extends UniversalCamera
         @center = vec p
         @navigate()
     
+    reset: ->
+        @center = vec()
+        @degree = 90
+        @rotate = 0
+        @dist   = 200
+        @navigate()
+        
     del: =>
         
-        @view.removeEventListener  'mousewheel' @onMouseWheel
+        @view.removeEventListener 'mousewheel' @onMouseWheel
         
     # 00000000    0000000   0000000    
     # 000   000  000   000  000   000  
@@ -81,26 +96,33 @@ class Camera extends UniversalCamera
     # 000        000   000  000   000  
     # 000        000   000  0000000    
     
-    onPadAxis: (state) -> 
+    render: ->
+        if state = @gamepad.getState()
+            # klog 'state' state
+            @onPadAxis state
+            # for button,value of state.buttons
+                # @onPadButton button, value
+    
+    onPadAxis: (state) => 
     
         @rotate += state.right.x
         @degree -= state.right.y
                     
         if state.left.x == state.left.y == state.right.x == state.right.y == 0
-            gamepad.continuous = false
+            true
         else
             @fading = false
             if @dist > @moveDist
                 @dist   = @moveDist
                 @center = @position.plus @getDir().mul @dist
             
-            gamepad.continuous = true
-            
-            @moveRelative 0.5*state.left.x, 0, state.left.y
+            speed = 100*@world.space.distFactor
+                
+            @moveRelative speed*state.left.x, 0, 2*speed*state.left.y
             
             @navigate()
                             
-    onPadButton: (button, value) ->
+    onPadButton: (button, value) =>
         
         if value
             switch button
@@ -149,7 +171,8 @@ class Camera extends UniversalCamera
             @pan x*2*s/@size.x, y*s/@size.y
             
         if event.buttons & 3
-            @pivot 4000*x/@size.x, 2000*y/@size.y            
+            s = @dist == @moveDist and 500 or 2000
+            @pivot s*x/@size.x, s*y/@size.y            
             
     # 00000000   000  000   000   0000000   000000000  
     # 000   000  000  000   000  000   000     000     
@@ -256,9 +279,11 @@ class Camera extends UniversalCamera
         
         return if not @moving
         
-        @moveRelative(deltaSeconds * 10 * (@moveX or @moveFade.x)
-                      deltaSeconds * 10 * (@moveY or @moveFade.y)
-                      deltaSeconds * 20 * (@moveZ or @moveFade.z))
+        speed = 1000 * @world.space.distFactor
+        
+        @moveRelative(deltaSeconds *     speed * (@moveX or @moveFade.x)
+                      deltaSeconds *     speed * (@moveY or @moveFade.y)
+                      deltaSeconds * 2 * speed * (@moveZ or @moveFade.z))
         
         @navigate()
                 
@@ -341,6 +366,23 @@ class Camera extends UniversalCamera
         
     setFov: (fov) -> @fov = Math.max 2.0 Math.min fov, 175.0
     
+    scaleDown: ->
+        
+        @center.scale 0.01
+        @position.scaleInPlace 0.01
+        @dist *= 0.01
+        @navigate()
+
+    scaleUp: (offset) ->
+        
+        @center.subtractInPlace offset
+        @position.subtractInPlace offset
+        
+        @center.scale 100
+        @position.scaleInPlace 100
+        @dist *= 100
+        @navigate()
+        
     # 000   000   0000000   000   000  000   0000000    0000000   000000000  00000000  
     # 0000  000  000   000  000   000  000  000        000   000     000     000       
     # 000 0 000  000000000   000 000   000  000  0000  000000000     000     0000000   

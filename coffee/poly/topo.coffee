@@ -58,7 +58,7 @@ flatten = (poly, iterations=100) ->
 
 hollow = (poly, insetf=0.5, thickness=0.5) ->
 
-    insetf    = clamp 0.1 0.9 insetf
+    insetf    = clamp 0.01 0.99 insetf
     normals   = poly.normals()
     centers   = poly.centers()
     wings     = poly.wings()

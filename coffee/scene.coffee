@@ -17,9 +17,10 @@ generate = require './poly/generate'
 
 class Scene extends babylon.Scene 
 
-    @: (engine) -> 
+    @: (@world) ->
     
-        super
+        super @world.engine
+        
         @ui = GUI.AdvancedDynamicTexture.CreateFullscreenUI 'ui'
         
         @legend = new Legend @ui
@@ -37,6 +38,25 @@ class Scene extends babylon.Scene
         @style.fontFamily = 'fontMono'
         @style.height = "20px"
 
+    initFog: (color) ->
+
+        color ?= new Color3 0 0 0
+        @fogColor = color
+        if 1
+            @fogMode  = Scene.FOGMODE_LINEAR
+        else
+            @fogMode  = Scene.FOGMODE_EXP2
+            @fogDensity = 0.003
+        
+    render: ->
+            
+        @fogStart = @world.space.distance * 2
+        @fogEnd   = 1.2*@fogStart
+        
+        # klog '@fog' @fogEnd
+        
+        super
+            
     # 000   000   0000000   00000000   00     00   0000000   000       0000000  
     # 0000  000  000   000  000   000  000   000  000   000  000      000       
     # 000 0 000  000   000  0000000    000000000  000000000  000      0000000   
@@ -86,7 +106,7 @@ class Scene extends babylon.Scene
     
     showFaces: (mesh, poly, color)->
                 
-        color ?= new Color3 0 0 0
+        color ?= new Color3 0 0 0 #0.06 0.06 0.06
         lines  = []
 
         for face in poly.face
@@ -96,8 +116,9 @@ class Scene extends babylon.Scene
                 lines.push [v1, v2]
                 v1 = v2
             
-        system = MeshBuilder.CreateLineSystem 'faces' lines:lines
-        system.scaling = vec 1.005 1.005 1.005
+        system = MeshBuilder.CreateLineSystem 'faces' lines:lines, useVertexAlpha:false
+        # system = new LinesMesh 'faces' parent:mesh, useVertexAlpha:false
+        # system.scaling = vec 1.005 1.005 1.005
         system.color = color
         mesh.addChild system
         system

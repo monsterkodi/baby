@@ -6,7 +6,7 @@
 00     00  000  000   000  0000000     0000000   00     00
 ###
 
-{ $, gamepad, keyinfo, win } = require 'kxk'
+{ $, keyinfo, win } = require 'kxk'
 
 World = require './world'
 
@@ -30,21 +30,7 @@ class MainWin extends win
         @world = new World $ '#main'
         @world.start()
         @win.on 'resize' @world.resized        
-        
-        gamepad.continuous = true
-        gamepad.on 'button' @onPadButton
-        gamepad.on 'axis'   @onPadAxis
-        
-    # 00000000    0000000   0000000    
-    # 000   000  000   000  000   000  
-    # 00000000   000000000  000   000  
-    # 000        000   000  000   000  
-    # 000        000   000  0000000    
-    
-    onPadButton: (button, value) => @world.camera.onPadButton button, value
-
-    onPadAxis: (state) => @world.camera.onPadAxis state
-                
+                                
     # 000   000  00000000  000   000  
     # 000  000   000        000 000   
     # 0000000    0000000     00000    
