@@ -51,7 +51,7 @@ class Scene extends babylon.Scene
     render: ->
             
         @fogStart = @world.space.distance * 2
-        @fogEnd   = 1.2*@fogStart
+        @fogEnd   = 1.5*@fogStart
         
         # klog '@fog' @fogEnd
         
