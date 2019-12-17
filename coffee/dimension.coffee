@@ -42,7 +42,7 @@ class Dimension extends TransformNode
             p.material = new StandardMaterial
             p.material.diffuseColor = new Color3 0.5 0.5 1
             
-            for i in [0...5]
+            for i in [0...1]
                 inst = p.createInstance "#{poly.name}_#{i}" 
                 s = 1 - i*0.2
                 inst.scaling = vec s, s, s
@@ -57,12 +57,14 @@ class Dimension extends TransformNode
     scaleDown: ->
         
         s = @scaling.x/100
-        @scaling = vec s, s , s
+        @scaling = vec s, s, s
+        @position.scaleInPlace 0.01
 
     scaleUp: (offset) ->
         
         @position.subtractInPlace offset
         s = @scaling.x*100
         @scaling = vec s, s , s
+        @position.scaleInPlace 100
         
 module.exports = Dimension

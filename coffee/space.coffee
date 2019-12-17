@@ -6,7 +6,7 @@
 0000000   000        000   000   0000000  00000000
 ###
 
-{ Space } = require 'babylonjs'
+{ Space, TransformNode } = require 'babylonjs'
 { klog } = require 'kxk'
 { random } = Math
 { vec } = require './poly/math'
@@ -18,15 +18,30 @@ class Space
     @: (@world) ->
 
         @scene = @world.scene
-        @higher = []
-        for i in [0...8]
-            @higher.push new Dimension @world, 10000, vec 20000*(i%2), 20000*((i>>1)%2), 20000*((i>>2)%2)
-            @higher[-1].name = "higher_#{i}"
+        @dimstack = []
         
-        @lower = []
+        @trans = new TransformNode 'trans' @scene, true
+        
+        sz = 1
+        for d in [0..2]
+            dims = 
+            @dimstack.push @newDims sz
+            sz *= 100
+            
+        for dim in @dimstack[0]
+            dim.parent = @trans
+        for dim in @dimstack[1]
+            dim.parent = null
+        for dim in @dimstack[2]
+            dim.parent = null
+            
+    newDims: (sz) ->
+        
+        dims = []
         for i in [0...8]
-            @lower.push new Dimension @world, 100, vec 200*(i%2), 200*((i>>1)%2), 200*((i>>2)%2)
-            @lower[-1].name = "lower_#{i}"
+            dims.push new Dimension @world, sz, vec 2*sz*(i%2), 2*sz*((i>>1)%2), 2*sz*((i>>2)%2)
+            dims[-1].name = "dim_#{i}"
+        dims        
         
     render: ->
         
@@ -42,53 +57,70 @@ class Space
         
         if @distance >= swapDist
             if oldDistance < swapDist
-                # klog 'distance' @distance, 'distFactor' @distFactor, 'lower' @lower.length
+                klog 'distance' @distance, 'distFactor' @distFactor
                 
-                for lower in @lower
-                    lower.del()
+                for low in @dimstack[0]
+                    low.del()
                 
-                for higher in @higher
-                    higher.scaleDown()
+                for high in @dimstack[1]
+                    high.scaleDown()
+
+                for high in @dimstack[2]
+                    high.scaleDown()
                     
-                @lower = @higher
-                
+                @dimstack[0] = @dimstack[1]
+                @dimstack[1] = @dimstack[2]
+                                
                 @world.camera.scaleDown()
                 @distance *= 0.01
                 @distFactor = @distance / swapDist
                 klog 'newDistance' @distance, @world.camera.position.length()
-                @higher = []
-                for i in [0...8]
-                    @higher.push new Dimension @world, 10000, vec 20000*(i%2), 20000*((i>>1)%2), 20000*((i>>2)%2)
-                    @higher[-1].name = "higher_#{i}"
+                @dimstack[2] = @newDims 10000
+                
+                for dim in @dimstack[0]
+                    dim.parent = @trans
+                for dim in @dimstack[1]
+                    dim.parent = null
+                for dim in @dimstack[2]
+                    dim.parent = null
                 
         else
-            @lower.sort (a,b) ->
+            @dimstack[1].sort (a,b) ->
                 campos.to(a.position).length()-campos.to(b.position).length()
-                
-            @distance = campos.to(@lower[0].position).length()
+            @trans.position.copyFrom @dimstack[1][0].position
+            
+            @distance = campos.to(@dimstack[1][0].position).length()
             @distFactor = @distance / swapDist
             
             if @distance < swapDist/100 and oldDistance > swapDist/100
             
-                # klog 'distance' @distance, 'distFactor' @distFactor, 'lower' @lower[0].name
-                offset = vec @lower[0].position
+                klog 'distance' @distance, 'distFactor' @distFactor
+                offset = vec @dimstack[1][0].position
                 
-                for higher in @higher
-                    higher.del()
+                for high in @dimstack[2]
+                    high.del()
                 
-                for lower in @lower
-                    lower.scaleUp offset
-                
-                @higher = @lower
+                for low in @dimstack[1]
+                    low.scaleUp offset
 
+                for low in @dimstack[0]
+                    low.scaleUp offset
+                    
+                @dimstack[2] = @dimstack[1]
+                @dimstack[1] = @dimstack[0]
+                
                 @world.camera.scaleUp offset
                 @distance *= 100
                 @distFactor = @distance / swapDist
                 klog 'newDistance' @distance, @world.camera.position.length()
                 
-                @lower = []
-                for i in [0...4]
-                    @lower.push new Dimension @world, 1, vec 2*(i%2), 2*((i>>1)%2), 2*((i>>2)%2)
-                    @lower[-1].name = "lower_#{i}"
+                @dimstack[0] = @newDims 1
                 
+                for dim in @dimstack[0]
+                    dim.parent = @trans
+                for dim in @dimstack[1]
+                    dim.parent = null
+                for dim in @dimstack[2]
+                    dim.parent = null
+            
 module.exports = Space
