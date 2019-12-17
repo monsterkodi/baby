@@ -36,25 +36,18 @@ class Scene extends babylon.Scene
         @style = @ui.createStyle()
         @style.fontSize = 10
         @style.fontFamily = 'fontMono'
-        @style.height = "20px"
+        @style.height = '20px'
 
     initFog: (color) ->
 
         color ?= new Color3 0 0 0
         @fogColor = color
-        if 1
-            @fogMode  = Scene.FOGMODE_LINEAR
-        else
-            @fogMode  = Scene.FOGMODE_EXP2
-            @fogDensity = 0.003
+        @fogMode  = Scene.FOGMODE_LINEAR
         
     render: ->
             
-        @fogStart = @world.space.distance * 2
-        @fogEnd   = 1.5*@fogStart
-        
-        # klog '@fog' @fogEnd
-        
+        @fogStart = @world.space.distance * 3
+        @fogEnd   = 2*@fogStart
         super
             
     # 000   000   0000000   00000000   00     00   0000000   000       0000000  

@@ -69,8 +69,10 @@ class Polyhedron
             toN0 = @vert neighbors[vi][0]
             perp = toVertex.crossed toN0
             neighbors[vi].sort (a,b) =>
-                aa = Vect.GetAngleBetweenVectors perp, @vert(a), toVertex
-                bb = Vect.GetAngleBetweenVectors perp, @vert(b), toVertex
+                aa = perp.angle @vert(a)
+                bb = perp.angle @vert(b)
+                # aa = Vect.GetAngleBetweenVectors perp, @vert(a), toVertex
+                # bb = Vect.GetAngleBetweenVectors perp, @vert(b), toVertex
                 aa - bb
                     
         neighbors
@@ -92,8 +94,10 @@ class Polyhedron
             toN0 = @vert neighbors[vi][0]
             perp = toVertex.crossed toN0
             neighbors[vi].sort (a,b) =>
-                aa = Vect.GetAngleBetweenVectors perp, @vert(a.vertex), toVertex
-                bb = Vect.GetAngleBetweenVectors perp, @vert(b.vertex), toVertex
+                aa = perp.angle @vert(a)
+                bb = perp.angle @vert(b)                
+                # aa = Vect.GetAngleBetweenVectors perp, @vert(a.vertex), toVertex
+                # bb = Vect.GetAngleBetweenVectors perp, @vert(b.vertex), toVertex
                 aa - bb
                     
         neighbors
@@ -125,11 +129,11 @@ class Polyhedron
       
     edge: (v1, v2) ->
         
-        @vert(v2).subtract @vert(v1)
+        @vert(v2).sub @vert(v1)
     
     edgeNormal: (v1, v2) ->
         
-        @vertexNormal(v1).addInPlace(@vertexNormal(v2)).scale(0.5)
+        @vertexNormal(v1).add(@vertexNormal(v2)).scale(0.5)
         
     minEdgeLength: ->
         
@@ -157,13 +161,13 @@ class Polyhedron
     
     vert: (vi) -> 
     
-        new Vect @vertex[vi]
+        vec @vertex[vi]
                 
     vertexNormal: (vi) ->
          
-        sum = new Vect 0 0 0
+        sum = vec 0 0 0
         for ni in @neighbors(vi)
-            sum.addInPlace @edge vi, ni
+            sum.add @edge vi, ni
         sum.normalize()
         sum
                 
@@ -277,7 +281,7 @@ class Polyhedron
                 others = face.filter((v) -> v != vi).map (v) => @vertex[v]
                 norm = normal others
                 vdist = vertexdist["#{fi}▸#{vi}"]
-                avg[vi].addInPlace vec mult -vdist, norm
+                avg[vi].add vec mult -vdist, norm
         
         for vi in [0...@vertex.length]
             offsets[vi] = avg[vi].mul(1/neighbors[vi].length).coords()

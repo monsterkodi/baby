@@ -6,7 +6,7 @@
  00000 00   0000000   000   000     000   
 ###
 
-{ deg2rad, rad2deg } = require "kxk"
+{ deg2rad, rad2deg } = require 'kxk'
 { Quaternion, Vector3 } = require 'babylonjs'
 { acos, asin, atan2, cos, sin, sqrt } = Math
 
@@ -31,16 +31,15 @@ class Quat extends Quaternion
             super x, y, z, w
         if Number.isNaN @x
             throw new Error
-                    
-    @axisAngle: (axis, angle) -> 
-        
-        new Quat Quaternion.RotationAxis axis, deg2rad angle
-            
+                                
     rotateAxisAngle: (axis, angle) ->
         
         @multiplyInPlace Quat.axisAngle axis, angle
         @
-            
+       
+    rotate:  (v) -> v.applyQuaternion @
+    rotated: (v) -> new Vect(v).applyQuaternion @
+        
     clone: -> new Quat @
     copy: (q) ->
         @x = q.x
@@ -113,10 +112,7 @@ class Quat extends Quaternion
     minus: (quat) -> @clone().sub quat
 
     dot: (q) -> @x*q.x + @y*q.y + @z*q.z + @w*q.w
-
-    rotate: (v) -> v.applyQuaternion @
-    rotated: (v) -> new Vect(v).applyQuaternion @
-                
+    
     normalize: ->
         l = sqrt @w*@w + @x*@x + @y*@y + @z*@z 
         if l != 0.0
@@ -205,6 +201,22 @@ class Quat extends Quaternion
                  scale0 * @y + scale1 * to1[1],
                  scale0 * @z + scale1 * to1[2]
 
+    #  0000000  000000000   0000000   000000000  000   0000000    
+    # 000          000     000   000     000     000  000         
+    # 0000000      000     000000000     000     000  000         
+    #      000     000     000   000     000     000  000         
+    # 0000000      000     000   000     000     000   0000000    
+    
+    @axisAngle: (axis, angle) -> 
+        
+        halfAngle = deg2rad(angle)/2 
+        s = sin halfAngle
+        
+        new Quat axis.x * s,
+                 axis.y * s,
+                 axis.z * s,
+                 cos halfAngle
+                 
     @rotationAroundVector: (theta, x,y,z) ->
         v = new Vect x,y,z 
         v.normalize()
@@ -221,7 +233,7 @@ class Quat extends Quaternion
                      cos(x/2) * sin(y/2) * cos(z/2) + sin(x/2) * cos(y/2) * sin(z/2),
                      cos(x/2) * cos(y/2) * sin(z/2) - sin(x/2) * sin(y/2) * cos(z/2)
         q.normalize()
-
+    
     @rot_0     = new Quat()
     @rot_90_X  = @rotationAroundVector 90  Vect.unitX
     @rot_90_Y  = @rotationAroundVector 90  Vect.unitY

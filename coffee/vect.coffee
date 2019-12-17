@@ -7,33 +7,48 @@
 ###
 
 { rad2deg, randRange } = require 'kxk'
-{ Vector3 } = require 'babylonjs'
+# { Vector3 } = require 'babylonjs'
 { abs, acos, atan2, round, sqrt } = Math
 
-class Vect extends Vector3
-
-    @counter = 0
-    @tmp = new Vect
+class Vect #extends Vector3
     
     @: (x=0,y=0,z=0) ->
-        
-        Vect.counter += 1
+
+        # Vect.counter += 1
         
         if x.x? and x.y?
-            super x.x, x.y, x.z ? 0
+            @set x.x, x.y, x.z ? 0
         else if Array.isArray x
-            super x[0], x[1], x[2] ? 0
+            @set x[0], x[1], x[2] ? 0
         else
-            super x, y, z ? 0
+            @set x, y, z ? 0
         if Number.isNaN @x
             throw new Error
-          
+                     
+    set: (@x, @y, @z) ->
+        
     coords: -> [@x, @y, @z]
             
-    applyQuaternion: (quaternion) ->
-        
-        @rotateByQuaternionAroundPointToRef quaternion, Vect.Zero, @
+    applyQuaternion: (q) ->
+        # @rotateByQuaternionAroundPointToRef quaternion, Vect.Zero, @
+        # quat * vector
+        ix =  q.w * @x + q.y * @z - q.z * @y
+        iy =  q.w * @y + q.z * @x - q.x * @z
+        iz =  q.w * @z + q.x * @y - q.y * @x
+        iw = -q.x * @x - q.y * @y - q.z * @z
+
+        # result * inverse quat
+        @x = ix * q.w + iw * - q.x + iy * - q.z - iz * - q.y
+        @y = iy * q.w + iw * - q.y + iz * - q.x - ix * - q.z
+        @z = iz * q.w + iw * - q.z + ix * - q.y - iy * - q.x
+        @
             
+    rotated: (axis, angle) -> @clone().rotate axis, angle
+    rotate: (axis, angle) ->
+        Quat = require './quat'
+        @applyQuaternion Quat.axisAngle axis, angle
+        @
+        
     toString: -> "#{@x} #{@y} #{@z}"
             
     clone: -> new Vect @
@@ -55,12 +70,6 @@ class Vect extends Vector3
         dot = 2*(@x*n.x + @y*n.y + @z*n.z)
         new Vect @x-dot*n.x, @y-dot*n.y, @z-dot*n.z
         
-    rotated: (axis, angle) -> @clone().rotate axis,angle
-    rotate: (axis, angle) ->
-        Quat = require './quat'
-        @applyQuaternion Quat.axisAngle axis, angle
-        @
-
     crossed: (v) -> @clone().cross(v)
     cross: (v) ->
         ax = @x 
@@ -81,8 +90,6 @@ class Vect extends Vector3
             @z *= l
         @    
 
-    xyperp: -> new Vect -@y, @x
-    
     rounded: -> @clone().round()
     round: -> 
         @x = round @x 
@@ -90,40 +97,26 @@ class Vect extends Vector3
         @z = round @z
         @
 
-    equals: (o) -> @manhattan(o) < 0.001
-    same:   (o) -> @x==o.x and @y==o.y and z=o.z
+    same:  (o) -> @x==o.x and @y==o.y and z=o.z
 
     faded: (o, val) -> @clone().fade o, val
-    fade: (o, val) -> # linear interpolation from this (val==0) to other (val==1)
+    fade:  (o, val) -> # linear interpolation from this (val==0) to other (val==1)
         
         @x = @x * (1-val) + o.x * val
         @y = @y * (1-val) + o.y * val
         @z = @z * (1-val) + o.z * val
         @
     
-    xyangle: (v) ->
-        
-        thisXY  = new Vect(@x, @y).normal()
-        otherXY = new Vect(v.x, v.y).normal()
-        if thisXY.xyperp().dot otherXY >= 0 
-            return rad2deg(acos(thisXY.dot otherXY))
-        -rad2deg(acos(thisXY.dot otherXY))
-        
-    paris: (o) -> 
-        m = [abs(o.x-@x),abs(o.y-@y),abs(o.z-@z)]
-        m.sort (a,b) -> b-a
-        m[0]+0.2*m[1]+0.1*m[2]
-    
-    manhattan: (o) -> abs(o.x-@x)+abs(o.y-@y)+abs(o.z-@z)
-    dist:   (o) -> @minus(o).length()
+    dist:  (o) -> @minus(o).length()
     length:    -> sqrt @x*@x + @y*@y + @z*@z
     dot:   (v) -> @x*v.x + @y*v.y + @z*v.z
     
-    sub:   (v) -> @subtractInPlace v
+    add:   (v) -> @x+=v.x; @y+=v.y; @z+=v.z; @ 
+    sub:   (v) -> @x-=v.x; @y-=v.y; @z-=v.z; @ 
     mul:   (f) -> new Vect @x*f, @y*f, @z*f
     div:   (d) -> new Vect @x/d, @y/d, @z/d
-    plus:  (v) -> new Vect(v).addInPlace @
-    minus: (v) -> new Vect(v).neg().addInPlace @
+    plus:  (v) -> new Vect(v).add @
+    minus: (v) -> new Vect(v).neg().add @
     neg:       -> new Vect -@x, -@y, -@z
     to:    (v) -> new Vect(v).sub @
         
@@ -169,12 +162,38 @@ class Vect extends Vector3
         
     polarize: ->
         radius = @length()
-        theta = atan2 @y, @x
-        phi   = acos @z / radius
+        theta  = atan2 @y, @x
+        phi    = acos @z / radius
         @x = theta
         @y = phi
         @z = radius
         @
+        
+    #  0000000  000000000   0000000   000000000  000   0000000    
+    # 000          000     000   000     000     000  000         
+    # 0000000      000     000000000     000     000  000         
+    #      000     000     000   000     000     000  000         
+    # 0000000      000     000   000     000     000   0000000    
+
+    # @counter = 0
+    @tmp = new Vect
+        
+    @PX = 0
+    @PY = 1
+    @PZ = 2
+    @NX = 3
+    @NY = 4
+    @NZ = 5
+    
+    @zero   = new Vect  0  0  0
+    @unitX  = new Vect  1  0  0
+    @unitY  = new Vect  0  1  0
+    @unitZ  = new Vect  0  0  1
+    @minusX = new Vect -1  0  0
+    @minusY = new Vect  0 -1  0
+    @minusZ = new Vect  0  0 -1
+    
+    @normals = [Vect.unitX, Vect.unitY, Vect.unitZ, Vect.minusX, Vect.minusY, Vect.minusZ]
         
     @random: -> new Vect().randomize()
             
@@ -198,24 +217,7 @@ class Vect extends Vector3
             log 'planeNormal' planeNormal
             throw new Error
         r
-
-    @PX = 0
-    @PY = 1
-    @PZ = 2
-    @NX = 3
-    @NY = 4
-    @NZ = 5
-    
-    @Zero   = new Vect  0  0  0
-    @unitX  = new Vect  1  0  0
-    @unitY  = new Vect  0  1  0
-    @unitZ  = new Vect  0  0  1
-    @minusX = new Vect -1  0  0
-    @minusY = new Vect  0 -1  0
-    @minusZ = new Vect  0  0 -1
-    
-    @normals = [Vect.unitX, Vect.unitY, Vect.unitZ, Vect.minusX, Vect.minusY, Vect.minusZ]
-        
+                
     @perpNormals: (v) -> 
         i = @normalIndex(v)
         switch i

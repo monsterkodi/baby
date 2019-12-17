@@ -35,10 +35,10 @@ class World
 
         @camera = new Camera @
         
-        hemi = new HemisphericLight 'hemi' new Vect(0 1 0), @scene
+        hemi = new HemisphericLight 'hemi' new Vector3(0 1 0), @scene
         hemi.intensity = 0.5
         
-        light = new DirectionalLight 'light' (new Vector3(0 -1 0)), @scene
+        light = new DirectionalLight 'light' new Vector3(0 -1 0), @scene
         light.position.y = 3
 
         @scene.initFog()

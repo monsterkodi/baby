@@ -74,15 +74,13 @@ pointPlaneDist = (v, pp, pn) ->
 
 clockwise = (verts, indices) ->
     
-    # klog 'indices' indices
     vl = indices.map (vi) -> verts[vi]
-    # klog 'vl' vl
+
     midp = center vl
-    # klog 'midp' midp
+
     frst = sub vl[0], midp
     crss = cross frst, midp
-    # klog 'frst' frst
-    # klog 'crss' crss
+
     indices.sort (a,b) ->
         av = sub verts[a], midp
         aa = angle frst, av
@@ -93,12 +91,7 @@ clockwise = (verts, indices) ->
         bb *= -1 if dot(crss, bv) < 0
         
         bb - aa
-        
-    # for vi in indices
-        # av = sub verts[vi], midp
-        # sg = if dot(crss, av) < 0 then -1 else 1
-        # klog "#{vi}" sg * angle frst, av
-        
+                
     indices
     
 # 00000000    0000000   000   000  

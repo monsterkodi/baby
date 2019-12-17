@@ -7,7 +7,7 @@
 ###
 
 { clamp, deg2rad, gamepad, prefs, reduce } = require 'kxk'
-{ Camera, PointLight, UniversalCamera } = require 'babylonjs'
+{ Camera, PointLight, Quaternion, UniversalCamera, Vector3 } = require 'babylonjs'
 
 Vect = require './vect'
 Quat = require './quat'
@@ -42,7 +42,7 @@ class Camera extends UniversalCamera
         @rotate     = values.rotate
         @dist       = values.dist
         @minDist    = 2
-        @maxDist    = 300
+        @maxDist    = 800
         @moveDist   = 0.1
         @wheelInert = 0
         @moveX      = 0
@@ -50,14 +50,14 @@ class Camera extends UniversalCamera
         @moveZ      = 0
         @quat       = quat()
         
-        super 'Camera' vec(0 0 0), @scene
+        super 'Camera' new Vector3(0 0 0), @scene
 
         @maxZ       = 100000
         @minZ       = 1
         
         @fov = deg2rad 60
-        @rotationQuaternion = new Quat()
-        @position = vec values.pos
+        @rotationQuaternion = new Quaternion()
+        @position.copyFrom values.pos
                 
         @inertia = 0.8
         
@@ -70,9 +70,9 @@ class Camera extends UniversalCamera
         @view.addEventListener 'mousewheel' @onMouseWheel
         @navigate()
 
-    getDir:    -> @rotationQuaternion.rotated Vect.unitZ
-    getUp:     -> @rotationQuaternion.rotated Vect.unitY
-    getRight:  -> @rotationQuaternion.rotated Vect.unitX
+    getDir:   -> quat(@rotationQuaternion).rotated Vect.unitZ
+    getUp:    -> quat(@rotationQuaternion).rotated Vect.unitY
+    getRight: -> quat(@rotationQuaternion).rotated Vect.unitX
 
     setCenter: (p) ->
 
@@ -83,7 +83,7 @@ class Camera extends UniversalCamera
         @center = vec()
         @degree = 90
         @rotate = 0
-        @dist   = 200
+        @dist   = 800
         @navigate()
         
     del: =>
@@ -114,7 +114,7 @@ class Camera extends UniversalCamera
             @fading = false
             if @dist > @moveDist
                 @dist   = @moveDist
-                @center = @position.plus @getDir().mul @dist
+                @center = @getDir().mul(@dist).add @position
             
             speed = 100*@world.space.distFactor
                 
@@ -201,7 +201,7 @@ class Camera extends UniversalCamera
         up = vec 0, y, 0 
         up.applyQuaternion @rotationQuaternion
         
-        @center.addInPlace right.plus up
+        @center.add right.plus up
         @centerTarget?.copy @center
         @navigate()
             
@@ -216,7 +216,7 @@ class Camera extends UniversalCamera
         
         if @dist <= @moveDist
             @dist = @centerTarget.dist @position
-            @center = @position.plus @getDir().mul @dist
+            @center = @getDir().mul(@dist).add @position
 
         @startFadeCenter()
 
@@ -271,7 +271,7 @@ class Camera extends UniversalCamera
         @fading = false
         if not @moving
             @dist   = @moveDist
-            @center = @position.plus @getDir().mul @dist
+            @center = @getDir().mul(@dist).plus @position
             animate @moveCenter
             @moving = true
             
@@ -298,7 +298,9 @@ class Camera extends UniversalCamera
         
     moveRelative: (x, y, z) ->
         
-        @center.addInPlace @rotationQuaternion.rotate vec x, y, z
+        v = new Vector3 x, y, z
+        v.rotateByQuaternionAroundPointToRef @rotationQuaternion, Vector3.ZeroReadOnly, v
+        @center.add v
             
     # 000   000  000   000  00000000  00000000  000      
     # 000 0 000  000   000  000       000       000      
@@ -375,8 +377,8 @@ class Camera extends UniversalCamera
 
     scaleUp: (offset) ->
         
-        @center.subtractInPlace offset
-        @position.subtractInPlace offset
+        @center.sub offset
+        @position.sub offset
         
         @center.scale 100
         @position.scaleInPlace 100
@@ -395,9 +397,11 @@ class Camera extends UniversalCamera
         
         yaw   = deg2rad @rotate
         pitch = deg2rad @degree
-        @rotationQuaternion.copyFrom Quat.RotationYawPitchRoll yaw, pitch, 0
-        @position.copyFrom @center.plus @rotationQuaternion.rotate vec 0 0 -@dist
-        @setTarget @center
+        @rotationQuaternion.copyFrom Quaternion.RotationYawPitchRoll yaw, pitch, 0
+        v = new Vector3 0 0 -@dist
+        v.rotateByQuaternionAroundPointToRef @rotationQuaternion, Vector3.ZeroReadOnly, v
+        @position.copyFrom @center.plus v
+        @setTarget new Vector3 @center
         
         info = 
             rotate: @rotate 
