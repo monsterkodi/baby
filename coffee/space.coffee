@@ -30,39 +30,47 @@ class Space
     newDims: ->
         
         dims = []
-        dims.push new Dimension @world, 1, vec()
-        dims.push new Dimension @world, 1, vec 2 0 0
-        dims.push new Dimension @world, 1, vec 0 2 0
-        dims.push new Dimension @world, 1, vec 0 0 2
-        dims.push new Dimension @world, 1, vec -2 0 0
-        dims.push new Dimension @world, 1, vec 0 -2 0
-        dims.push new Dimension @world, 1, vec 0 0 -2
+        for i in [0..5]
+            dims.push new Dimension @world, 1, i
         dims        
         
     render: ->
         
         swapDist = 40000
         campos = vec @world.camera.position
+        camDir = @world.camera.getDir()
         oldDistance = @distance
                 
+        camFact = (a) -> 
+            cam2a = campos.to a.getAbsolutePosition()
+            camDir.angle(cam2a) * cam2a.length()
+            
+        camDist = (a) -> campos.dist a.getAbsolutePosition()
+            
+        inViewSort = (a,b) -> camFact(a) - camFact(b)
+        camDistSort = (a,b) -> camDist(a) - camDist(b)
+
         higer = @dimstack[2].getChildren()
-        higer.sort (a,b) -> campos.to(a.getAbsolutePosition()).length()-campos.to(b.getAbsolutePosition()).length()
+        higer.sort camDistSort 
         @dimstack[1].parent = higer[0]
         @dimstack[1].markAsDirty()
         
         midle = @dimstack[1].getChildren()
-        midle.sort (a,b) -> campos.to(a.getAbsolutePosition()).length()-campos.to(b.getAbsolutePosition()).length()
+        midle.sort camDistSort 
         @dimstack[0].parent = midle[0]
         @dimstack[0].markAsDirty()
         
         lower = @dimstack[0].getChildren()
-        lower.sort (a,b) -> campos.to(a.getAbsolutePosition()).length()-campos.to(b.getAbsolutePosition()).length()
+        lower.sort camDistSort 
         
         @distance = campos.to(lower[0].getAbsolutePosition()).length()
+        @highDist = campos.to(higer[0].getAbsolutePosition()).length()
         @distFactor = @distance / swapDist
         
         # klog 'distance' parseInt @distance #, higer[0].name, midle[0].name, lower[0].name
-                        
+        
+        @scene.legend.show "#{parseInt @distance}"
+        
         if @distance >= swapDist
             if oldDistance < swapDist
                 # klog 'distance' @distance, 'distFactor' @distFactor

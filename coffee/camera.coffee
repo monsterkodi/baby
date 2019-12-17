@@ -27,7 +27,7 @@ class Camera extends UniversalCamera
         height = @view.clientHeight
              
         info = 
-            dist:   10 
+            dist:   1000
             degree: 90 
             rotate: 0 
             pos:    {x:0,y:0,z:0}
@@ -41,8 +41,8 @@ class Camera extends UniversalCamera
         @degree     = values.degree
         @rotate     = values.rotate
         @dist       = values.dist
-        @minDist    = 2
-        @maxDist    = 800
+        @minDist    = 1000
+        @maxDist    = 10000
         @moveDist   = 0.1
         @wheelInert = 0
         @moveX      = 0
@@ -83,26 +83,36 @@ class Camera extends UniversalCamera
         @center = vec()
         @degree = 90
         @rotate = 0
-        @dist   = 800
+        @dist   = 1000
         @navigate()
         
     del: =>
         
         @view.removeEventListener 'mousewheel' @onMouseWheel
+    
+    # 00000000   00000000  000   000  0000000    00000000  00000000   
+    # 000   000  000       0000  000  000   000  000       000   000  
+    # 0000000    0000000   000 0 000  000   000  0000000   0000000    
+    # 000   000  000       000  0000  000   000  000       000   000  
+    # 000   000  00000000  000   000  0000000    00000000  000   000  
+    
+    render: ->
+        
+        if @world.space?
+            @speedFactor = @world.space.distFactor * 10000
+        else
+            @speedFactor = 1000
+        @speedFactor *= 4 if @fastSpeed
+        
+        if state = @gamepad.getState()
+            @onPadAxis state
         
     # 00000000    0000000   0000000    
     # 000   000  000   000  000   000  
     # 00000000   000000000  000   000  
     # 000        000   000  000   000  
     # 000        000   000  0000000    
-    
-    render: ->
-        if state = @gamepad.getState()
-            # klog 'state' state
-            @onPadAxis state
-            # for button,value of state.buttons
-                # @onPadButton button, value
-    
+        
     onPadAxis: (state) => 
     
         @rotate += state.right.x
@@ -116,9 +126,8 @@ class Camera extends UniversalCamera
                 @dist   = @moveDist
                 @center = @getDir().mul(@dist).add @position
             
-            speed = 100*@world.space.distFactor
-                
-            @moveRelative speed*state.left.x, 0, 2*speed*state.left.y
+            speed = 0.02
+            @moveRelative speed*state.left.x, 0, speed*state.left.y
             
             @navigate()
                             
@@ -128,14 +137,12 @@ class Camera extends UniversalCamera
             switch button
                 when 'LB' then @moveDown()
                 when 'RB' then @moveUp()
-                when 'LT' then @moveLeft()
-                when 'RT' then @moveRight()
+                when 'LT' then @fastSpeed = true
         else
             switch button
                 when 'LB' then @stopDown()
                 when 'RB' then @stopUp()
-                when 'LT' then @stopLeft()
-                when 'RT' then @stopRight()
+                when 'LT' then @fastSpeed = false
         
     # 00     00   0000000   000   000   0000000  00000000  
     # 000   000  000   000  000   000  000       000       
@@ -167,7 +174,7 @@ class Camera extends UniversalCamera
             @mouseMoved = true
         
         if event.buttons & 4
-            s = @dist
+            s = @speedFactor * 4
             @pan x*2*s/@size.x, y*s/@size.y
             
         if event.buttons & 3
@@ -203,6 +210,7 @@ class Camera extends UniversalCamera
         
         @center.add right.plus up
         @centerTarget?.copy @center
+        
         @navigate()
             
     # 00000000   0000000    0000000  000   000   0000000  
@@ -229,7 +237,6 @@ class Camera extends UniversalCamera
     fadeCenter: (deltaSeconds) =>
         
         return if not @fading
-        
         @center.fade @centerTarget, deltaSeconds
         @navigate()
         if @center.dist(@centerTarget) > 0.05
@@ -279,11 +286,9 @@ class Camera extends UniversalCamera
         
         return if not @moving
         
-        speed = 1000 * @world.space.distFactor
-        
-        @moveRelative(deltaSeconds *     speed * (@moveX or @moveFade.x)
-                      deltaSeconds *     speed * (@moveY or @moveFade.y)
-                      deltaSeconds * 2 * speed * (@moveZ or @moveFade.z))
+        @moveRelative(deltaSeconds *     (@moveX or @moveFade.x)
+                      deltaSeconds *     (@moveY or @moveFade.y)
+                      deltaSeconds * 2 * (@moveZ or @moveFade.z))
         
         @navigate()
                 
@@ -298,8 +303,10 @@ class Camera extends UniversalCamera
         
     moveRelative: (x, y, z) ->
         
-        v = new Vector3 x, y, z
-        v.rotateByQuaternionAroundPointToRef @rotationQuaternion, Vector3.ZeroReadOnly, v
+        v = vec x, y, z
+        v.scale @speedFactor
+        v.applyQuaternion @rotationQuaternion
+        
         @center.add v
             
     # 000   000  000   000  00000000  00000000  000      
@@ -397,11 +404,12 @@ class Camera extends UniversalCamera
         
         yaw   = deg2rad @rotate
         pitch = deg2rad @degree
+        
         @rotationQuaternion.copyFrom Quaternion.RotationYawPitchRoll yaw, pitch, 0
         v = new Vector3 0 0 -@dist
         v.rotateByQuaternionAroundPointToRef @rotationQuaternion, Vector3.ZeroReadOnly, v
         @position.copyFrom @center.plus v
-        @setTarget new Vector3 @center
+        @setTarget new Vector3 @center.x, @center.y, @center.z
         
         info = 
             rotate: @rotate 
@@ -409,7 +417,7 @@ class Camera extends UniversalCamera
             dist:   @dist
             pos:    {x:@position.x, y:@position.y, z:@position.z}
             center: {x:@center.x, y:@center.y, z:@center.z}
-        # klog info
+
         prefs.set 'camera' info
         
         if 12*@minDist/@dist >= 8

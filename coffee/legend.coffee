@@ -33,10 +33,12 @@ class Legend
         @panel.addControl @header
         @hide()
         
-    show: (mesh) -> 
-        return @hide() if not mesh
-        @header.text = mesh.name
+    show: (text) -> 
+        
+        return @hide() if not text
+        @header.text = text
         @panel.isVisible = true
+        
     hide: -> @panel.isVisible = false
         
 module.exports = Legend

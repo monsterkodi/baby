@@ -6,22 +6,20 @@
     0      00000000   0000000     000   
 ###
 
-{ rad2deg, randRange } = require 'kxk'
-# { Vector3 } = require 'babylonjs'
+{ klog, rad2deg, randRange } = require 'kxk'
 { abs, acos, atan2, round, sqrt } = Math
 
-class Vect #extends Vector3
+class Vect 
     
     @: (x=0,y=0,z=0) ->
 
-        # Vect.counter += 1
-        
         if x.x? and x.y?
             @set x.x, x.y, x.z ? 0
         else if Array.isArray x
             @set x[0], x[1], x[2] ? 0
         else
             @set x, y, z ? 0
+            
         if Number.isNaN @x
             throw new Error
                      
@@ -30,14 +28,12 @@ class Vect #extends Vector3
     coords: -> [@x, @y, @z]
             
     applyQuaternion: (q) ->
-        # @rotateByQuaternionAroundPointToRef quaternion, Vect.Zero, @
-        # quat * vector
+
         ix =  q.w * @x + q.y * @z - q.z * @y
         iy =  q.w * @y + q.z * @x - q.x * @z
         iz =  q.w * @z + q.x * @y - q.y * @x
         iw = -q.x * @x - q.y * @y - q.z * @z
 
-        # result * inverse quat
         @x = ix * q.w + iw * - q.x + iy * - q.z - iz * - q.y
         @y = iy * q.w + iw * - q.y + iz * - q.x - ix * - q.z
         @z = iz * q.w + iw * - q.z + ix * - q.y - iy * - q.x
@@ -156,7 +152,7 @@ class Vect #extends Vector3
     isZero: -> @x == @y == @z == 0
 
     randomize: -> 
-        @set randRange(-1,1),randRange(-1,1),randRange(-1,1)
+        @set randRange(-1,1), randRange(-1,1), randRange(-1,1)
         @normalize()
         @
         
@@ -175,7 +171,6 @@ class Vect #extends Vector3
     #      000     000     000   000     000     000  000         
     # 0000000      000     000   000     000     000   0000000    
 
-    # @counter = 0
     @tmp = new Vect
         
     @PX = 0
@@ -211,10 +206,10 @@ class Vect #extends Vector3
         return 2 if rayDot == 0
         r = planePos.minus(rayPos).dot(planeNormal) / rayDot
         if Number.isNaN r
-            log 'rayPos' rayPos
-            log 'rayDir' rayDir
-            log 'planePos' planePos
-            log 'planeNormal' planeNormal
+            klog 'rayPos' rayPos
+            klog 'rayDir' rayDir
+            klog 'planePos' planePos
+            klog 'planeNormal' planeNormal
             throw new Error
         r
                 

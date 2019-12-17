@@ -6,15 +6,24 @@
 0000000    000  000   000  00000000  000   000  0000000   000   0000000   000   000
 ###
 
-{ Color3, Mesh, StandardMaterial, TransformNode } = require 'babylonjs'
-{ deg2rad } = require 'kxk'
+{ Color3, TransformNode, Vector3 } = require 'babylonjs'
+{ klog } = require 'kxk'
 { random } = Math
 { vec } = require './poly/math'
 generate = require './poly/generate'
 
 class Dimension extends TransformNode
 
-    @: (@world, @scale, pos=vec()) ->
+    @: (@world, @scale, index) ->
+        
+        pos = [
+            vec 2 0 0
+            vec 0 2 0
+            vec 0 0 2
+            vec -2 0 0
+            vec 0 -2 0
+            vec 0 0 -2
+            ][index]
         
         @scene = @world.scene
         super 'dimension' @scene
@@ -23,22 +32,16 @@ class Dimension extends TransformNode
 
         s = @scale
         @scaling = vec s, s, s
-                    
-        if 1
-            poly = generate 'h0.02D' true
-            
-            p = Mesh.CreatePolyhedron poly.name, {custom:poly}, @scene
-            p.parent = @
-            p.material = new StandardMaterial
-            p.material.diffuseColor = new Color3 0.5 0.5 1
-            
-            for i in [0...5]
-                inst = p.createInstance "#{poly.name}_#{i}" 
-                s = 1 - i*0.2
-                inst.scaling.copyFromFloats s, s, s
-                inst.parent = @
-                # inst.rotate vec(0,1,0), deg2rad i*6
-                # inst.rotate vec(1,0,0), deg2rad random()*180
+                 
+        shapes = ['h0.02C''h0.02O''h0.02D''h0.02djC''h0.02T''h0.02I']
+                
+        for i in [0...5]
+            inst = @world.shapes.create shapes[index], new Color3 0.5 0.5 1 # p.createInstance "#{poly.name}_#{i}" 
+            s = 1 - i*0.2
+            inst.scaling = new Vector3 s, s, s
+            inst.parent = @
+            # inst.rotate vec(0,1,0), deg2rad i*6
+            # inst.rotate vec(1,0,0), deg2rad random()*180
         
     del: ->
         # klog "dim del #{@name}"

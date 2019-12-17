@@ -366,7 +366,7 @@ truncate = (poly, factor=0.5) ->
             edgeMap[vertexIndex][ni] = poly.vertex.length
             vp = poly.edge vertexIndex, ni
             vp.normalize()
-            vp.scaleInPlace depth
+            vp.scale depth
             vp.add poly.vert vertexIndex
             face.push poly.vertex.length
             poly.vertex.push [vp.x, vp.y, vp.z]

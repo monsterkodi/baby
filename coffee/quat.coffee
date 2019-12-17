@@ -7,31 +7,26 @@
 ###
 
 { deg2rad, rad2deg } = require 'kxk'
-{ Quaternion, Vector3 } = require 'babylonjs'
 { acos, asin, atan2, cos, sin, sqrt } = Math
 
 Vect = require './vect'
 
-class Quat extends Quaternion
-
-    @tmp = new Quat
-    @counter = 0
+class Quat
     
     @: (x=0, y=0, z=0, w=1) ->
         
-        Quat.counter++
-        
-        if x instanceof Vect or x instanceof Vector3
-            super x.x, x.y, x.z, 0
-        else if x instanceof Quat or x instanceof Quaternion
-            super x.x, x.y, x.z, x.w
+        if x.x? and x.y? and x.z?
+            @set x.x, x.y, x.z, x.w ? 0
         else if Array.isArray w
-            super w[0], w[1], w[2], w[3]
+            @set w[0], w[1], w[2], w[3]
         else
-            super x, y, z, w
+            @set x, y, z, w
+            
         if Number.isNaN @x
             throw new Error
-                                
+             
+    set: (@x, @y, @z, @w=1) ->
+            
     rotateAxisAngle: (axis, angle) ->
         
         @multiplyInPlace Quat.axisAngle axis, angle

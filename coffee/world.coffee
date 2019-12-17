@@ -13,6 +13,8 @@ generate = require './poly/generate'
 Vect     = require './vect'
 Camera   = require './camera'
 Scene    = require './scene'
+Space    = require './space'
+Shapes   = require './shapes'
 animate  = require './animate'
 
 ϕ = (Math.sqrt(5)-1)/2
@@ -26,8 +28,10 @@ class World
         
         @canvas = elem 'canvas' class:'babylon' parent:@view
         
+        
         @engine = new Engine @canvas, true
-        @scene = new Scene @
+        @scene  = new Scene @
+        @shapes = new Shapes @scene
         @resized()
         
         a = 0.0 #0.065
@@ -81,11 +85,9 @@ class World
         window.addEventListener 'pointerup'   @onMouseUp
              
         if 1
-            Space = require './space'
             @space = new Space @
         else
-            Shapes = require './shapes'
-            new Shapes @scene
+            @shapes.dah()
             
     # 00     00   0000000   000   000   0000000  00000000  
     # 000   000  000   000  000   000  000       000       
@@ -102,8 +104,8 @@ class World
         
         @camera.onMouseDrag event
         if mesh = @pickedMesh()
-            @highlight mesh    
-            @scene.legend.show mesh            
+            # @highlight mesh    
+            @scene.legend.show mesh.name
         else
             @scene.legend.show @legendMesh
         
@@ -113,8 +115,8 @@ class World
             if mesh == @mouseDownMesh
                 @cursor.position = mesh.getAbsolutePosition()
                 @camera.fadeToPos mesh.getAbsolutePosition()
-                @scene.legend.show mesh
-                @legendMesh = mesh
+                @scene.legend.show mesh.name
+                @legendMesh = mesh.name
 
         else if not @mouseDownMesh
             @cursor.position = [0 -1000 0]
