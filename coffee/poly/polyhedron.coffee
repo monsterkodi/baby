@@ -69,8 +69,9 @@ class Polyhedron
             toN0 = @vert neighbors[vi][0]
             perp = toVertex.crossed toN0
             neighbors[vi].sort (a,b) =>
-                aa = perp.angle @vert(a)
-                bb = perp.angle @vert(b)
+                aa = perp.angle @vert(a), toVertex
+                bb = perp.angle @vert(b), toVertex
+                
                 # aa = Vect.GetAngleBetweenVectors perp, @vert(a), toVertex
                 # bb = Vect.GetAngleBetweenVectors perp, @vert(b), toVertex
                 aa - bb
@@ -94,8 +95,8 @@ class Polyhedron
             toN0 = @vert neighbors[vi][0]
             perp = toVertex.crossed toN0
             neighbors[vi].sort (a,b) =>
-                aa = perp.angle @vert(a)
-                bb = perp.angle @vert(b)                
+                aa = perp.angle @vert(a), toVertex
+                bb = perp.angle @vert(b), toVertex                
                 # aa = Vect.GetAngleBetweenVectors perp, @vert(a.vertex), toVertex
                 # bb = Vect.GetAngleBetweenVectors perp, @vert(b.vertex), toVertex
                 aa - bb

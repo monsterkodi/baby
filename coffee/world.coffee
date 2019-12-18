@@ -7,13 +7,14 @@
 ###
 
 { elem, prefs } = require 'kxk'
-{ Camera, Color3, DirectionalLight, Engine, HemisphericLight, MeshBuilder, Scene, ShadowGenerator, Space, StandardMaterial, Vector3 } = require 'babylonjs'
+{ Camera, Color3, DirectionalLight, Engine, HemisphericLight, MeshBuilder, Scene, Space, StandardMaterial, Vector3 } = require 'babylonjs'
 { vec } = require './poly/math'
 generate = require './poly/generate'
 Vect     = require './vect'
 Camera   = require './camera'
 Scene    = require './scene'
 Space    = require './space'
+Tree     = require './tree'
 Shapes   = require './shapes'
 animate  = require './animate'
 
@@ -46,17 +47,7 @@ class World
         light.position.y = 3
 
         @scene.initFog()
-        
-        if 0
-            shadowGenerator = new ShadowGenerator 8*1024 light
-            # shadowGenerator.bias = 0.00002
-            # shadowGenerator.darkness = 0.1
-            shadowGenerator.useExponentialShadowMap = true
-            shadowGenerator.usePoissonSampling = true
-            shadowGenerator.usePercentageCloserFiltering = true
-            shadowGenerator.useContactHardeningShadow = true
-            @scene.shadowGenerator = shadowGenerator
-        
+                
         if 0
             ground = MeshBuilder.CreateGround 'ground' {width:1000 height:1000 subdivisions: 4}, @scene
             ground.material = new StandardMaterial 'ground' @scene
@@ -84,8 +75,10 @@ class World
         window.addEventListener 'pointermove' @onMouseMove
         window.addEventListener 'pointerup'   @onMouseUp
              
-        if 1
+        if 0
             @space = new Space @
+        else if 1
+            new Tree @
         else
             @shapes.dah()
             

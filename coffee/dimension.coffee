@@ -7,7 +7,7 @@
 ###
 
 { Color3, TransformNode, Vector3 } = require 'babylonjs'
-{ klog } = require 'kxk'
+{ colors } = require 'kxk'
 { random } = Math
 { vec } = require './poly/math'
 generate = require './poly/generate'
@@ -34,14 +34,20 @@ class Dimension extends TransformNode
         @scaling = vec s, s, s
                  
         shapes = ['h0.02C''h0.02O''h0.02D''h0.02djC''h0.02T''h0.02I']
+        colors = [
+            new Color3 1 0.5 0.5
+            new Color3 0.5 1 0.5
+            new Color3 0.5 0.5 1
+            new Color3 1 0 1
+            new Color3 0 1 1
+            new Color3 1 1 0
+            ]
                 
         for i in [0...5]
-            inst = @world.shapes.create shapes[index], new Color3 0.5 0.5 1 # p.createInstance "#{poly.name}_#{i}" 
+            inst = @world.shapes.create shapes[index], colors[index]
             s = 1 - i*0.2
             inst.scaling = new Vector3 s, s, s
             inst.parent = @
-            # inst.rotate vec(0,1,0), deg2rad i*6
-            # inst.rotate vec(1,0,0), deg2rad random()*180
         
     del: ->
         # klog "dim del #{@name}"

@@ -116,7 +116,16 @@ class Vect
     neg:       -> new Vect -@x, -@y, -@z
     to:    (v) -> new Vect(v).sub @
         
-    angle: (v) -> 
+    angle: (v, n) -> 
+        
+        if n
+            v0  = @normal()
+            v1  = v.normal()
+            dot = v0.dot v1
+            crs = v0.cross v1
+            if crs.dot(n) > 0
+                return rad2deg acos dot
+            return rad2deg -acos dot
         
         if l = @length()
             if o = v.length()
