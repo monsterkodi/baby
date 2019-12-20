@@ -6,7 +6,7 @@
 0000000   000   000  000   000  000        00000000  0000000 
 ###
 
-{ Color3, Mesh, StandardMaterial, Vector3 } = require 'babylonjs'
+{ Color3, Mesh, Vector3 } = require 'babylonjs'
 { colors, deg2rad, empty } = require 'kxk'
 generate = require './poly/generate'
 Vect = require './vect'
@@ -23,12 +23,12 @@ class Shapes
             
             poly = generate code 
             @meshes[code] = Mesh.CreatePolyhedron poly.name, {custom:poly}, @scene
+            @meshes[code].registerInstancedBuffer 'color' 4
+            @meshes[code].instancedBuffers.color = color
             
-            if color
-                @meshes[code].material = new StandardMaterial
-                @meshes[code].material.diffuseColor = color 
-            
-        @meshes[code].createInstance "inst_#{code}"
+        inst = @meshes[code].createInstance "inst_#{code}"
+        inst.instancedBuffers.color = color
+        inst
         
     dah: ->
         

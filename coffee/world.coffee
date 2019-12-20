@@ -78,7 +78,7 @@ class World
         if 0
             @space = new Space @
         else if 1
-            new Tree @
+            @tree = new Tree @
         else
             @shapes.dah()
             
@@ -120,6 +120,8 @@ class World
           
     pickedMesh: ->
         
+        return null
+        
         if result = @scene.pick(@scene.pointerX, @scene.pointerY, (m) -> m.name not in ['ground' 'cursor'])
             if result.pickedMesh?.name in ['faces''normals']
                 result.pickedMesh.parent
@@ -160,6 +162,7 @@ class World
 
         if not @paused
             @space?.render()
+            @tree?.render()
             @camera.render()
             @scene.render()
             animate.tick @engine.getDeltaTime()/1000

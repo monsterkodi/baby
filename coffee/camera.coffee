@@ -41,7 +41,7 @@ class Camera extends UniversalCamera
         @degree     = values.degree
         @rotate     = values.rotate
         @dist       = values.dist
-        @minDist    = 1000
+        @minDist    = 10 #1000
         @maxDist    = 10000
         @moveDist   = 0.1
         @wheelInert = 0

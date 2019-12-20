@@ -212,13 +212,6 @@ class Quat
                  axis.z * s,
                  cos halfAngle
                  
-    @rotationAroundVector: (theta, x,y,z) ->
-        v = new Vect x,y,z 
-        v.normalize()
-        t = deg2rad(theta)/2.0       
-        s = sin t 
-        (new Quat cos(t), v.x*s, v.y*s, v.z*s).normalize()
-
     @rotationFromEuler: (x,y,z) ->
         x = deg2rad x
         y = deg2rad y
@@ -228,82 +221,5 @@ class Quat
                      cos(x/2) * sin(y/2) * cos(z/2) + sin(x/2) * cos(y/2) * sin(z/2),
                      cos(x/2) * cos(y/2) * sin(z/2) - sin(x/2) * sin(y/2) * cos(z/2)
         q.normalize()
-    
-    @rot_0     = new Quat()
-    @rot_90_X  = @rotationAroundVector 90  Vect.unitX
-    @rot_90_Y  = @rotationAroundVector 90  Vect.unitY
-    @rot_90_Z  = @rotationAroundVector 90  Vect.unitZ
-    @rot_180_X = @rotationAroundVector 180 Vect.unitX
-    @rot_180_Y = @rotationAroundVector 180 Vect.unitY
-    @rot_180_Z = @rotationAroundVector 180 Vect.unitZ
-    @rot_270_X = @rotationAroundVector 270 Vect.unitX
-    @rot_270_Y = @rotationAroundVector 270 Vect.unitY
-    @rot_270_Z = @rotationAroundVector 270 Vect.unitZ
-
-    @minusXupY   =                @rot_270_Y
-    @minusXupZ   = @rot_90_X.mul  @rot_270_Y
-    @minusXdownY = @rot_180_X.mul @rot_270_Y
-    @minusXdownZ = @rot_270_X.mul @rot_270_Y
-                 
-    @minusYupX   = @rot_90_Y.mul  @rot_90_X
-    @minusYupZ   =                @rot_90_X
-    @minusYdownX = @rot_270_Y.mul @rot_90_X
-    @minusYdownZ = @rot_180_Y.mul @rot_90_X
-    
-    @ZupX        = @rot_270_Z
-    @ZupY        = @rot_0
-    @ZdownX      = @rot_90_Z
-    @ZdownY      = @rot_180_Z
-    
-    @XupY        =                @rot_90_Y
-    @XupZ        = @rot_90_X.mul  @rot_90_Y
-    @XdownY      = @rot_180_X.mul @rot_90_Y
-    @XdownZ      = @rot_270_X.mul @rot_90_Y
-                 
-    @YupX        = @rot_270_Y.mul @rot_270_X
-    @YupZ        = @rot_180_Y.mul @rot_270_X
-    @YdownX      = @rot_90_Y.mul  @rot_270_X
-    @YdownZ      =                @rot_270_X
-    
-    @minusZupX   = @rot_90_Z.mul  @rot_180_X
-    @minusZupY   = @rot_180_Z.mul @rot_180_X
-    @minusZdownX = @rot_270_Z.mul @rot_180_X
-    @minusZdownY =                @rot_180_X
-        
-    @rot_0.name       = 'rot_0'
-    @rot_90_X.name    = 'rot_90_X'
-    @rot_90_Y.name    = 'rot_90_Y'
-    @rot_90_Z.name    = 'rot_90_Z'
-    @rot_180_X.name   = 'rot_180_X'
-    @rot_180_Y.name   = 'rot_180_Y'
-    @rot_180_Z.name   = 'rot_180_Z'
-    @rot_270_X.name   = 'rot_270_X'
-    @rot_270_Y.name   = 'rot_270_Y'
-    @rot_270_Z.name   = 'rot_270_Z'
-    
-    @XupY.name        = 'XupY'
-    @XupZ.name        = 'XupZ'
-    @XdownY.name      = 'XdownY'
-    @XdownZ.name      = 'XdownZ'
-    @YupX.name        = 'YupX'
-    @YupZ.name        = 'YupZ'
-    @YdownX.name      = 'YdownX'
-    @YdownZ.name      = 'YdownZ'
-    @ZupX.name        = 'ZupX'
-    @ZupY.name        = 'ZupY'
-    @ZdownX.name      = 'ZdownX'
-    @ZdownY.name      = 'ZdownY'
-    @minusXupY.name   = 'minusXupY'
-    @minusXupZ.name   = 'minusXupZ'
-    @minusXdownY.name = 'minusXdownY'
-    @minusXdownZ.name = 'minusXdownZ'
-    @minusYupX.name   = 'minusYupX'
-    @minusYupZ.name   = 'minusYupZ'
-    @minusYdownX.name = 'minusYdownX'
-    @minusYdownZ.name = 'minusYdownZ'
-    @minusZupX.name   = 'minusZupX'
-    @minusZupY.name   = 'minusZupY'
-    @minusZdownX.name = 'minusZdownX'
-    @minusZdownY.name = 'minusZdownY'
     
 module.exports = Quat

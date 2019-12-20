@@ -6,10 +6,11 @@
    000     000   000  00000000  00000000
 ###
 
-{ Color3, TransformNode, Vector3 } = require 'babylonjs'
-{ colors } = require 'kxk'
-{ random } = Math
-{ vec } = require './poly/math'
+{ Color3, Quaternion, TransformNode, Vector3 } = require 'babylonjs'
+{ klog } = require 'kxk'
+{ abs } = Math
+{ normal, vec } = require './poly/math'
+Vect = require './vect'
 generate = require './poly/generate'
 
 class Tree extends TransformNode
@@ -19,20 +20,50 @@ class Tree extends TransformNode
         @scene = @world.scene
         super 'tree' @scene
         
-        shapes = ['hC''hO''hD''hdjC''hT''hI']
-        colors = [
-            new Color3 1 0 0
-            new Color3 0 .5 0
+        @instances = []
+        @shapes = ['I''C''djC''O''T''D''O''I']
+        @colors = [
+            new Color3 0 0 0.2
+            new Color3 0 0 0.4
+            new Color3 0 0 0.6
+            new Color3 0 0 0.8
             new Color3 0 0 1
-            new Color3 1 0 1
-            new Color3 1 1 0
-            new Color3 .3 .3 .3
             ]
+            
+        @branch 'C' 0
         
-        for index in [0...shapes.length]
-            inst = @world.shapes.create shapes[index], colors[index]
-            inst.scaling = new Vector3 100, 100, 100
-            inst.position.x = index*200
-            inst.parent = @
+    render: ->
+        
+        for inst in @instances
+            if inst.normal
+                inst.rotationQuaternion.multiplyInPlace Quaternion.RotationAxis vec(0,1,0), 0.005
+            
+    branch: (code, depth, scale=1000, pos, parent, normal) ->
+        
+        pos ?= new Vector3(0 0 0)
+        code = @shapes[depth]
+        inst = @world.shapes.create code, @colors[depth]
+        if normal
+            ay = Vector3.FromArray normal
+            if abs(Vector3.Dot(ay, new Vector3(0,0,1))) < 1
+                ax = new Vector3(0,0,1).cross(ay)
+                az = ax.cross(ay)
+            else
+                ax = new Vector3(1,0,0).cross(ay)
+                az = ax.cross(ay)
+            inst.rotationQuaternion = Quaternion.RotationQuaternionFromAxis ax, ay, az
+        inst.parent = parent
+        inst.normal = normal
+        inst.position.copyFrom pos
+        inst.scaling = new Vector3 scale, scale, scale
+        
+        @instances.push inst
+        
+        if depth < 3
+            poly = generate code
+            centers = poly.centers()
+            normals = poly.normals()
+            for center,ci in centers
+                @branch code, depth+1, 0.4, Vector3.FromArray(center).scale(1.5), inst, normals[ci]
 
 module.exports = Tree
