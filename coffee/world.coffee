@@ -6,7 +6,7 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ elem, prefs } = require 'kxk'
+{ elem, klog, prefs } = require 'kxk'
 { Camera, Color3, DirectionalLight, Engine, HemisphericLight, MeshBuilder, Scene, Space, StandardMaterial, Vector3 } = require 'babylonjs'
 { vec } = require './poly/math'
 generate = require './poly/generate'
@@ -30,8 +30,10 @@ class World
         
         @canvas = elem 'canvas' class:'babylon' parent:@view
         
+        klog window.devicePixelRatio
         
-        @engine = new Engine @canvas, true
+        @engine = new Engine @canvas
+        
         @scene  = new Scene @
         @shapes = new Shapes @scene
         @resized()
@@ -178,10 +180,10 @@ class World
     
     resized: => 
 
-        @canvas.width  = @view.clientWidth
-        @canvas.height = @view.clientHeight
-                
-        @engine.resize()
+        dpr = window.devicePixelRatio
+        @engine.setSize @view.clientWidth * dpr, @view.clientHeight * dpr
+        @canvas.style.transform = "scale(#{1/dpr})"
+        @canvas.style.transformOrigin = "top left"
     
     # 000   000  00000000  000   000  
     # 000  000   000        000 000   
