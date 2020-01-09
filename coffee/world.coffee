@@ -16,6 +16,7 @@ Scene    = require './scene'
 Space    = require './space'
 Tree     = require './tree'
 Shapes   = require './shapes'
+Shader   = require './shader'
 animate  = require './animate'
 
 ϕ = (Math.sqrt(5)-1)/2
@@ -74,13 +75,14 @@ class World
         window.addEventListener 'pointerdown' @onMouseDown
         window.addEventListener 'pointermove' @onMouseMove
         window.addEventListener 'pointerup'   @onMouseUp
-             
-        if 0
-            @space = new Space @
-        else if 1
-            @tree = new Tree @
-        else
-            @shapes.dah()
+  
+        @shader = new Shader @
+        # if 0
+            # @space = new Space @
+        # else if 0
+            # @tree = new Tree @
+        # else
+            # @shapes.dah()
             
     # 00     00   0000000   000   000   0000000  00000000  
     # 000   000  000   000  000   000  000       000       
@@ -163,6 +165,7 @@ class World
         if not @paused
             @space?.render()
             @tree?.render()
+            @shader?.render()
             @camera.render()
             @scene.render()
             animate.tick @engine.getDeltaTime()/1000
@@ -175,8 +178,9 @@ class World
     
     resized: => 
 
-        @canvas.width = @view.clientWidth
+        @canvas.width  = @view.clientWidth
         @canvas.height = @view.clientHeight
+                
         @engine.resize()
     
     # 000   000  00000000  000   000  

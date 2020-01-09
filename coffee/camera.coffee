@@ -14,7 +14,7 @@ Quat = require './quat'
 
 animate = require './animate'
 
-vec = (x,y,z) -> new Vect x, y, z
+vec  = (x,y,z) -> new Vect x, y, z
 quat = (x,y,z,w) -> new Quat x, y, z, w
 
 class Camera extends UniversalCamera
@@ -164,11 +164,13 @@ class Camera extends UniversalCamera
 
     onMouseDrag: (event) =>
 
-        x = event.clientX-@mouseX
-        y = event.clientY-@mouseY
+        br = @canvas.getBoundingClientRect()
+        
+        x = event.clientX-br.left-@mouseX
+        y = event.clientY-br.top-@mouseY
 
-        @mouseX = event.clientX
-        @mouseY = event.clientY
+        @mouseX = event.clientX-br.left
+        @mouseY = event.clientY-br.top
         
         if @downPos?.dist(vec @mouseX, @mouseY) > 60
             @mouseMoved = true
