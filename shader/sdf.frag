@@ -57,6 +57,11 @@ vec3 rotAxisAngle(vec3 position, vec3 axis, float angle)
     
     return vec3(qr.x, qr.y, qr.z);
 }
+
+vec3 rotRayAngle(vec3 position, vec3 ro, vec3 rd, float angle)
+{ 
+    return rotAxisAngle(position-ro, rd-ro, angle)+ro;
+}
 
 vec3 rotY(vec3 v, float deg)
 {
@@ -66,6 +71,22 @@ vec3 rotY(vec3 v, float deg)
     return vec3(v.x*c+v.z*s, v.y, v.z*c+v.x*s);
 }
 
+vec3 rotX(vec3 v, float deg)
+{
+    float rad = deg2rad(deg);
+    float c = cos(rad);
+    float s = sin(rad);
+    return vec3(v.x, v.y*c+v.z*s, v.z*c+v.y*s);
+}
+
+vec3 rotZ(vec3 v, float deg)
+{
+    float rad = deg2rad(deg);
+    float c = cos(rad);
+    float s = sin(rad);
+    return vec3(v.x*c+v.y*s, v.y*c+v.x*s, v.z);
+}
+
 //  0000000  0000000    
 // 000       000   000  
 // 0000000   000   000  
@@ -91,25 +112,104 @@ float sdPlane(vec3 p, vec3 a, vec3 n)
 {   
     return dot(n, p-a);
 }
-
+
+float sdBox(vec3 p, vec3 b)
+{
+    vec3 q = abs(p)-b;
+    return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
+}
+
+float opUnion(float d1, float d2) 
+{
+    float k = 0.03;
+    float h = clamp(0.5 + 0.5*(d2-d1)/k, 0.0, 1.0);
+    return mix(d2, d1, h) - k*h*(1.0-h); 
+}
+
+float opDiff(float d1, float d2) 
+{
+    float k = 0.03;
+    float h = clamp(0.5 - 0.5*(d2+d1)/k, 0.0, 1.0);
+    return mix(d1, -d2, h) + k*h*(1.0-h); 
+}
+
 //  0000000   00000000  000000000  0000000    000   0000000  000000000  
 // 000        000          000     000   000  000  000          000     
 // 000  0000  0000000      000     000   000  000  0000000      000     
 // 000   000  000          000     000   000  000       000     000     
 //  0000000   00000000     000     0000000    000  0000000      000     
 
-float getDist(vec3 p)
+struct ray {
+    vec3 pos;
+    vec3 dir;
+};
+
+struct sdf {
+    float dist;
+    vec3 pos;
+};
+
+float hip(out sdf s, vec3 pos)
+{
+    float d = sdSphere(s.pos, pos, 0.5);
+    d = opUnion(d, sdSphere(s.pos, pos+vec3(0,0.6,0), 0.3));
+
+    vec3 r = rotAxisAngle(vec3(0,0.6,0), vec3(0,0,1), 120.0);
+    d = opUnion(d, sdSphere(s.pos, pos+r, 0.3));
+    
+    vec3 l = rotAxisAngle(vec3(0,0.6,0), vec3(0,0,1), -120.0);
+    d = opUnion(d, sdSphere(s.pos, pos+l, 0.3));
+    
+    d = opDiff (d, sdPlane(s.pos, pos+vec3(0,0.6,0), vec3(0,-1,0)));
+    d = opDiff (d, sdPlane(s.pos, pos+rotZ(vec3(0,0.6,0), 120.0), rotZ(vec3(0,-1,0), 120.0)));
+    d = opDiff (d, sdPlane(s.pos, pos+rotZ(vec3(0,0.6,0), -120.0), rotZ(vec3(0,-1,0), -120.0)));
+    
+    s.dist = min(s.dist, d);
+    return s.dist;
+}
+
+float spine(out sdf s, vec3 pos)
+{
+    float d = sdSphere(s.pos, pos, 0.25);
+    d = opUnion(d, sdCapsule(s.pos, pos, pos+vec3(0,0.5,0), 0.15));
+    d = opUnion(d, sdSphere(s.pos, pos+vec3(0,0.5,0), 0.2));
+    s.dist = min(s.dist, d);
+    return s.dist;
+}
+
+float getDist(vec3 p)
 {
     float m = 1000.0;
     
     vec3 p3 = rotAxisAngle(vec3(0,0,-5), vec3(0,0,-1), iTime*36.0);
-    
-    m = min(m, sdSphere (p, vec3(0,0,0), 0.5));
-    m = min(m, sdCapsule(p, vec3(0,0,0), vec3(2,0,0), 0.2));
-    m = min(m, sdCapsule(p, vec3(0,0,0), vec3(0,2,0), 0.2));
-    m = min(m, sdCapsule(p, vec3(0,0,0), vec3(0,0,2), 0.2));
-    // m = min(m, sdCapsule(p, vec3(0,0,0), p3, 0.2));
-    m = min(m, sdPlane(p, vec3(0,-1.0,0), vec3(0,1,0)));
+    
+    sdf s = sdf(1000.0, p);
+    
+    hip(s, vec3(0,0,0));
+    spine(s, vec3(0,0.6,0));
+    
+    // m = opUnion(m, sdSphere (p, vec3(0,0,0), 0.5));
+    // m = opUnion(m, sdCapsule(p, vec3(0,0,0), vec3(2,0,0), 0.2));
+    // m = opUnion(m, sdCapsule(p, vec3(0,0,0), vec3(0,2,0), 0.2));
+    // m = opUnion(m, sdCapsule(p, vec3(0,0,0), vec3(0,0,2), 0.2));
+
+    // m = opUnion(m, sdSphere (p, vec3(0,0,2), 0.55));
+    // m = opDiff (m, sdBox (p + vec3(0,0,-2.5), vec3(1, 1, 0.5)));
+    // m = opDiff (m, sdSphere (p, vec3(0,0,2), 0.45));
+
+    // m = opUnion(m, sdSphere (p, vec3(0,2,0), 0.55));
+    // m = opDiff (m, sdBox (p + vec3(0,-2.5,0), vec3(1, 0.5, 1)));
+
+    // m = min(m, sdSphere (p, vec3(0,2,0), 0.45));
+    // m = opUnion(m, sdCapsule(p, vec3(0,2.2,0), rotRayAngle(vec3(1,2.2,0), vec3(0,2.2,0), vec3(0,1,0), iTime*36.0), 0.2));
+//     
+    // m = opUnion(m, sdSphere (p, vec3(2,0,0), 0.55));
+    // m = opDiff (m, sdBox (p + vec3(-2.5,0,0), vec3(0.5, 1, 1)));
+//     
+    // m = min(m, sdSphere (p, vec3(2,0,0), 0.45));
+    // m = opUnion(m, sdCapsule(p, vec3(2.2,0,0), rotRayAngle(vec3(3.2,1,0), vec3(2.2,0,0), vec3(1,0,0), iTime*36.0), 0.2));
+    
+    m = min(s.dist, sdPlane(p, vec3(0,-1.0,0), vec3(0,1,0)));
     return m;
 }
 
@@ -120,7 +220,7 @@ vec3 getNormal(vec3 p)
     vec3 n = d - vec3(getDist(p-e.xyy), getDist(p-e.yxy), getDist(p-e.yyx));
     return normalize(n);
 }
-
+
 // 00     00   0000000   00000000    0000000  000   000  
 // 000   000  000   000  000   000  000       000   000  
 // 000000000  000000000  0000000    000       000000000  
@@ -171,8 +271,8 @@ float softShadow( in vec3 ro, in vec3 rd, float tmin, float tmax, const float w 
 
 float getLight(vec3 p)
 {
-    float t = iTime*1.0;
-    vec3 lp = rotY(vec3(0, 10, -10), iTime*36.0);
+    float t = 0.0; // iTime*36.0;
+    vec3 lp = rotY(vec3(0, 10, -10), t);
     vec3 l = normalize(lp - p);
     vec3 n = getNormal(p);
  
@@ -195,9 +295,12 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
     vec2 uv = (fragCoord-.5*iResolution.xy)/iResolution.y;
     
-    float an = 2.0*PI*iMouse.x/iResolution.x-0.5;
-    vec3  ro = vec3(10.0*sin(an), 1, -10.0*cos(an));
-    vec3  ct = vec3(0,1,0);
+    float ay = 2.0*(iMouse.x/iResolution.x-0.5);
+    float ax = clamp(iMouse.y/iResolution.y, 0.0, 0.99);
+    vec3  ro = vec3(0,0,5);
+    ro = rotX(ro, ax*90.0);
+    ro = rotY(ro, ay*180.0);
+    vec3  ct = vec3(0,0,0);
 
     vec3 ww = normalize(ct-ro);
     vec3 uu = normalize(cross(ww, vec3(0,1,0)));

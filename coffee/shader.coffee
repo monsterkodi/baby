@@ -58,8 +58,13 @@ class Shader
         
         @plane.position.copyFrom @world.camera.position.add @world.camera.getDir().scale 2
         
+        dpr = window.devicePixelRatio
+        
+        mouseX = @world.camera.mouseX ? 0;
+        mouseY = @world.camera.mouseY ? @world.canvas.height/dpr;
+        
         @shaderMaterial.setFloat   'iTime' performance.now()/1000
-        @shaderMaterial.setVector2 'iMouse'      new Vector2(@world.camera.mouseX, @world.canvas.height-@world.camera.mouseY)
+        @shaderMaterial.setVector2 'iMouse'      new Vector2(mouseX*dpr, @world.canvas.height-mouseY*dpr)
         @shaderMaterial.setVector2 'iResolution' new Vector2(@world.canvas.width, @world.canvas.height)
                 
 module.exports = Shader

@@ -6,7 +6,7 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ elem, klog, prefs } = require 'kxk'
+{ elem, prefs } = require 'kxk'
 { Camera, Color3, DirectionalLight, Engine, HemisphericLight, MeshBuilder, Scene, Space, StandardMaterial, Vector3 } = require 'babylonjs'
 { vec } = require './poly/math'
 generate = require './poly/generate'
@@ -29,8 +29,6 @@ class World
         @view.focus()
         
         @canvas = elem 'canvas' class:'babylon' parent:@view
-        
-        klog window.devicePixelRatio
         
         @engine = new Engine @canvas
         
