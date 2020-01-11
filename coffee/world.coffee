@@ -163,6 +163,7 @@ class World
     animate: =>
 
         if not @paused
+                        
             @space?.render()
             @tree?.render()
             @shader?.render()

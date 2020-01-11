@@ -27,7 +27,7 @@ class Camera extends UniversalCamera
         height = @view.clientHeight
              
         info = 
-            dist:   1000
+            dist:   10
             degree: 90 
             rotate: 0 
             pos:    {x:0,y:0,z:0}
@@ -41,8 +41,8 @@ class Camera extends UniversalCamera
         @degree     = values.degree
         @rotate     = values.rotate
         @dist       = values.dist
-        @minDist    = 10 #1000
-        @maxDist    = 10000
+        @minDist    = 1
+        @maxDist    = 10
         @moveDist   = 0.1
         @wheelInert = 0
         @moveX      = 0
@@ -50,6 +50,8 @@ class Camera extends UniversalCamera
         @moveZ      = 0
         @quat       = quat()
         
+        @mouseDelta = x:0, y:0
+            
         super 'Camera' new Vector3(0 0 0), @scene
 
         @maxZ       = 100000
@@ -83,7 +85,7 @@ class Camera extends UniversalCamera
         @center = vec()
         @degree = 90
         @rotate = 0
-        @dist   = 1000
+        @dist   = 10
         @navigate()
         
     del: =>
@@ -101,7 +103,8 @@ class Camera extends UniversalCamera
         if @world.space?
             @speedFactor = @world.space.distFactor * 10000
         else
-            @speedFactor = 1000
+            # @speedFactor = 1000
+            @speedFactor = 1
         @speedFactor *= 4 if @fastSpeed
         
         if state = @gamepad.getState()
@@ -154,7 +157,7 @@ class Camera extends UniversalCamera
         
         @downButtons = event.buttons
         @mouseMoved  = false
-            
+        
         @mouseX = event.clientX
         @mouseY = event.clientY
         
@@ -171,6 +174,8 @@ class Camera extends UniversalCamera
 
         @mouseX = event.clientX-br.left
         @mouseY = event.clientY-br.top
+        
+        @mouseDelta = x:x, y:y
         
         if @downPos?.dist(vec @mouseX, @mouseY) > 60
             @mouseMoved = true
