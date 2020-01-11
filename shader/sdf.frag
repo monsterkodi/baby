@@ -110,6 +110,13 @@ float sdCapsule(vec3 p, vec3 a, vec3 b, float r)
     return length(p-c)-r;        
 }
 
+float sdCylinder(vec3 p, vec3 a, float h, float r)
+{
+    p = p - a;
+    vec2 d = abs(vec2(length(p.xz),p.y)) - vec2(r,h);
+    return min(max(d.x,d.y),0.0) + length(max(d,0.0));
+}
+
 float sdSphere(vec3 p, vec3 a, float r)
 {
     return length(p-a)-r;
@@ -138,6 +145,19 @@ float opDiff(float d1, float d2)
     float k = 0.03;
     float h = clamp(0.5 - 0.5*(d2+d1)/k, 0.0, 1.0);
     return mix(d1, -d2, h) + k*h*(1.0-h); 
+}
+
+float opDiff(float d1, float k, float d2) 
+{
+    float h = clamp(0.5 - 0.5*(d2+d1)/k, 0.0, 1.0);
+    return mix(d1, -d2, h) + k*h*(1.0-h); 
+}
+
+float opInter(float d1, float d2) 
+{
+    float k = 0.03;
+    float h = clamp(0.5 - 0.5*(d2-d1)/k, 0.0, 1.0);
+    return mix(d2, d1, h) + k*h*(1.0-h);
 }
 
 struct ray {
@@ -181,11 +201,67 @@ float hip(out sdf s, vec3 pos)
 //      000  000        000  000  0000  000       
 // 0000000   000        000  000   000  00000000  
 
-float spine(out sdf s, vec3 pos)
+float spineHi(out sdf s, vec3 pos)
 {
     float d = sdSphere(s.pos, pos, 0.25);
     d = opUnion(d, sdCapsule(s.pos, pos, pos+vec3(0,0.5,0), 0.15));
-    d = opUnion(d, sdSphere(s.pos, pos+vec3(0,0.5,0), 0.2));
+    d = opUnion(d, sdSphere(s.pos, pos+vec3(0,0.5,0), 0.25));
+    d = opDiff (d, sdPlane(s.pos, pos+vec3(0,-.1,0), vec3(0,1,0)));
+    s.dist = min(s.dist, d);
+    return s.dist;
+}
+
+float spineLow(out sdf s, vec3 pos)
+{
+    float d = sdSphere(s.pos, pos, 0.25);
+    d = opUnion(d, sdCapsule(s.pos, pos, pos+vec3(0,0.5,0), 0.15));
+    d = opUnion(d, sdSphere(s.pos, pos+vec3(0,0.5,0), 0.22));
+    s.dist = min(s.dist, d);
+    return s.dist;
+}
+
+float torso(out sdf s, vec3 pos)
+{
+    float d = sdSphere(s.pos, pos, 1.0);
+    d = opDiff (d, 0.15, sdPlane(s.pos, pos, vec3(0,-1,0)));
+    d = opDiff (d, 0.15, sdCylinder(s.pos, pos, 0.1, 0.75)-.075);
+
+    d = opUnion(d, sdSphere(s.pos, pos+vec3(0,0,0), 0.3));
+    d = opDiff (d, sdPlane(s.pos, pos+vec3(0,0,0), vec3(0,-1,0)));
+    
+    d = opUnion(d, sdSphere(s.pos, pos+vec3(0,-1.1,0), 0.3));
+
+    vec3 r = rotAxisAngle(vec3(0,1.2,0), vec3(0,0,1), 120.0);
+    d = opUnion(d, sdSphere(s.pos, pos+r, 0.3));
+     
+    vec3 l = rotAxisAngle(vec3(0,1.2,0), vec3(0,0,1), -120.0);
+    d = opUnion(d, sdSphere(s.pos, pos+l, 0.3));
+
+    d = opDiff (d, sdPlane(s.pos, pos+vec3(0,-1.1,0), vec3(0,1,0)));
+    d = opDiff (d, sdPlane(s.pos, pos+rotZ(vec3(0,1.2,0), 120.0), rotZ(vec3(0,-1,0), 120.0)));
+    d = opDiff (d, sdPlane(s.pos, pos+rotZ(vec3(0,1.2,0), -120.0), rotZ(vec3(0,-1,0), -120.0)));
+    
+    s.dist = min(s.dist, d);
+    return s.dist;
+}
+
+float head(out sdf s, vec3 pos)
+{
+    float d = sdSphere(s.pos, pos, 1.3);
+    d = opDiff (d, 0.15, sdPlane(s.pos, pos, vec3(0,1,0)));
+    d = opDiff (d, 0.15, sdCylinder(s.pos, pos, 0.1, 1.05)-.075);
+
+    d = opUnion(d, sdSphere(s.pos, pos+vec3(0,0,0), 0.3));
+    d = opDiff (d, sdPlane(s.pos, pos+vec3(0,0,0), vec3(0,1,0)));
+
+    vec3 mirror = s.pos;
+    mirror.x = abs(mirror.x);
+    d = opUnion(d, sdSphere(mirror, pos+vec3(0.5, 0.45, -1.3), 0.33));
+    d = opDiff (d, 0.1, sdSphere(mirror, pos+vec3(0.5, 0.45, -1.3), 0.25));
+    d = opDiff (d, 0.1, sdPlane(s.pos, pos+vec3(0,0,-1.3), vec3(0,0,1.0)));
+    
+    d = min(d, sdSphere(mirror, pos+vec3(0.5, 0.45, -1.3), 0.25));
+
     s.dist = min(s.dist, d);
     return s.dist;
 }
@@ -203,7 +279,12 @@ float map(vec3 p)
     sdf s = sdf(1000.0, p);
     
     hip(s, vec3(0,0,0));
-    spine(s, vec3(0,0.6,0));
+    spineLow(s, vec3(0,0.6,0));
+    spineHi(s, vec3(0,1.1,0));
+    torso(s, vec3(0,2.7,0));
+    spineLow(s, vec3(0,2.7,0));
+    spineHi(s, vec3(0,3.2,0));
+    head(s, vec3(0,3.7,0));
     
     if (iCamera.y > -1.0)
     {
@@ -378,9 +459,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     vec3 p = ro + f * rd;
     
-    // float l = getLight(p);
+    float l = getLight(p);
     // float l = max(getLight(p), getOcclusion(p));
-    float l = getLight(p) * getOcclusion(p);
+    // float l = getLight(p) * getOcclusion(p);
     // float l = getOcclusion(p);
     if (fragCoord.x < 2.5 && (iResolution.y * floor(1000.0/iMs) / 60.0 - fragCoord.y) < 2.0)
         l = 1.0-l;
