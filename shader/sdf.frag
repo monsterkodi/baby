@@ -375,15 +375,24 @@ float foot(out sdf s, vec3 pos, float side)
     
     float d = sdSphere(p, pos+vec3(0,-0.75,0), 0.5);
     
-    if (d > s.dist+0.7) return s.dist;
+    if (d > s.dist+0.9) return s.dist;
     
     d = opUnion(d, 0.1, sdSphere(p, pos, 0.25));
     d = opUnion(d, sdSphere(p, pos+vec3(0,-0.75,-0.75), 0.4));
     d = opDiff (d, sdPlane (p, pos+vec3(0,-0.75,0), vec3(0,1,0)));
     
+    d = min(d, sdTorusY(p, pos+vec3(0,-0.75,0), vec2(0.57, 0.07)));
+    d = min(d, sdTorusY(p, pos+vec3(0,-0.75,-0.75), vec2(0.47, 0.07)));
+    
     s.dist = min(s.dist, d);
     return s.dist;
 }
+
+// 000   000   0000000   000   000  0000000    
+// 000   000  000   000  0000  000  000   000  
+// 000000000  000000000  000 0 000  000   000  
+// 000   000  000   000  000  0000  000   000  
+// 000   000  000   000  000   000  0000000    
 
 float hand(out sdf s, vec3 pos, float side)
 {
@@ -392,10 +401,21 @@ float hand(out sdf s, vec3 pos, float side)
     
     float d = sdSphere(p, pos+vec3(0,-0.6,0), 0.4);
     
-    if (d > s.dist+0.5) return s.dist;
+    if (d > s.dist+0.3) return s.dist;
     
     d = opDiff (d, sdPlane (p, pos+vec3(0,-0.6,0), vec3(0,0,-1)));
     d = opUnion(d, sdSphere(p, pos, 0.25));
+    
+    d = min(d, sdCapsule(p, pos+vec3( 0.4,-0.8, 0.1), pos+vec3( 0.4,-1.0, 0.1), 0.1));
+    d = min(d, sdCapsule(p, pos+vec3( 0.4,-1.2, 0.1), pos+vec3( 0.4,-1.4, 0.1), 0.1));
+    
+    d = min(d, sdCapsule(p, pos+vec3(   0,-1.1,-0.1), pos+vec3(   0,-1.3,-0.1), 0.1));
+    d = min(d, sdCapsule(p, pos+vec3(-0.23,-1.05,-0.1), pos+vec3(-0.23,-1.25,-0.1), 0.1));
+    d = min(d, sdCapsule(p, pos+vec3( 0.23,-1.05,-0.1), pos+vec3( 0.23,-1.25,-0.1), 0.1));
+    
+    d = min(d, sdCapsule(p, pos+vec3(   0,-1.5,-0.1), pos+vec3(   0,-1.7,-0.1), 0.1));
+    d = min(d, sdCapsule(p, pos+vec3(-0.23,-1.45,-0.1), pos+vec3(-0.23,-1.65,-0.1), 0.1));
+    d = min(d, sdCapsule(p, pos+vec3( 0.23,-1.45,-0.1), pos+vec3( 0.23,-1.65,-0.1), 0.1));
     
     s.dist = min(s.dist, d);
     return s.dist;    
