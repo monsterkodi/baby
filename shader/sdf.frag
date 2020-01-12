@@ -5,6 +5,16 @@
 
 #define PI 3.141592653589793
 
+struct ray {
+    vec3 pos;
+    vec3 dir;
+};
+
+struct sdf {
+    float dist;
+    vec3 pos;
+};
+
 float rad2deg(float r) { return 180.0 * r / PI; }
 float deg2rad(float d) { return PI * d / 180.0; }
 
@@ -110,11 +120,39 @@ float sdCapsule(vec3 p, vec3 a, vec3 b, float r)
     return length(p-c)-r;        
 }
 
+float sdLink( vec3 p, vec3 a, float le, float r1, float r2 )
+{
+  p = p - a;
+  vec3 q = vec3( p.x, max(abs(p.y)-le,0.0), p.z );
+  return length(vec2(length(q.xy)-r1,q.z)) - r2;
+}
+
 float sdCylinder(vec3 p, vec3 a, float h, float r)
 {
     p = p - a;
     vec2 d = abs(vec2(length(p.xz),p.y)) - vec2(r,h);
     return min(max(d.x,d.y),0.0) + length(max(d,0.0));
+}
+
+float sdTorusX(vec3 p, vec3 a, vec2 t)
+{
+  p = p - a;
+  vec2 q = vec2(length(p.yz)-t.x,p.x);
+  return length(q)-t.y;
+}
+
+float sdTorusY(vec3 p, vec3 a, vec2 t)
+{
+  p = p - a;
+  vec2 q = vec2(length(p.xz)-t.x,p.y);
+  return length(q)-t.y;
+}
+
+float sdTorusZ(vec3 p, vec3 a, vec2 t)
+{
+  p = p - a;
+  vec2 q = vec2(length(p.xy)-t.x,p.z);
+  return length(q)-t.y;
 }
 
 float sdSphere(vec3 p, vec3 a, float r)
@@ -133,16 +171,22 @@ float sdBox(vec3 p, vec3 b)
     return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
 }
 
+//  0000000   00000000   
+// 000   000  000   000  
+// 000   000  00000000   
+// 000   000  000        
+//  0000000   000        
+
 float opUnion(float d1, float d2) 
 {
-    float k = 0.03;
+    float k = 0.05;
     float h = clamp(0.5 + 0.5*(d2-d1)/k, 0.0, 1.0);
     return mix(d2, d1, h) - k*h*(1.0-h);
 }
 
 float opDiff(float d1, float d2) 
 {
-    float k = 0.03;
+    float k = 0.05;
     float h = clamp(0.5 - 0.5*(d2+d1)/k, 0.0, 1.0);
     return mix(d1, -d2, h) + k*h*(1.0-h); 
 }
@@ -155,20 +199,10 @@ float opDiff(float d1, float k, float d2)
 
 float opInter(float d1, float d2) 
 {
-    float k = 0.03;
+    float k = 0.05;
     float h = clamp(0.5 - 0.5*(d2-d1)/k, 0.0, 1.0);
     return mix(d2, d1, h) + k*h*(1.0-h);
 }
-
-struct ray {
-    vec3 pos;
-    vec3 dir;
-};
-
-struct sdf {
-    float dist;
-    vec3 pos;
-};
 
 // 000   000  000  00000000   
 // 000   000  000  000   000  
@@ -179,6 +213,9 @@ struct sdf {
 float hip(out sdf s, vec3 pos)
 {
     float d = sdSphere(s.pos, pos, 0.5);
+    
+    // if (d > s.dist) return s.dist;
+    
     d = opUnion(d, sdSphere(s.pos, pos+vec3(0,0.6,0), 0.3));
 
     vec3 r = rotAxisAngle(vec3(0,0.6,0), vec3(0,0,1), 120.0);
@@ -223,6 +260,9 @@ float spineLow(out sdf s, vec3 pos)
 float torso(out sdf s, vec3 pos)
 {
     float d = sdSphere(s.pos, pos, 1.0);
+    
+    // if (d > s.dist) return s.dist;
+    
     d = opDiff (d, 0.15, sdPlane(s.pos, pos, vec3(0,-1,0)));
     d = opDiff (d, 0.15, sdCylinder(s.pos, pos, 0.1, 0.75)-.075);
 
@@ -248,6 +288,9 @@ float torso(out sdf s, vec3 pos)
 float head(out sdf s, vec3 pos)
 {
     float d = sdSphere(s.pos, pos, 1.3);
+    
+    // if (d > s.dist) return s.dist;
+    
     d = opDiff (d, 0.15, sdPlane(s.pos, pos, vec3(0,1,0)));
     d = opDiff (d, 0.15, sdCylinder(s.pos, pos, 0.1, 1.05)-.075);
 
@@ -258,10 +301,33 @@ float head(out sdf s, vec3 pos)
     mirror.x = abs(mirror.x);
     d = opUnion(d, sdSphere(mirror, pos+vec3(0.5, 0.45, -1.3), 0.33));
     d = opDiff (d, 0.1, sdSphere(mirror, pos+vec3(0.5, 0.45, -1.3), 0.25));
-    d = opDiff (d, 0.1, sdPlane(s.pos, pos+vec3(0,0,-1.3), vec3(0,0,1.0)));
+    d = opDiff (d, 0.1, sdPlane(s.pos, pos+vec3(0,0,-1.4), vec3(0,0,1.0)));
     
     d = min(d, sdSphere(mirror, pos+vec3(0.5, 0.45, -1.3), 0.25));
 
+    s.dist = min(s.dist, d);
+    return s.dist;
+}
+
+float armRight(out sdf s, vec3 pos, float side)
+{
+    vec3 p = s.pos;
+    p.x *= side;
+    
+    float d = sdSphere(p, pos, 0.25);
+    
+    d = opUnion(d, sdLink(p, pos+vec3(0.55,-1.8,0), 1.0, 1.0, 0.1));
+    d = opDiff(d, sdPlane(p, pos+vec3(0.28,0,0), normalize(vec3(-1,-0.7,0))));
+    d = opDiff(d, sdPlane(p, pos+vec3(0,-1.1,0), vec3(0,1,0)));
+    
+    d = opUnion(d, sdTorusX(p, pos+vec3(-0.45,-1.2,0), vec2(0.2, 0.07)));
+    
+    s.dist = min(s.dist, d);
+    
+    d = sdCapsule(p, pos+vec3(-0.45,-1.45,0), pos+vec3(-0.45,-2.2,0), 0.1);
+    d = opUnion(d, sdTorusX(p, pos+vec3(-0.3,-1.2,0), vec2(0.2, 0.07)));
+    d = opUnion(d, sdTorusX(p, pos+vec3(-0.6,-1.2,0), vec2(0.2, 0.07)));
+    
     s.dist = min(s.dist, d);
     return s.dist;
 }
@@ -274,24 +340,34 @@ float head(out sdf s, vec3 pos)
 
 float map(vec3 p)
 {
-    vec3 p3 = rotAxisAngle(vec3(0,0,-5), vec3(0,0,-1), iTime*36.0);
+    float planeDist = sdPlane(p, vec3(0,-3.0,0), vec3(0,1,0));
     
-    sdf s = sdf(1000.0, p);
+    if (iCamera.y < -3.0) { planeDist = 1000.0; }
     
-    hip(s, vec3(0,0,0));
-    spineLow(s, vec3(0,0.6,0));
-    spineHi(s, vec3(0,1.1,0));
-    torso(s, vec3(0,2.7,0));
-    spineLow(s, vec3(0,2.7,0));
-    spineHi(s, vec3(0,3.2,0));
-    head(s, vec3(0,3.7,0));
+    sdf s = sdf(planeDist, p);
+        
+    hip         (s, vec3(0,0,0));
+    spineLow    (s, vec3(0,0.6,0));
+    spineHi     (s, vec3(0,1.1,0));
+    torso       (s, vec3(0,2.7,0));
+    spineLow    (s, vec3(0,2.7,0));
+    spineHi     (s, vec3(0,3.2,0));
+    head        (s, vec3(0,3.7,0));
     
-    if (iCamera.y > -1.0)
-    {
-        s.dist = min(s.dist, sdPlane(p, vec3(0,-1.0,0), vec3(0,1,0)));
-    }
+    vec3 r;
+    r = rotAxisAngle(vec3(0,1.2,0), vec3(0,0,1), 120.0);
+    armRight    (s, vec3(0,2.7,0)+r, 1.0);          
+    armRight    (s, vec3(0,2.7,0)+r, -1.0);          
+    r = rotAxisAngle(vec3(0,0.6,0), vec3(0,0,1), 120.0);
+    armRight    (s, vec3(0,0,0)+r, 1.0);
+    armRight    (s, vec3(0,0,0)+r, -1.0);
     
     return s.dist;
+}
+
+float mapPlane(vec3 p)
+{
+    return sdPlane(p, vec3(0,-3.0,0), vec3(0,1,0));
 }
 
 vec3 getNormal(vec3 p)
@@ -306,9 +382,32 @@ vec3 getNormal(vec3 p)
 // 000 0 000  000   000  000   000  000       000   000  
 // 000   000  000   000  000   000   0000000  000   000  
 
+vec3 posOnRay(vec3 ro, vec3 rd, vec3 p)
+{
+    return ro + max(0.0, dot(p - ro, rd) / dot(rd, rd)) * rd;
+}
+
+bool rayIntersectsSphere(vec3 ro, vec3 rd, vec3 ctr, float r)
+{
+    return length(posOnRay(ro, rd, ctr) - ctr) < r;
+}
+
 float rayMarch(vec3 ro, vec3 rd)
 {
     float dz = 0.0;
+    
+    if (!rayIntersectsSphere(ro, rd, vec3(0,1.0,0), 5.0))
+    {
+        for (int i = 0; i < MAX_STEPS; i++)
+        {
+            vec3 p = ro + dz * rd;
+            float dp = mapPlane(p);
+            dz += dp;
+            if (dp < MIN_DIST || dz > MAX_DIST) break;
+        }
+        return dz;
+    }
+    
     for (int i = 0; i < MAX_STEPS; i++)
     {
         vec3 p = ro + dz * rd;
@@ -325,11 +424,16 @@ float rayMarch(vec3 ro, vec3 rd)
 //      000  000   000  000   000  000   000  000   000  000   000  
 // 0000000   000   000  000   000  0000000     0000000   00     00  
 
-float softShadow( in vec3 ro, in vec3 rd, float mint, float maxt, const float w )
+float softShadow(vec3 ro, vec3 rd, float mint, float maxt, const float w)
 {
+    if (!rayIntersectsSphere(ro, rd, vec3(0,1.0,0), 5.0))
+    {
+        return 0.0;
+    }
+    
  	float t = mint;
     float res = 1.0;
-    for( int i=0; i<256; i++ )
+    for (int i=0; i<128; i++)
     {
         float h = map(ro+rd*t);
         if (h <= 0.0)
@@ -338,7 +442,7 @@ float softShadow( in vec3 ro, in vec3 rd, float mint, float maxt, const float w 
             break;
         }
         res = min( res, h/(w*t) );
-        t += min(h, 0.2);
+        t += h;
         if (res < -1.0 || t > maxt) break;
     }
     res = max(res,-1.0);
@@ -346,8 +450,13 @@ float softShadow( in vec3 ro, in vec3 rd, float mint, float maxt, const float w 
     return 0.25*(1.0+res)*(1.0+res)*(2.0-res);
 }
 
-float hardShadow( in vec3 ro, in vec3 rd, float mint, float maxt, const float w)
+float hardShadow(vec3 ro, vec3 rd, float mint, float maxt, const float w)
 {
+    if (!rayIntersectsSphere(ro, rd, vec3(0,1.0,0), 5.0))
+    {
+        return 0.0;
+    }
+    
     for (float t=mint; t<maxt;)
     {
         float h = map(ro+rd*t);
@@ -368,8 +477,9 @@ float hardShadow( in vec3 ro, in vec3 rd, float mint, float maxt, const float w)
 
 float getLight(vec3 p)
 {
-    float t = iTime*3.0;
-    vec3 lp = rotY(vec3(0, 10, -10), t);
+    float t = iTime/10.0;
+    vec3 lp = rotX(vec3(0, 10, -10), -15.0 - 45.0*sin(t));
+    lp = rotY(lp, 45.0*sin(t));
     vec3 l = normalize(lp - p);
     vec3 n = getNormal(p);
  
@@ -377,8 +487,8 @@ float getLight(vec3 p)
     
     vec3 off = p+n*2.0*MIN_DIST;
 
-    dif *= softShadow(off, normalize(lp-off), MIN_DIST, 10.0, 0.05);
-    // dif *= hardShadow(off, normalize(lp-off), MIN_DIST, 10.0, 0.5);
+    dif *= softShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.02);
+    // dif *= hardShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.5);
         
     return clamp(dif, 0.0, 1.0);
 }
@@ -428,9 +538,7 @@ float getOcclusion(vec3 p)
         vec3 m = mat * aoDir[i];
         l += occ(p, m);
     }
-    // return clamp(0.1*l, 0.0, 1.0);
     return pow(0.2 * l, 0.4);
-    // return l*0.2;
 }
 
 // 00     00   0000000   000  000   000  
@@ -453,7 +561,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec3 uu = normalize(cross(ww, vec3(0,1,0)));
     vec3 vv = normalize(cross(uu, ww));
     
-    vec3 rd = normalize(uv.x*uu + uv.y*vv + 1.5*ww);
+    vec3 rd = normalize(uv.x*uu + uv.y*vv + 1.0*ww);
     
     float f = rayMarch(ro, rd);
     
