@@ -184,6 +184,12 @@ float opUnion(float d1, float d2)
     return mix(d2, d1, h) - k*h*(1.0-h);
 }
 
+float opUnion(float d1, float k, float d2) 
+{
+    float h = clamp(0.5 + 0.5*(d2-d1)/k, 0.0, 1.0);
+    return mix(d2, d1, h) - k*h*(1.0-h);
+}
+
 float opDiff(float d1, float d2) 
 {
     float k = 0.05;
@@ -241,6 +247,9 @@ float hip(out sdf s, vec3 pos)
 float spineHi(out sdf s, vec3 pos)
 {
     float d = sdSphere(s.pos, pos, 0.25);
+    
+    if (d > s.dist+0.2) return s.dist;
+    
     d = opUnion(d, sdCapsule(s.pos, pos, pos+vec3(0,0.5,0), 0.15));
     d = opUnion(d, sdSphere(s.pos, pos+vec3(0,0.5,0), 0.25));
     d = opDiff (d, sdPlane(s.pos, pos+vec3(0,-.1,0), vec3(0,1,0)));
@@ -251,6 +260,9 @@ float spineHi(out sdf s, vec3 pos)
 float spineLow(out sdf s, vec3 pos)
 {
     float d = sdSphere(s.pos, pos, 0.25);
+    
+    if (d > s.dist+0.2) return s.dist;
+    
     d = opUnion(d, sdCapsule(s.pos, pos, pos+vec3(0,0.5,0), 0.15));
     d = opUnion(d, sdSphere(s.pos, pos+vec3(0,0.5,0), 0.22));
     s.dist = min(s.dist, d);
@@ -261,7 +273,7 @@ float torso(out sdf s, vec3 pos)
 {
     float d = sdSphere(s.pos, pos, 1.0);
     
-    // if (d > s.dist) return s.dist;
+    if (d > s.dist+0.2) return s.dist;
     
     d = opDiff (d, 0.15, sdPlane(s.pos, pos, vec3(0,-1,0)));
     d = opDiff (d, 0.15, sdCylinder(s.pos, pos, 0.1, 0.75)-.075);
@@ -285,11 +297,17 @@ float torso(out sdf s, vec3 pos)
     return s.dist;
 }
 
+// 000   000  00000000   0000000   0000000    
+// 000   000  000       000   000  000   000  
+// 000000000  0000000   000000000  000   000  
+// 000   000  000       000   000  000   000  
+// 000   000  00000000  000   000  0000000    
+
 float head(out sdf s, vec3 pos)
 {
     float d = sdSphere(s.pos, pos, 1.3);
     
-    // if (d > s.dist) return s.dist;
+    if (d > s.dist+0.3) return s.dist;
     
     d = opDiff (d, 0.15, sdPlane(s.pos, pos, vec3(0,1,0)));
     d = opDiff (d, 0.15, sdCylinder(s.pos, pos, 0.1, 1.05)-.075);
@@ -309,10 +327,19 @@ float head(out sdf s, vec3 pos)
     return s.dist;
 }
 
-float armRight(out sdf s, vec3 pos, float side)
+//  0000000   00000000   00     00  
+// 000   000  000   000  000   000  
+// 000000000  0000000    000000000  
+// 000   000  000   000  000 0 000  
+// 000   000  000   000  000   000  
+
+float arm(out sdf s, vec3 pos, float side)
 {
     vec3 p = s.pos;
     p.x *= side;
+    
+    float bb = sdSphere(p, pos+vec3(-0.45,-1.2,0), 2.0);
+    if (bb > s.dist) return s.dist;
     
     float d = sdSphere(p, pos, 0.25);
     
@@ -328,8 +355,50 @@ float armRight(out sdf s, vec3 pos, float side)
     d = opUnion(d, sdTorusX(p, pos+vec3(-0.3,-1.2,0), vec2(0.2, 0.07)));
     d = opUnion(d, sdTorusX(p, pos+vec3(-0.6,-1.2,0), vec2(0.2, 0.07)));
     
+    d = opUnion(d, sdSphere(p, pos+vec3(-0.45,-2.35,0), 0.3));
+    d = opDiff (d, sdPlane (p, pos+vec3(-0.45,-2.35,0), vec3(0,1,0)));
+    
     s.dist = min(s.dist, d);
     return s.dist;
+}
+
+// 00000000   0000000    0000000   000000000  
+// 000       000   000  000   000     000     
+// 000000    000   000  000   000     000     
+// 000       000   000  000   000     000     
+// 000        0000000    0000000      000     
+
+float foot(out sdf s, vec3 pos, float side)
+{
+    vec3 p = s.pos;
+    p.x *= side;
+    
+    float d = sdSphere(p, pos+vec3(0,-0.75,0), 0.5);
+    
+    if (d > s.dist+0.7) return s.dist;
+    
+    d = opUnion(d, 0.1, sdSphere(p, pos, 0.25));
+    d = opUnion(d, sdSphere(p, pos+vec3(0,-0.75,-0.75), 0.4));
+    d = opDiff (d, sdPlane (p, pos+vec3(0,-0.75,0), vec3(0,1,0)));
+    
+    s.dist = min(s.dist, d);
+    return s.dist;
+}
+
+float hand(out sdf s, vec3 pos, float side)
+{
+    vec3 p = s.pos;
+    p.x *= side;
+    
+    float d = sdSphere(p, pos+vec3(0,-0.6,0), 0.4);
+    
+    if (d > s.dist+0.5) return s.dist;
+    
+    d = opDiff (d, sdPlane (p, pos+vec3(0,-0.6,0), vec3(0,0,-1)));
+    d = opUnion(d, sdSphere(p, pos, 0.25));
+    
+    s.dist = min(s.dist, d);
+    return s.dist;    
 }
 
 // 00     00   0000000   00000000   
@@ -340,9 +409,9 @@ float armRight(out sdf s, vec3 pos, float side)
 
 float map(vec3 p)
 {
-    float planeDist = sdPlane(p, vec3(0,-3.0,0), vec3(0,1,0));
+    float planeDist = sdPlane(p, vec3(0,-3.5,0), vec3(0,1,0));
     
-    if (iCamera.y < -3.0) { planeDist = 1000.0; }
+    if (iCamera.y < -3.5) { planeDist = 1000.0; }
     
     sdf s = sdf(planeDist, p);
         
@@ -356,18 +425,25 @@ float map(vec3 p)
     
     vec3 r;
     r = rotAxisAngle(vec3(0,1.2,0), vec3(0,0,1), 120.0);
-    armRight    (s, vec3(0,2.7,0)+r, 1.0);          
-    armRight    (s, vec3(0,2.7,0)+r, -1.0);          
+    arm         (s, vec3(0,2.7,0)+r, 1.0);          
+    arm         (s, vec3(0,2.7,0)+r, -1.0);      
+    
+    hand        (s, r+vec3(-0.45,0.35,0), 1.0);
+    hand        (s, r+vec3(-0.45,0.35,0), -1.0);
+    
     r = rotAxisAngle(vec3(0,0.6,0), vec3(0,0,1), 120.0);
-    armRight    (s, vec3(0,0,0)+r, 1.0);
-    armRight    (s, vec3(0,0,0)+r, -1.0);
+    arm         (s, r, 1.0);
+    arm         (s, r, -1.0);
+    
+    foot        (s, r+vec3(-0.45,-2.35,0), 1.0);
+    foot        (s, r+vec3(-0.45,-2.35,0), -1.0);
     
     return s.dist;
 }
 
 float mapPlane(vec3 p)
 {
-    return sdPlane(p, vec3(0,-3.0,0), vec3(0,1,0));
+    return sdPlane(p, vec3(0,-3.5,0), vec3(0,1,0));
 }
 
 vec3 getNormal(vec3 p)
@@ -475,13 +551,12 @@ float hardShadow(vec3 ro, vec3 rd, float mint, float maxt, const float w)
 // 000      000  000   000  000   000     000     
 // 0000000  000   0000000   000   000     000     
 
-float getLight(vec3 p)
+float getLight(vec3 p, vec3 n)
 {
-    float t = iTime/10.0;
+    float t = 0.0; // iTime/10.0;
     vec3 lp = rotX(vec3(0, 10, -10), -15.0 - 45.0*sin(t));
     lp = rotY(lp, 45.0*sin(t));
     vec3 l = normalize(lp - p);
-    vec3 n = getNormal(p);
  
     float dif = dot(n,l);
     
@@ -499,46 +574,17 @@ float getLight(vec3 p)
 // 000   000  000       000       000      000   000       000  000  000   000  000  0000  
 //  0000000    0000000   0000000  0000000   0000000   0000000   000   0000000   000   000  
 
-const vec3 aoDir[12] = vec3[12](
-    vec3(0.357407, 0.357407, 0.862856),
-    vec3(0.357407, 0.862856, 0.357407),
-    vec3(0.862856, 0.357407, 0.357407),
-    vec3(-0.357407, 0.357407, 0.862856),
-    vec3(-0.357407, 0.862856, 0.357407),
-    vec3(-0.862856, 0.357407, 0.357407),
-    vec3(0.357407, -0.357407, 0.862856),
-    vec3(0.357407, -0.862856, 0.357407),
-    vec3(0.862856, -0.357407, 0.357407),
-    vec3(-0.357407, -0.357407, 0.862856),
-    vec3(-0.357407, -0.862856, 0.357407),
-    vec3(-0.862856, -0.357407, 0.357407)
-);
-
-float occ(vec3 p, vec3 n)
+float getOcclusion(vec3 p, vec3 n)
 {
-    float dist = 10.0*MIN_DIST;
-    float occ = 1.0;
-    for (int i = 0; i < 4; i++)
+    float a = 0.0;
+    float weight = .5;
+    for (int i=1; i<=9; i++) 
     {
-        float d = map(p + dist * n);
-        occ = min(occ, d / dist);
-        if (d < MIN_DIST) { break; }
-        // dist += 4.0*MIN_DIST;
-        dist *= 1.5;
+        float d = (float(i) / 9.0) * 1.0;
+        a += weight*(d - map(p + n*d));
+        weight *= 0.6;
     }
-    return max(occ, 0.0);
-}
-
-float getOcclusion(vec3 p)
-{
-    mat3 mat = alignMatrix(getNormal(p));
-    float l = 0.0;
-    for (int i = 0; i < 12; i++) 
-    {
-        vec3 m = mat * aoDir[i];
-        l += occ(p, m);
-    }
-    return pow(0.2 * l, 0.4);
+    return clamp(1.0 - a, 0.0, 1.0);
 }
 
 // 00     00   0000000   000  000   000  
@@ -566,11 +612,11 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     float f = rayMarch(ro, rd);
     
     vec3 p = ro + f * rd;
+    vec3 n = getNormal(p);
     
-    float l = getLight(p);
-    // float l = max(getLight(p), getOcclusion(p));
-    // float l = getLight(p) * getOcclusion(p);
-    // float l = getOcclusion(p);
+    // float l = getLight(p,n);
+    float l = getLight(p,n) * getOcclusion(p,n);
+    // float l = getOcclusion(p,n);
     if (fragCoord.x < 2.5 && (iResolution.y * floor(1000.0/iMs) / 60.0 - fragCoord.y) < 2.0)
         l = 1.0-l;
     fragColor = vec4(vec3(l), 1.0);
