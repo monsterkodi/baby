@@ -10,9 +10,6 @@
 #define BONE  2.0
 #define BULB  3.0
 
-vec3 camPos;
-vec3 vecZero = vec3(0,0,0);
-
 struct ray {
     vec3 pos;
     vec3 dir;
@@ -23,6 +20,31 @@ struct sdf {
     float mat;
     vec3  pos;
 };
+
+sdf s;
+vec3 camPos;
+vec3 vec0 = vec3(0,0,0);
+
+vec3 pHipT;
+vec3 pHipL;
+vec3 pHipR;
+vec3 pSpine;
+vec3 pNeck;
+vec3 pTorsoT;
+vec3 pTorsoB;
+vec3 pTorsoL;
+vec3 pTorsoR;
+vec3 pHead;
+vec3 pEyeL;
+vec3 pEyeR;
+vec3 pArmL;
+vec3 pArmR;
+vec3 pHandL;
+vec3 pHandR;
+vec3 pLegL;
+vec3 pLegR;
+vec3 pFootL;
+vec3 pFootR;
 
 float rad2deg(float r) { return 180.0 * r / PI; }
 float deg2rad(float d) { return PI * d / 180.0; }
@@ -57,6 +79,20 @@ vec4 quatMul(vec4 q1, vec4 q2)
     qr.z = (q1.w * q2.z) + (q1.x * q2.y) - (q1.y * q2.x) + (q1.z * q2.w);
     qr.w = (q1.w * q2.w) - (q1.x * q2.x) - (q1.y * q2.y) - (q1.z * q2.z);
     return qr;
+}
+
+vec3 rotate(vec4 quat, vec3 p)
+{
+    vec4 conj = quatConj(quat);
+    vec4 q_tmp = quatMul(quat, vec4(p, 0));
+    return quatMul(q_tmp, conj).xyz;
+}
+
+vec3 rotate(vec4 quat, vec3 o, vec3 p)
+{
+    vec4 conj = quatConj(quat);
+    vec4 q_tmp = quatMul(quat, vec4(p-o, 0));
+    return o + quatMul(q_tmp, conj).xyz;
 }
 
 // 00000000    0000000   000000000  
@@ -136,6 +172,20 @@ float sdCylinder(vec3 p, vec3 a, float h, float r)
     return min(max(d.x,d.y),0.0) + length(max(d,0.0));
 }
 
+float sdCylinder(vec3 p, vec3 a, vec3 b, float r)
+{
+  vec3  ba = b - a;
+  vec3  pa = p - a;
+  float baba = dot(ba,ba);
+  float paba = dot(pa,ba);
+  float x = length(pa*baba-ba*paba) - r*baba;
+  float y = abs(paba-baba*0.5)-baba*0.5;
+  float x2 = x*x;
+  float y2 = y*y*baba;
+  float d = (max(x,y)<0.0)?-min(x2,y2):(((x>0.0)?x2:0.0)+((y>0.0)?y2:0.0));
+  return sign(d)*sqrt(abs(d))/baba;
+}
+
 float sdTorusX(vec3 p, vec3 a, vec2 t)
 {
   p = p - a;
@@ -203,20 +253,27 @@ float opInter(float d1, float d2)
 // 000   000  000  000        
 // 000   000  000  000        
 
-void hip(inout sdf s, vec3 pos)
+void hip(vec3 pos, vec4 q)
 {
     vec3 p = s.pos - pos;
-    float d = sdSphere(p, vecZero, 0.5);
+    float d = sdSphere(p, vec0, 0.5);
     
-    d = opUnion(d, sdSphere(p, vec3(0,0.6,0), 0.3));
-    d = opDiff (d, sdPlane(p, vec3(0,0.6,0), vec3(0,-1,0)));
+    vec3 up = rotate(q, vec3(0,1,0));
+    pHipT = pos + up*0.6;
+    d = opUnion(d, sdSphere(p, pHipT, 0.3));
+    d = opDiff (d, sdPlane (p, pHipT, -up));
+    
+    vec3 rot = rotate(q, rotZ(vec3(0,0.6,0), 120.0));
+    pHipR = pos + rot;
+    
+    d = opUnion(d, sdSphere(p, pHipR, 0.3));
+    d = opDiff (d, sdPlane (p, pHipR, -rot));
 
-    vec3 mirror = p;
-    mirror.x = abs(mirror.x);
-     
-    vec3 rot = rotZ(vec3(0,1,0), 120.0);
-    d = opUnion(d, sdSphere(mirror, rot*0.6, 0.3));
-    d = opDiff (d, sdPlane (mirror, rot*0.6, -rot));
+    rot = rotate(q, rotZ(vec3(0,0.6,0), -120.0));
+    pHipL = pos + rot;
+    
+    d = opUnion(d, sdSphere(p, pHipL, 0.3));
+    d = opDiff (d, sdPlane (p, pHipL, -rot));
     
     if (d < s.dist) { s.mat = BODY; s.dist = d; }
 }
@@ -227,19 +284,21 @@ void hip(inout sdf s, vec3 pos)
 //      000  000        000  000  0000  000       
 // 0000000   000        000  000   000  00000000  
 
-void spine(inout sdf s, vec3 pos, bool high)
+void spine(vec3 pos, bool high, vec4 q, inout vec3 top)
 {
-    vec3 p = s.pos - pos;
-    float d = sdSphere(p, vecZero, 0.25);
+    vec3 p = s.pos;
+    float d = sdSphere(p, pos, 0.25);
+    vec3 up = rotate(q, vec3(0,1,0));
+    top = pos + up*0.5;
+
     if (d > s.dist+0.2) return;
     
-    vec3 v1 = vec3(0,0.5,0);
-    d = opUnion(d, sdCapsule(p, vecZero, v1, 0.15));
-    d = opUnion(d, sdSphere (p, v1, high ? 0.25 : 0.22));
+    d = opUnion(d, sdCapsule(p, pos, top, 0.15));
+    d = opUnion(d, sdSphere (p, top, high ? 0.25 : 0.22));
     
     if (high)
     {
-        d = opDiff (d, sdPlane(p, vec3(0,-0.1,0), vec3(0,1,0)));
+        d = opDiff (d, sdPlane(p, pos-0.1*up, up));
     }
 
     if (d < s.dist) { s.mat = BONE; s.dist = d; }
@@ -251,28 +310,34 @@ void spine(inout sdf s, vec3 pos, bool high)
 //    000     000   000  000   000       000  000   000  
 //    000      0000000   000   000  0000000    0000000   
 
-void torso(inout sdf s, vec3 pos)
+void torso(vec3 pos, vec4 q)
 {
-    vec3 p = s.pos - pos;
-    float d = sdSphere(p, vecZero, 1.0);
+    vec3 p = s.pos;
+    vec3 up = rotate(q, vec3(0,1,0));
+    vec3 r  = rotZ(vec3(0,1.2,0), 120.0);
+    vec3 rotR = rotate(q, r); r.x *= -1.0;
+    vec3 rotL = rotate(q, r);
+    pTorsoT = pos + up*1.2;    
+    pTorsoR = pTorsoT + rotR;
+    pTorsoL = pTorsoT + rotL;
+
+    float d = sdSphere(p, pTorsoT, 1.0);
     if (d > s.dist+0.2) return;
     
-    vec3 v = vecZero;
-    d = opDiff (d, 0.15, sdPlane   (p, v, vec3(0,-1,0)));
-    d = opDiff (d, 0.15, sdCylinder(p, v, 0.1, 0.75)-.075);
+    d = opDiff (d, 0.15, sdPlane   (p, pTorsoT, -up));
+    d = opDiff (d, 0.15, sdCylinder(p, pTorsoT, pTorsoT-0.1*up, 0.75)-.075); 
 
-    d = opUnion(d, sdSphere(p, v, 0.3));
-    d = opDiff (d, sdPlane (p, v, vec3(0,-1,0)));
+    d = opUnion(d, sdSphere(p, pTorsoT, 0.3));
+    d = opDiff (d, sdPlane (p, pTorsoT, -up));
     
-    d = opUnion(d, sdSphere(p, vec3(0,-1.2,0), 0.3));
-    d = opDiff (d, sdPlane(p, vec3(0,-1.2,0), vec3(0,1,0)));
+    d = opUnion(d, sdSphere(p, pTorsoB, 0.3));
+    d = opDiff (d, sdPlane (p, pTorsoB, up));
      
-    vec3 mirror = p;
-    mirror.x = abs(mirror.x);
+    d = opUnion(d, sdSphere(p, pTorsoR, 0.3));
+    d = opDiff (d, sdPlane (p, pTorsoR, -rotR));
 
-    vec3 rot = rotZ(vec3(0,1,0), 120.0);
-    d = opUnion(d, sdSphere(mirror, rot*1.2, 0.3));
-    d = opDiff (d, sdPlane(mirror, rot*1.2, -rot));
+    d = opUnion(d, sdSphere(p, pTorsoL, 0.3));
+    d = opDiff (d, sdPlane (p, pTorsoL, -rotL));
     
     if (d < s.dist) { s.mat = BODY; s.dist = d; }
 }
@@ -283,39 +348,50 @@ void torso(inout sdf s, vec3 pos)
 // 000   000  000       000   000  000   000  
 // 000   000  00000000  000   000  0000000    
 
-void head(inout sdf s, vec3 pos)
+void head(vec3 pos, vec4 q)
 {
-    vec3 p = s.pos - pos;
-    float d = sdSphere(p, vecZero, 1.3);
+    vec3 p = s.pos;
+    float d = sdSphere(p, pos, 1.3);
     if (d > s.dist+0.3) return;
     
-    d = opDiff (d, 0.15, sdPlane(p, vecZero, vec3(0,1,0)));
-    d = opDiff (d, 0.15, sdCylinder(p, vecZero, 0.1, 1.05)-.075);
+    vec3 up = rotate(q, vec3(0,1,0));
+    vec3 z  = rotate(q, vec3(0,0,1));
+    d = opDiff (d, 0.15, sdPlane(p, pos, up));
+    d = opDiff (d, 0.15, sdCylinder(p, pos, pos-0.1*up, 1.05)-.075);
 
-    d = opUnion(d, sdSphere(p, vecZero, 0.3));
-    d = opDiff (d, sdPlane (p, vecZero, vec3(0,1,0)));
+    d = opUnion(d, sdSphere(p, pos, 0.3));
+    d = opDiff (d, sdPlane (p, pos, up));
 
-    vec3 mirror = p;
-    mirror.x = abs(mirror.x);
-    d = opUnion(d,      sdSphere(mirror, vec3(0.5, 0.45, -1.3), 0.33));
-    d = opDiff (d, 0.1, sdSphere(mirror, vec3(0.5, 0.45, -1.3), 0.25));
-    d = opDiff (d, 0.1, sdPlane (p, vec3(0,0,-1.4), vec3(0,0,1.0)));
+    pEyeL = pos+rotate(q, vec3(-0.5, 0.45, -1.3));
+    pEyeR = pos+rotate(q, vec3( 0.5, 0.45, -1.3));
     
-    float eyeD = 1000.0;
-    for (float i = -1.0; i <= 1.0; i+= 2.0)
-    {
-        vec3 eyePos = vec3(i*0.5, 0.45, -1.3);
-        float ed = sdSphere(p, eyePos, 0.25);
+    d = opUnion(d,      sdSphere(p, pEyeL, 0.33));
+    d = opUnion(d,      sdSphere(p, pEyeR, 0.33));
+    d = opDiff (d, 0.1, sdSphere(p, pEyeL, 0.25));
+    d = opDiff (d, 0.1, sdSphere(p, pEyeR, 0.25));
+    d = opDiff (d, 0.1, sdPlane (p, pos-1.4*z, z));
 
-        vec3 eyeDir = normalize(camPos - eyePos);
-        eyeDir = mix(vec3(0,0,-1), eyeDir, dot(vec3(0,0,-1), eyeDir));
-        ed = opDiff(ed, 0.01, sdSphere(p, eyePos+eyeDir*0.25, 0.15));
-        
-        eyeD = min(ed, eyeD);
-    }
-    
     if (d < s.dist) { s.mat = BODY; s.dist = d; }
-    if (eyeD < d)   { s.mat = BULB; s.dist = eyeD; }
+}
+
+// 00000000  000   000  00000000  
+// 000        000 000   000       
+// 0000000     00000    0000000   
+// 000          000     000       
+// 00000000     000     00000000  
+
+void eye(vec3 pos, vec4 q)
+{
+    vec3 p = s.pos;
+    float d = sdSphere(p, pos, 0.25);
+    if (d > s.dist) return;
+    
+    vec3 eyeCam = normalize(camPos - pos);
+    vec3 nZ = rotate(q, vec3(0,0,-1));
+    eyeCam = mix(nZ, eyeCam, dot(nZ, eyeCam));
+    d = opDiff(d, 0.01, sdSphere(p, pos+eyeCam*0.25, 0.15));
+
+    if (d < s.dist) { s.mat = BULB; s.dist = d; }
 }
 
 //  0000000   00000000   00     00  
@@ -324,17 +400,17 @@ void head(inout sdf s, vec3 pos)
 // 000   000  000   000  000 0 000  
 // 000   000  000   000  000   000  
 
-void arm(inout sdf s, vec3 pos, float side)
+void arm(vec3 pos, float side, inout vec3 hand)
 {
     vec3 p = s.pos - pos;
-    // p.x *= side;
-    // p -= pos;
     p.x *= side;
      
+    hand = pos + vec3(-side*0.45,-2.35,0);
+    
     float bb = sdSphere(p, vec3(-0.45,-1.2,0), 2.0);
     if (bb > s.dist) return;
      
-    float d = sdSphere(p, vecZero, 0.25);
+    float d = sdSphere(p, vec0, 0.25);
      
     d = opUnion(d, sdLink (p, vec3(0.55,-1.8,0), 1.0, 1.0, 0.1));
     d = opDiff (d, sdPlane(p, vec3(0.28,0,0), normalize(vec3(-1,-0.7,0))));
@@ -360,7 +436,7 @@ void arm(inout sdf s, vec3 pos, float side)
 // 000       000   000  000   000     000     
 // 000        0000000    0000000      000     
 
-void foot(inout sdf s, vec3 pos, float side)
+void foot(vec3 pos, float side)
 {
     vec3 p = s.pos-pos;
     p.x *= side;
@@ -369,7 +445,7 @@ void foot(inout sdf s, vec3 pos, float side)
     
     if (d > s.dist+0.9) return;
     
-    d = opUnion(d, 0.1, sdSphere(p, vecZero, 0.25));
+    d = opUnion(d, 0.1, sdSphere(p, vec0, 0.25));
     d = opUnion(d, sdSphere(p, vec3(0,-0.75,-0.75), 0.4));
     d = opDiff (d, sdPlane (p, vec3(0,-0.75,0), vec3(0,1,0)));
     
@@ -385,7 +461,7 @@ void foot(inout sdf s, vec3 pos, float side)
 // 000   000  000   000  000  0000  000   000  
 // 000   000  000   000  000   000  0000000    
 
-void hand(inout sdf s, vec3 pos, float side)
+void hand(vec3 pos, float side)
 {
     vec3 p = s.pos - pos;
     p.x *= side;
@@ -395,7 +471,7 @@ void hand(inout sdf s, vec3 pos, float side)
     if (d > s.dist+0.3) return;
     
     d = opDiff (d, sdPlane (p, vec3(0,-0.6,0), vec3(0,0,-1)));
-    d = opUnion(d, sdSphere(p, vecZero, 0.25));
+    d = opUnion(d, sdSphere(p, vec0, 0.25));
     
     d = min(d, sdCapsule(p, vec3( 0.4,-0.8, 0.1), vec3( 0.4,-1.0, 0.1), 0.1));
     d = min(d, sdCapsule(p, vec3( 0.4,-1.2, 0.1), vec3( 0.4,-1.4, 0.1), 0.1));
@@ -420,34 +496,37 @@ void hand(inout sdf s, vec3 pos, float side)
 vec2 map(vec3 p)
 {
     float planeDist = sdPlane(p, vec3(0,-3.5,0), vec3(0,1,0));
-    
+     
     if (iCamera.y < -3.5) { planeDist = 1000.0; }
-    
-    sdf s = sdf(planeDist, PLANE, p);
-        
-    hip  (s, vecZero);
-    spine(s, vec3(0,0.6,0), false);
-    spine(s, vec3(0,1.1,0), true);
-    torso(s, vec3(0,2.8,0));
-    spine(s, vec3(0,2.8,0), false);
-    spine(s, vec3(0,3.3,0), true);
-    head (s, vec3(0,3.8,0));
-    
-    vec3 r;
-    r = rotAxisAngle(vec3(0,1.2,0), vec3(0,0,1), 120.0);
-    arm  (s, vec3(0,2.8,0)+r, 1.0);          
-    hand (s, r+vec3(-0.45,0.45,0), 1.0);
-    r.x *= -1.0;
-    arm  (s, vec3(0,2.8,0)+r, -1.0);      
-    hand (s, r+vec3( 0.45,0.45,0), -1.0);
-    
-    r = rotAxisAngle(vec3(0,0.6,0), vec3(0,0,1), 120.0);
-    arm  (s, r, 1.0);
-    foot (s, r+vec3(-0.45,-2.35,0), 1.0);
-    
-    r.x *= -1.0;
-    arm  (s, r, -1.0);
-    foot (s, r+vec3( 0.45,-2.35,0), -1.0);
+     
+    s = sdf(planeDist, PLANE, p);
+         
+    vec4 q1 = quatAxisAngle(vec3(0,1,0), sin(iTime*2.0)*20.0);
+    vec4 q2 = quatAxisAngle(vec3(1,0,0), sin(iTime*2.0)*20.0);
+    vec4 q = quatMul(q2, q1);
+    vec4 qr = quatAxisAngle(vec3(0,1,0), sin(iTime*1.0)*15.0);
+    vec4 qz = vec4(0,0,0,1);
+    hip  (vec0, q);
+    spine(pHipT,   false, q, pSpine);
+    spine(pSpine,   true, q, pTorsoB);
+    torso(pTorsoB, q);
+    spine(pTorsoT, false, qz, pNeck);
+    spine(pNeck,    true, qz, pHead);
+    head (pHead, qz);
+    eye  (pEyeL, qr);
+    eye  (pEyeR, qr);
+         
+    arm  (pTorsoL,  1.0, pHandL);
+    hand (pHandL,   1.0);
+
+    arm  (pTorsoR, -1.0, pHandR);
+    hand (pHandR,  -1.0);
+
+    arm  (pHipL,    1.0, pFootL);
+    foot (pFootL,   1.0);
+
+    arm  (pHipR,   -1.0, pFootR);
+    foot (pFootR,  -1.0);
     
     return vec2(s.dist, s.mat);
 }
@@ -566,7 +645,7 @@ float hardShadow(vec3 ro, vec3 rd, float mint, float maxt, const float w)
 
 float getLight(vec3 p, vec3 n)
 {
-    float t = sin(iTime*0.2);
+    float t = 0.0; // sin(iTime*0.2);
     vec3 lp = rotY(rotX(vec3(0, 10, -10), -20.0 - 40.0*t), 45.0*t);;
     vec3 l = normalize(lp - p);
  
@@ -614,7 +693,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     if (false)
     {
-        ct = vecZero;
+        ct = vec0;
         camPos = rotY(rotX(vec3(0,0,-15), -20.0+30.0*sin(iTime*0.5)), 70.0*sin(iTime*0.3));
     }
     else

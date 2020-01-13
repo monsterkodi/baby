@@ -27,7 +27,7 @@ class Camera extends UniversalCamera
         height = @view.clientHeight
              
         info = 
-            dist:   10
+            dist:   12
             degree: 90 
             rotate: 0 
             pos:    {x:0,y:0,z:0}
@@ -85,7 +85,7 @@ class Camera extends UniversalCamera
         @center = vec()
         @degree = 90
         @rotate = 0
-        @dist   = 10
+        @dist   = 12
         @navigate()
         
     del: =>
