@@ -203,7 +203,7 @@ float opInter(float d1, float d2)
 // 000   000  000  000        
 // 000   000  000  000        
 
-void hip(out sdf s, vec3 pos)
+void hip(inout sdf s, vec3 pos)
 {
     vec3 p = s.pos - pos;
     float d = sdSphere(p, vecZero, 0.5);
@@ -227,7 +227,7 @@ void hip(out sdf s, vec3 pos)
 //      000  000        000  000  0000  000       
 // 0000000   000        000  000   000  00000000  
 
-void spine(out sdf s, vec3 pos, bool high)
+void spine(inout sdf s, vec3 pos, bool high)
 {
     vec3 p = s.pos - pos;
     float d = sdSphere(p, vecZero, 0.25);
@@ -251,7 +251,7 @@ void spine(out sdf s, vec3 pos, bool high)
 //    000     000   000  000   000       000  000   000  
 //    000      0000000   000   000  0000000    0000000   
 
-void torso(out sdf s, vec3 pos)
+void torso(inout sdf s, vec3 pos)
 {
     vec3 p = s.pos - pos;
     float d = sdSphere(p, vecZero, 1.0);
@@ -287,7 +287,7 @@ void torso(out sdf s, vec3 pos)
 // 000   000  000       000   000  000   000  
 // 000   000  00000000  000   000  0000000    
 
-void head(out sdf s, vec3 pos)
+void head(inout sdf s, vec3 pos)
 {
     vec3 p = s.pos - pos;
     float d = sdSphere(p, vecZero, 1.3);
@@ -328,7 +328,7 @@ void head(out sdf s, vec3 pos)
 // 000   000  000   000  000 0 000  
 // 000   000  000   000  000   000  
 
-void arm(out sdf s, vec3 pos, float side)
+void arm(inout sdf s, vec3 pos, float side)
 {
     vec3 p = s.pos - pos;
     // p.x *= side;
@@ -364,7 +364,7 @@ void arm(out sdf s, vec3 pos, float side)
 // 000       000   000  000   000     000     
 // 000        0000000    0000000      000     
 
-void foot(out sdf s, vec3 pos, float side)
+void foot(inout sdf s, vec3 pos, float side)
 {
     vec3 p = s.pos-pos;
     p.x *= side;
@@ -389,7 +389,7 @@ void foot(out sdf s, vec3 pos, float side)
 // 000   000  000   000  000  0000  000   000  
 // 000   000  000   000  000   000  0000000    
 
-void hand(out sdf s, vec3 pos, float side)
+void hand(inout sdf s, vec3 pos, float side)
 {
     vec3 p = s.pos - pos;
     p.x *= side;
@@ -516,7 +516,7 @@ vec2 rayMarch(vec3 ro, vec3 rd)
 // 0000000   000000000  000000000  000   000  000   000  000000000  
 //      000  000   000  000   000  000   000  000   000  000   000  
 // 0000000   000   000  000   000  0000000     0000000   00     00  
-/*
+
 float softShadow(vec3 ro, vec3 rd, float mint, float maxt, const float w)
 {
     if (!rayIntersectsSphere(ro, rd, vec3(0,1.0,0), 5.0))
@@ -542,7 +542,7 @@ float softShadow(vec3 ro, vec3 rd, float mint, float maxt, const float w)
 
     return 0.25*(1.0+res)*(1.0+res)*(2.0-res);
 }
-*/
+
 float hardShadow(vec3 ro, vec3 rd, float mint, float maxt, const float w)
 {
     if (!rayIntersectsSphere(ro, rd, vec3(0,1.0,0), 5.0))
@@ -578,8 +578,8 @@ float getLight(vec3 p, vec3 n)
     
     vec3 off = p+n*2.0*MIN_DIST;
 
-    // dif *= softShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.02);
-    dif *= hardShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.5);
+    dif *= softShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.02);
+    // dif *= hardShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.5);
         
     return clamp(dif, 0.0, 1.0);
 }
@@ -589,6 +589,7 @@ float getLight(vec3 p, vec3 n)
 // 000   000  000       000       000      000   000  0000000   000  000   000  000 0 000  
 // 000   000  000       000       000      000   000       000  000  000   000  000  0000  
 //  0000000    0000000   0000000  0000000   0000000   0000000   000   0000000   000   000  
+
 /*
 float getOcclusion(vec3 p, vec3 n)
 {
@@ -603,6 +604,7 @@ float getOcclusion(vec3 p, vec3 n)
     return clamp(1.0 - a, 0.0, 1.0);
 }
 */
+
 // 00     00   0000000   000  000   000  
 // 000   000  000   000  000  0000  000  
 // 000000000  000000000  000  000 0 000  
@@ -613,6 +615,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
     vec2 uv = (fragCoord-.5*iResolution.xy)/iResolution.y;
     vec3 ct;
+    
     if (false)
     {
         ct = vecZero;
