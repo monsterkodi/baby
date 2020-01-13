@@ -266,14 +266,10 @@ void torso(inout sdf s, vec3 pos)
     
     d = opUnion(d, sdSphere(p, vec3(0,-1.2,0), 0.3));
     d = opDiff (d, sdPlane(p, vec3(0,-1.2,0), vec3(0,1,0)));
-
-    // vec3 r = rotAxisAngle(vec3(0,1.2,0), vec3(0,0,1), 120.0);
-    // d = opUnion(d, sdSphere(p, r, 0.3));
      
     vec3 mirror = p;
     mirror.x = abs(mirror.x);
 
-    // d = opDiff (d, sdPlane(p, rotZ(vec3(0,1.2,0),  120.0), rotZ(vec3(0,-1,0),  120.0)));
     vec3 rot = rotZ(vec3(0,1,0), 120.0);
     d = opUnion(d, sdSphere(mirror, rot*1.2, 0.3));
     d = opDiff (d, sdPlane(mirror, rot*1.2, -rot));
