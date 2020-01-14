@@ -142,6 +142,16 @@ vec3 rotZ(vec3 v, float deg)
     return vec3(v.x*c+v.y*s, v.y*c+v.x*s, v.z);
 }
 
+vec3 posOnPlane(vec3 p, vec3 a, vec3 n)
+{
+    return p-dot(p-a,n)*n;
+}
+
+vec3 posOnPlane(vec3 p, vec3 n)
+{
+    return p-dot(p,n)*n;
+}
+
 //  0000000  0000000    
 // 000       000   000  
 // 0000000   000   000  
@@ -160,7 +170,7 @@ float sdCapsule(vec3 p, vec3 a, vec3 b, float r)
 
 float sdLink( vec3 p, vec3 a, float le, float r1, float r2 )
 {
-  p = p - a;
+  p = p-a;
   vec3 q = vec3( p.x, max(abs(p.y)-le,0.0), p.z );
   return length(vec2(length(q.xy)-r1,q.z)) - r2;
 }
@@ -174,28 +184,36 @@ float sdCylinder(vec3 p, vec3 a, float h, float r)
 
 float sdCylinder(vec3 p, vec3 a, vec3 b, float r)
 {
-  vec3  ba = b - a;
-  vec3  pa = p - a;
-  float baba = dot(ba,ba);
-  float paba = dot(pa,ba);
-  float x = length(pa*baba-ba*paba) - r*baba;
-  float y = abs(paba-baba*0.5)-baba*0.5;
-  float x2 = x*x;
-  float y2 = y*y*baba;
-  float d = (max(x,y)<0.0)?-min(x2,y2):(((x>0.0)?x2:0.0)+((y>0.0)?y2:0.0));
-  return sign(d)*sqrt(abs(d))/baba;
+    vec3  ba = b - a;
+    vec3  pa = p - a;
+    float baba = dot(ba,ba);
+    float paba = dot(pa,ba);
+    float x = length(pa*baba-ba*paba) - r*baba;
+    float y = abs(paba-baba*0.5)-baba*0.5;
+    float x2 = x*x;
+    float y2 = y*y*baba;
+    float d = (max(x,y)<0.0)?-min(x2,y2):(((x>0.0)?x2:0.0)+((y>0.0)?y2:0.0));
+    return sign(d)*sqrt(abs(d))/baba;
 }
 
-float sdTorusX(vec3 p, vec3 a, vec2 t)
+float sdTorus(vec3 p, vec3 a, vec3 n, vec2 r)
 {
-  p = p - a;
-  return length(vec2(length(p.yz)-t.x,p.x))-t.y;
+    p = p-a;
+    return length(vec2(length(posOnPlane(p, n))-r.x,abs(dot(n, p))))-r.y;
 }
 
-float sdTorusY(vec3 p, vec3 a, vec2 t)
+float sdBend(vec3 p, vec3 a, vec3 n, vec3 d, float side, vec2 r)
 {
-  p = p - a;
-  return length(vec2(length(p.xz)-t.x,p.y))-t.y;
+    p = p-a;
+
+    if (dot(p,side*d) > 0.0) return length(p)-r.y;
+    
+    vec3 c = cross(d,n);
+    vec3 pp = p-r.x*c+side*r.x*d;
+    if (dot(pp,c) > 0.0) return length(pp)-r.y;
+
+    pp = posOnPlane(p, n);
+    return length(vec2(length(pp-r.x*c)-r.x,abs(dot(n, p))))-r.y;
 }
 
 float sdSphere(vec3 p, vec3 a, float r)
@@ -264,16 +282,16 @@ void hip(vec3 pos, vec4 q)
     d = opDiff (d, sdPlane (p, pHipT, -up));
     
     vec3 rot = rotate(q, rotZ(vec3(0,0.6,0), 120.0));
-    pHipR = pos + rot;
-    
-    d = opUnion(d, sdSphere(p, pHipR, 0.3));
-    d = opDiff (d, sdPlane (p, pHipR, -rot));
-
-    rot = rotate(q, rotZ(vec3(0,0.6,0), -120.0));
     pHipL = pos + rot;
     
     d = opUnion(d, sdSphere(p, pHipL, 0.3));
     d = opDiff (d, sdPlane (p, pHipL, -rot));
+
+    rot = rotate(q, rotZ(vec3(0,0.6,0), -120.0));
+    pHipR = pos + rot;
+    
+    d = opUnion(d, sdSphere(p, pHipR, 0.3));
+    d = opDiff (d, sdPlane (p, pHipR, -rot));
     
     if (d < s.dist) { s.mat = BODY; s.dist = d; }
 }
@@ -315,8 +333,8 @@ void torso(vec3 pos, vec4 q)
     vec3 p = s.pos;
     vec3 up = rotate(q, vec3(0,1,0));
     vec3 r  = rotZ(vec3(0,1.2,0), 120.0);
-    vec3 rotR = rotate(q, r); r.x *= -1.0;
-    vec3 rotL = rotate(q, r);
+    vec3 rotL = rotate(q, r); r.x *= -1.0;
+    vec3 rotR = rotate(q, r);
     pTorsoT = pos + up*1.2;    
     pTorsoR = pTorsoT + rotR;
     pTorsoL = pTorsoT + rotL;
@@ -400,32 +418,36 @@ void eye(vec3 pos, vec4 q)
 // 000   000  000   000  000 0 000  
 // 000   000  000   000  000   000  
 
-void arm(vec3 pos, float side, inout vec3 hand)
+void arm(vec3 pos, float side, vec4 q, inout vec3 hand)
 {
-    vec3 p = s.pos - pos;
-    p.x *= side;
+    vec3 p = s.pos;
      
-    hand = pos + vec3(-side*0.45,-2.35,0);
+    vec3 up = rotate(q, vec3(0,1,0));
+    vec3 x  = rotate(q, vec3(1,0,0));
+    vec3 z  = rotate(q, vec3(0,0,1));
     
-    float bb = sdSphere(p, vec3(-0.45,-1.2,0), 2.0);
+    hand = pos -side*0.45*x -2.35*up;
+    
+    vec3 elbow = pos -side*0.45*x -1.2*up;
+    float bb = sdSphere(p, elbow, 2.0);
     if (bb > s.dist) return;
      
-    float d = sdSphere(p, vec0, 0.25);
-     
-    d = opUnion(d, sdLink (p, vec3(0.55,-1.8,0), 1.0, 1.0, 0.1));
-    d = opDiff (d, sdPlane(p, vec3(0.28,0,0), normalize(vec3(-1,-0.7,0))));
-    d = opDiff (d, sdPlane(p, vec3(0,-1.1,0), vec3(0,1,0)));
-     
-    d = opUnion(d, sdTorusX(p, vec3(-0.45,-1.2,0), vec2(0.2, 0.07)));
+    float d = sdSphere(p, pos, 0.25);
+    
+    d = opUnion(d, sdBend(p, pos, z, x, side, vec2(0.45, 0.1)));
+    d = min(d, sdCapsule(p, elbow+0.75*up, elbow+0.2*up, 0.1));
+         
+    d = opUnion(d, sdTorus(p, elbow, x, vec2(0.2, 0.07)));
      
     if (d < s.dist) { s.mat = BONE; s.dist = d; }
+    
+    d = sdCapsule(p, elbow-0.25*up, elbow-1.0*up, 0.1);
+
+    d = opUnion(d, sdTorus(p, elbow-0.15*x, x, vec2(0.2, 0.07)));
+    d = opUnion(d, sdTorus(p, elbow+0.15*x, x, vec2(0.2, 0.07)));
      
-    d = sdCapsule(p, vec3(-0.45,-1.45,0), vec3(-0.45,-2.2,0), 0.1);
-    d = opUnion(d, sdTorusX(p, vec3(-0.3,-1.2,0), vec2(0.2, 0.07)));
-    d = opUnion(d, sdTorusX(p, vec3(-0.6,-1.2,0), vec2(0.2, 0.07)));
-     
-    d = opUnion(d, sdSphere(p, vec3(-0.45,-2.35,0), 0.3));
-    d = opDiff (d, sdPlane (p, vec3(-0.45,-2.35,0), vec3(0,1,0)));
+    d = opUnion(d, sdSphere(p, hand, 0.3));
+    d = opDiff (d, sdPlane (p, hand, up));
      
     if (d < s.dist) { s.mat = BONE; s.dist = d; }
 }
@@ -449,8 +471,8 @@ void foot(vec3 pos, float side)
     d = opUnion(d, sdSphere(p, vec3(0,-0.75,-0.75), 0.4));
     d = opDiff (d, sdPlane (p, vec3(0,-0.75,0), vec3(0,1,0)));
     
-    d = min(d, sdTorusY(p, vec3(0,-0.75,0), vec2(0.57, 0.07)));
-    d = min(d, sdTorusY(p, vec3(0,-0.75,-0.75), vec2(0.47, 0.07)));
+    d = min(d, sdTorus(p, vec3(0,-0.75,0),     vec3(0,1,0), vec2(0.57, 0.07)));
+    d = min(d, sdTorus(p, vec3(0,-0.75,-0.75), vec3(0,1,0), vec2(0.47, 0.07)));
     
     if (d < s.dist) { s.mat = BODY; s.dist = d; }
 }
@@ -503,9 +525,10 @@ vec2 map(vec3 p)
          
     vec4 q1 = quatAxisAngle(vec3(0,1,0), sin(iTime*2.0)*20.0);
     vec4 q2 = quatAxisAngle(vec3(1,0,0), sin(iTime*2.0)*20.0);
-    vec4 q = quatMul(q2, q1);
+    vec4 q  = quatMul(q2, q1);
     vec4 qr = quatAxisAngle(vec3(0,1,0), sin(iTime*1.0)*15.0);
     vec4 qz = vec4(0,0,0,1);
+    // q = qz;
     hip  (vec0, q);
     spine(pHipT,   false, q, pSpine);
     spine(pSpine,   true, q, pTorsoB);
@@ -516,17 +539,17 @@ vec2 map(vec3 p)
     eye  (pEyeL, qr);
     eye  (pEyeR, qr);
          
-    arm  (pTorsoL,  1.0, pHandL);
-    hand (pHandL,   1.0);
+    arm  (pTorsoR,  1.0, q, pHandR);
+    hand (pHandR,   1.0);
+    
+    arm  (pHipR,    1.0, q, pFootR);
+    foot (pFootR,   1.0);
+    
+    arm  (pTorsoL, -1.0, q, pHandL);
+    hand (pHandL,  -1.0);
 
-    arm  (pTorsoR, -1.0, pHandR);
-    hand (pHandR,  -1.0);
-
-    arm  (pHipL,    1.0, pFootL);
-    foot (pFootL,   1.0);
-
-    arm  (pHipR,   -1.0, pFootR);
-    foot (pFootR,  -1.0);
+    arm  (pHipL,   -1.0, q, pFootL);
+    foot (pFootL,  -1.0);
     
     return vec2(s.dist, s.mat);
 }
