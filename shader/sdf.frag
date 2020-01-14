@@ -4,7 +4,7 @@
 #define MAX_DIST  60.0
 
 #define PI 3.141592653589793
-#define TOY 0
+#define TOY  1
 #define ZERO min(iFrame,0)
 
 #define PLANE 0.0
@@ -34,8 +34,10 @@ vec3 pHipR;
 vec3 pHipUp;
 vec3 pHipRotL;
 vec3 pHipRotR;
+
 vec3 pSpine;
 vec3 pNeck;
+
 vec3 pTorsoT;
 vec3 pTorsoB;
 vec3 pTorsoL;
@@ -43,6 +45,7 @@ vec3 pTorsoR;
 vec3 pTorsoUp;
 vec3 pTorsoRotL;
 vec3 pTorsoRotR;
+
 vec3 pHead;
 vec3 pHeadUp;
 vec3 pHeadZ;
@@ -50,6 +53,7 @@ vec3 pEyeL;
 vec3 pEyeR;
 vec3 pEyeHoleL;
 vec3 pEyeHoleR;
+
 vec3 pArmL;
 vec3 pArmR;
 vec3 pHandL;
@@ -258,6 +262,18 @@ float sdTorus(vec3 p, vec3 a, vec3 n, vec2 r)
 {
     vec3 q = p-a;
     return length(vec2(length(posOnPlane(q, n))-r.x,abs(dot(n, q))))-r.y;
+}
+
+float distToDoublePlane(vec3 p, vec3 n, float d)
+{
+    float dt = dot(p,n);
+    return dt-sign(dt)*d;
+}
+
+float sdDoubleTorus(vec3 p, vec3 a, vec3 n, vec3 r)
+{
+    vec3 q = p-a;
+    return length(vec2(length(posOnPlane(q, n))-r.x, distToDoublePlane(n, q, r.z)))-r.y;
 }
 
 float sdBend(vec3 p, vec3 a, vec3 n, vec3 d, float side, vec2 r)
@@ -564,8 +580,7 @@ void arm(vec3 pos, float side, vec3 elbow, vec3 hand, vec3 up, vec3 x, vec3 z)
     
     d = sdCapsule(s.pos, elbow-0.25*up, elbow-1.0*up, 0.1);
 
-    d = opUnion(d, sdTorus(s.pos, elbow-0.15*x, x, vec2(0.2, 0.07)));
-    d = opUnion(d, sdTorus(s.pos, elbow+0.15*x, x, vec2(0.2, 0.07)));
+    d = opUnion(d, sdDoubleTorus(s.pos, elbow, x, vec3(0.2, 0.07, 0.15)));
      
     d = opUnion(d, sdSphere(s.pos, hand, 0.3));
     d = opDiff (d, sdPlane (s.pos, hand, up));
@@ -635,7 +650,8 @@ vec2 map(vec3 p)
 {
     float planeDist = sdPlane(p, vec3(0,-3.5,0), vec3(0,1,0));
    
-    #if !TOY
+    #ifdef TOY
+    #else
     if (iCamera.y < -3.5) { planeDist = 1000.0; }
     #endif
      
@@ -761,7 +777,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec2 uv = (fragCoord-.5*iResolution.xy)/iResolution.y;
     vec3 ct;
     
-    #if TOY
+    #ifdef TOY
         ct = vec0;
         camPos = rotY(rotX(vec3(0,0,-15), -20.0+10.0*sin(iTime*0.1)), 50.0*sin(iTime*0.2));
     #else
