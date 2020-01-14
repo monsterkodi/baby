@@ -1,10 +1,10 @@
 
-#define MAX_STEPS 128
-#define MIN_DIST  0.01
-#define MAX_DIST  100.0
+#define MAX_STEPS 40
+#define MIN_DIST  0.02
+#define MAX_DIST  60.0
 
 #define PI 3.141592653589793
-
+#define TOY 0
 #define ZERO min(iFrame,0)
 
 #define PLANE 0.0
@@ -200,6 +200,16 @@ vec3 posOnPlane(vec3 p, vec3 n)
     return p-dot(p,n)*n;
 }
 
+vec3 posOnRay(vec3 ro, vec3 rd, vec3 p)
+{
+    return ro + max(0.0, dot(p - ro, rd) / dot(rd, rd)) * rd;
+}
+
+bool rayIntersectsSphere(vec3 ro, vec3 rd, vec3 ctr, float r)
+{
+    return length(posOnRay(ro, rd, ctr) - ctr) < r;
+}
+
 //  0000000  0000000    
 // 000       000   000  
 // 0000000   000   000  
@@ -272,7 +282,7 @@ float sdPlane(vec3 p, vec3 a, vec3 n)
 {   
     return dot(n, p-a);
 }
-
+
 //  0000000   00000000   
 // 000   000  000   000  
 // 000   000  00000000   
@@ -424,10 +434,10 @@ void hip()
     
     d = opUnion(d, sdSphere(s.pos, pHipT, 0.3));
     d = opDiff (d, sdPlane (s.pos, pHipT, -pHipUp));
-        
+    
     d = opUnion(d, sdSphere(s.pos, pHipL, 0.3));
     d = opDiff (d, sdPlane (s.pos, pHipL, -pHipRotL));
-    
+
     d = opUnion(d, sdSphere(s.pos, pHipR, 0.3));
     d = opDiff (d, sdPlane (s.pos, pHipR, -pHipRotR));
     
@@ -512,7 +522,7 @@ void eye(vec3 pos, vec3 pupil)
 void head()
 {
     float d = sdSphere(s.pos, pHead, 1.3);
-    
+    
     if (d > s.dist+0.3) return;
     
     d = opDiff (d, 0.15, sdPlane   (s.pos, pHead, pHeadUp));
@@ -525,7 +535,7 @@ void head()
     d = opDiff (d, 0.1,  sdSphere  (s.pos, pEyeL, 0.25));
     d = opDiff (d, 0.1,  sdSphere  (s.pos, pEyeR, 0.25));
     d = opDiff (d, 0.1,  sdPlane   (s.pos, pHead-1.4*pHeadZ, pHeadZ));
-    
+
     if (d < s.dist) { s.mat = BODY; s.dist = d; }
     
     eye(pEyeL, pEyeHoleL);
@@ -599,17 +609,18 @@ void hand(vec3 pos, vec3 palm, vec3 z)
     
     d = opDiff (d, sdPlane (s.pos, palm, -z));
     d = opUnion(d, sdSphere(s.pos, pos, 0.25));
-    
-    // d = min(d, sdCapsule(s.pos, vec3( 0.4,-0.8, 0.1), vec3( 0.4,-1.0, 0.1), 0.1));
-    // d = min(d, sdCapsule(s.pos, vec3( 0.4,-1.2, 0.1), vec3( 0.4,-1.4, 0.1), 0.1));
+    /*
+    d = min(d, sdCapsule(s.pos, pos+vec3( 0.4,-0.8, 0.1), pos+vec3( 0.4,-1.0, 0.1), 0.1));
+    d = min(d, sdCapsule(s.pos, pos+vec3( 0.4,-1.2, 0.1), pos+vec3( 0.4,-1.4, 0.1), 0.1));
 
-    // d = min(d, sdCapsule(s.pos, vec3(    0,-1.10,-0.1), vec3(    0,-1.30,-0.1), 0.1));
-    // d = min(d, sdCapsule(s.pos, vec3(-0.23,-1.05,-0.1), vec3(-0.23,-1.25,-0.1), 0.1));
-    // d = min(d, sdCapsule(s.pos, vec3( 0.23,-1.05,-0.1), vec3( 0.23,-1.25,-0.1), 0.1));
+    d = min(d, sdCapsule(s.pos, pos+vec3(    0,-1.10,-0.1), pos+vec3(    0,-1.30,-0.1), 0.1));
+    d = min(d, sdCapsule(s.pos, pos+vec3(-0.23,-1.05,-0.1), pos+vec3(-0.23,-1.25,-0.1), 0.1));
+    d = min(d, sdCapsule(s.pos, pos+vec3( 0.23,-1.05,-0.1), pos+vec3( 0.23,-1.25,-0.1), 0.1));
 
-    // d = min(d, sdCapsule(s.pos, vec3(    0,-1.50,-0.1), vec3(    0,-1.7, -0.1), 0.1));
-    // d = min(d, sdCapsule(s.pos, vec3(-0.23,-1.45,-0.1), vec3(-0.23,-1.65,-0.1), 0.1));
-    // d = min(d, sdCapsule(s.pos, vec3( 0.23,-1.45,-0.1), vec3( 0.23,-1.65,-0.1), 0.1));
+    d = min(d, sdCapsule(s.pos, pos+vec3(    0,-1.50,-0.1), pos+vec3(    0,-1.7, -0.1), 0.1));
+    d = min(d, sdCapsule(s.pos, pos+vec3(-0.23,-1.45,-0.1), pos+vec3(-0.23,-1.65,-0.1), 0.1));
+    d = min(d, sdCapsule(s.pos, pos+vec3( 0.23,-1.45,-0.1), pos+vec3( 0.23,-1.65,-0.1), 0.1));
+	*/
     
     if (d < s.dist) { s.mat = BODY; s.dist = d; }
 }
@@ -643,7 +654,7 @@ vec2 map(vec3 p)
     foot (pFootR,   pHeelR, pToeR, pFootRup);
     foot (pFootL,   pHeelL, pToeL, pFootLup);
     hand (pHandR,   pPalmR, pHandRz);
-    hand (pHandL,   pPalmL, pHandLz);    
+    hand (pHandL,   pPalmL, pHandLz);
     
     return vec2(s.dist, s.mat);
 }
@@ -665,20 +676,10 @@ vec3 getNormal(vec3 p)
 // 000 0 000  000   000  000   000  000       000   000  
 // 000   000  000   000  000   000   0000000  000   000  
 
-vec3 posOnRay(vec3 ro, vec3 rd, vec3 p)
-{
-    return ro + max(0.0, dot(p - ro, rd) / dot(rd, rd)) * rd;
-}
-
-bool rayIntersectsSphere(vec3 ro, vec3 rd, vec3 ctr, float r)
-{
-    return length(posOnRay(ro, rd, ctr) - ctr) < r;
-}
-
 vec2 rayMarch(vec3 ro, vec3 rd)
 {
     float dz = 0.0;
-    
+    /*
     if (!rayIntersectsSphere(ro, rd, vec3(0,1.0,0), 5.0))
     {
         for (int i = 0; i < MAX_STEPS; i++)
@@ -691,8 +692,8 @@ vec2 rayMarch(vec3 ro, vec3 rd)
         }
         return vec2(dz,-1.0);
     }
-    
-    for (int i = 0; i < MAX_STEPS; i++)
+    */
+    for (int i = ZERO; i < MAX_STEPS; i++)
     {
         vec3 p = ro + dz * rd;
         vec2 hit = map(p);
@@ -737,7 +738,7 @@ float hardShadow(vec3 ro, vec3 rd, float mint, float maxt, const float w)
 float getLight(vec3 p, vec3 n)
 {
     float t = sin(iTime*0.2);
-    vec3 lp = rotY(rotX(vec3(0, 10, -10), -10.0 - 30.0*t), 20.0*t);
+    vec3 lp = rotY(rotX(vec3(0, 10, -10), -10.0 - 20.0*t), 20.0*t);
     vec3 l = normalize(lp - p);
  
     float dif = dot(n,l);
@@ -762,7 +763,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     #if TOY
         ct = vec0;
-        camPos = rotY(rotX(vec3(0,0,-15), -20.0+30.0*sin(iTime*0.5)), 70.0*sin(iTime*0.3));
+        camPos = rotY(rotX(vec3(0,0,-15), -20.0+10.0*sin(iTime*0.1)), 50.0*sin(iTime*0.2));
     #else
         ct = iCenter;
         camPos = iCamera;
