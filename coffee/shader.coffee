@@ -17,6 +17,7 @@ class Shader
 
         @scene = @world.scene
         
+        @iFrame = 0
         vertexShader =  """
             precision highp float;
             attribute vec3 position;
@@ -43,6 +44,7 @@ class Shader
             uniform vec2  iResolution;
             uniform vec3  iCenter;
             uniform vec3  iCamera;
+            uniform int   iFrame;
             
             #{fragSource}
                                     
@@ -58,7 +60,7 @@ class Shader
             ,
                 attributes: ['position' 'normal' 'uv']
                 uniforms:   ['worldViewProjection' 'iMs' 'iDist' 'iMaxDist' 'iMinDist' 'iCenter' 'iCamera'
-                             'iDelta' 'iTime' 'iMouse' 'iResolution' 'iRotate' 'iDegree']
+                             'iDelta' 'iTime' 'iMouse' 'iResolution' 'iRotate' 'iDegree' 'iFrame']
             
         @plane = MeshBuilder.CreatePlane "plane", { width: 10, height: 10 }, @scene
         @plane.material = @shaderMaterial
@@ -73,6 +75,7 @@ class Shader
         mouseX = @world.camera.mouseX ? 0;
         mouseY = @world.camera.mouseY ? @world.canvas.height/dpr;
         
+        @shaderMaterial.setInt     'iFrame'      @iFrame++
         @shaderMaterial.setFloat   'iMs'         @world.engine.getDeltaTime()
         @shaderMaterial.setFloat   'iTime'       performance.now()/1000
         @shaderMaterial.setFloat   'iDist'       @world.camera.dist

@@ -5,6 +5,8 @@
 
 #define PI 3.141592653589793
 
+#define ZERO min(iFrame,0)
+
 #define PLANE 0.0
 #define BODY  1.0
 #define BONE  2.0
@@ -273,8 +275,8 @@ float opInter(float d1, float d2)
 
 void hip(vec3 pos, vec4 q)
 {
-    vec3 p = s.pos - pos;
-    float d = sdSphere(p, vec0, 0.5);
+    vec3 p = s.pos;
+    float d = sdSphere(p, pos, 0.5);
     
     vec3 up = rotate(q, vec3(0,1,0));
     pHipT = pos + up*0.6;
@@ -370,6 +372,10 @@ void head(vec3 pos, vec4 q)
 {
     vec3 p = s.pos;
     float d = sdSphere(p, pos, 1.3);
+    
+    pEyeL = pos+rotate(q, vec3( 0.5, 0.45, -1.3));
+    pEyeR = pos+rotate(q, vec3(-0.5, 0.45, -1.3));
+
     if (d > s.dist+0.3) return;
     
     vec3 up = rotate(q, vec3(0,1,0));
@@ -379,9 +385,6 @@ void head(vec3 pos, vec4 q)
 
     d = opUnion(d, sdSphere(p, pos, 0.3));
     d = opDiff (d, sdPlane (p, pos, up));
-
-    pEyeL = pos+rotate(q, vec3(-0.5, 0.45, -1.3));
-    pEyeR = pos+rotate(q, vec3( 0.5, 0.45, -1.3));
     
     d = opUnion(d,      sdSphere(p, pEyeL, 0.33));
     d = opUnion(d,      sdSphere(p, pEyeR, 0.33));
@@ -524,12 +527,12 @@ vec2 map(vec3 p)
     s = sdf(planeDist, PLANE, p);
          
     vec4 q1 = quatAxisAngle(vec3(0,1,0), sin(iTime*2.0)*20.0);
-    vec4 q2 = quatAxisAngle(vec3(1,0,0), sin(iTime*2.0)*20.0);
+    vec4 q2 = quatAxisAngle(vec3(1,0,0), 10.0+sin(iTime*2.0)*20.0);
     vec4 q  = quatMul(q2, q1);
     vec4 qr = quatAxisAngle(vec3(0,1,0), sin(iTime*1.0)*15.0);
     vec4 qz = vec4(0,0,0,1);
     // q = qz;
-    hip  (vec0, q);
+    hip  (vec3(-sin(iTime*4.0), 0, 0), q);
     spine(pHipT,   false, q, pSpine);
     spine(pSpine,   true, q, pTorsoB);
     torso(pTorsoB, q);
@@ -546,12 +549,14 @@ vec2 map(vec3 p)
     
     arm  (pHipR,    1.0, qa, pFootR);
     foot (pFootR,   1.0);
-    
-    arm  (pTorsoL, -1.0, qa, pHandL);
-    hand (pHandL,  -1.0);
 
     arm  (pHipL,   -1.0, qa, pFootL);
     foot (pFootL,  -1.0);
+
+    qa = quatAxisAngle(vec3(0,0,1), -sin(iTime*4.0)*20.0);
+    
+    arm  (pTorsoL, -1.0, qa, pHandL);
+    hand (pHandL,  -1.0);
     
     return vec2(s.dist, s.mat);
 }
@@ -561,10 +566,24 @@ vec2 mapPlane(vec3 p)
     return vec2(sdPlane(p, vec3(0,-3.5,0), vec3(0,1,0)), PLANE);
 }
 
+/*
 vec3 getNormal(vec3 p)
 {
     vec2 e = vec2(0.0001, 0);
     return normalize(vec3(map(p).x) - vec3(map(p-e.xyy).x, map(p-e.yxy).x, map(p-e.yyx).x));
+}
+*/
+
+vec3 getNormal(vec3 p)
+{
+    const float h = 0.0001;    
+    vec3 n = vec0;
+    for (int i=ZERO; i<4; i++)
+    {
+        vec3 e = 0.5773*(2.0*vec3((((i+3)>>1)&1),((i>>1)&1),(i&1))-1.0);
+        n += e*map(p+e*h).x;
+    }
+    return normalize(n);
 }
 
 // 00     00   0000000   00000000    0000000  000   000  
@@ -670,16 +689,16 @@ float hardShadow(vec3 ro, vec3 rd, float mint, float maxt, const float w)
 
 float getLight(vec3 p, vec3 n)
 {
-    float t = 0.0; // sin(iTime*0.2);
-    vec3 lp = rotY(rotX(vec3(0, 10, -10), -20.0 - 40.0*t), 45.0*t);;
+    float t = sin(iTime*0.2);
+    vec3 lp = rotY(rotX(vec3(0, 10, -10), -10.0 - 30.0*t), 20.0*t);
     vec3 l = normalize(lp - p);
  
     float dif = dot(n,l);
     
     vec3 off = p+n*2.0*MIN_DIST;
 
-    dif *= softShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.02);
-    // dif *= hardShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.5);
+    //dif *= softShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.02);
+    dif *= hardShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.5);
         
     return clamp(dif, 0.0, 1.0);
 }
@@ -716,7 +735,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec2 uv = (fragCoord-.5*iResolution.xy)/iResolution.y;
     vec3 ct;
     
-    if (false)
+    if (true)
     {
         ct = vec0;
         camPos = rotY(rotX(vec3(0,0,-15), -20.0+30.0*sin(iTime*0.5)), 70.0*sin(iTime*0.3));
@@ -750,8 +769,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     
     if      (hit.y < PLANE) col = vec3(0,0,0); 
     else if (hit.y < BODY)  col = vec3(0.2,0.2,0.2); 
-    else if (hit.y < BONE)  col = vec3(0.6,0.6,1.0); 
-    else if (hit.y < BULB)  col = vec3(0.3,0.3,0.7);
+    else if (hit.y < BONE)  col = vec3(1.0,0.0,0.0); 
+    else if (hit.y < BULB)  col = vec3(1.0,1.0,0.0);
     else col = vec3(1,1,1);
         
     fragColor = vec4(col * l, 1.0);
