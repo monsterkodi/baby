@@ -539,16 +539,18 @@ vec2 map(vec3 p)
     eye  (pEyeL, qr);
     eye  (pEyeR, qr);
          
-    arm  (pTorsoR,  1.0, q, pHandR);
+    vec4 qa = quatAxisAngle(vec3(0,0,1), sin(iTime*4.0)*20.0);
+    
+    arm  (pTorsoR,  1.0, qa, pHandR);
     hand (pHandR,   1.0);
     
-    arm  (pHipR,    1.0, q, pFootR);
+    arm  (pHipR,    1.0, qa, pFootR);
     foot (pFootR,   1.0);
     
-    arm  (pTorsoL, -1.0, q, pHandL);
+    arm  (pTorsoL, -1.0, qa, pHandL);
     hand (pHandL,  -1.0);
 
-    arm  (pHipL,   -1.0, q, pFootL);
+    arm  (pHipL,   -1.0, qa, pFootL);
     foot (pFootL,  -1.0);
     
     return vec2(s.dist, s.mat);
