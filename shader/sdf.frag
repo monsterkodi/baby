@@ -4,8 +4,10 @@
 #define MAX_DIST  60.0
 
 #define PI 3.141592653589793
-#define TOY  1
+// #define TOY  1
 #define ZERO min(iFrame,0)
+
+#define FLOOR -4.0
 
 #define PLANE 0.0
 #define BODY  1.0
@@ -35,8 +37,7 @@ vec3 pHipUp;
 vec3 pHipRotL;
 vec3 pHipRotR;
 
-vec3 pSpine;
-vec3 pNeck;
+vec3 pSpine, pNeck;
 
 vec3 pTorsoT;
 vec3 pTorsoB;
@@ -294,6 +295,40 @@ float sdSphere(vec3 p, vec3 a, float r)
     return length(p-a)-r;
 }
 
+float sdHalfSphere(vec3 p, vec3 a, vec3 n, float r)
+{
+    vec3 q = p-a;
+    float dt = dot(q, n);
+    float sd = length(q)-r;
+    if (dt > 0.0)
+    {
+        return sd;
+    }
+    return max(sd,-dt);
+}
+
+float sdSocket(vec3 p, vec3 a, vec3 n, float r, float k)
+{
+    vec3 q = p-a;
+    float dp = dot(q, n);
+    float ds = length(q)-r;
+    if (dp > 0.0)
+    {
+        return ds;
+    }
+    float dt = sdTorus(p, a, n, vec2(r-k,k));
+    if (ds < -k*2.0 && dt > 0.0)
+    {
+        return -dp;
+    }
+    return dt;
+}
+
+float sdSocket(vec3 p, vec3 a, vec3 n, float r)
+{
+    return sdSocket(p, a, n, r, 0.05);
+}
+
 float sdPlane(vec3 p, vec3 a, vec3 n)
 {   
     return dot(n, p-a);
@@ -346,13 +381,25 @@ float opInter(float d1, float d2)
 
 void calcAnim()
 {
-    vec4 q1 = quatAxisAngle(vec3(0,1,0), sin(iTime*2.0)*20.0);
-    vec4 q2 = quatAxisAngle(vec3(1,0,0), -10.0+sin(iTime*2.0)*20.0);
+    vec4 q1 = quatAxisAngle(vec3(0,1,0),  sin(iTime*2.0)*20.0);
+    vec4 q2 = quatAxisAngle(vec3(1,0,0),  sin(iTime*2.0)*20.0-10.0);
     vec4 q  = quatMul(q2, q1);
-    vec4 qr = quatAxisAngle(vec3(0,1,0), sin(iTime*1.0)*15.0);
-    vec4 qz = vec4(0,0,0,1);
+    vec4 qr = quatAxisAngle(vec3(0,1,0),  sin(iTime*1.0)*15.0);
+    vec4 qz = vec4(0,0,0,1);            
+    vec4 qa = quatAxisAngle(vec3(0,0,1),  sin(iTime*4.0)*20.0);
+    vec4 qb = quatAxisAngle(vec3(0,0,1), -sin(iTime*4.0)*20.0);
     
-    pHip     = vec3(-sin(iTime*4.0), 0, 0);
+    if (false)
+    {
+        pHip = vec3(-sin(iTime*4.0), 0, 0);
+    }
+    else
+    {
+        q    = qz;
+        qa   = qz;
+        qb   = qz;
+        pHip = vec0;
+    }
     
     pHipUp   = rotate(q, vec3(0,1,0));
     pHipT    = pHip + pHipUp*0.6;
@@ -387,19 +434,13 @@ void calcAnim()
     eyeCam = mix(nZ, eyeCam, dot(nZ, eyeCam));
     pEyeHoleL = pEyeL+eyeCam*0.25;
     pEyeHoleR = pEyeR+eyeCam*0.25;
-    
-    vec4 qa;
-    
-    qa = quatAxisAngle(vec3(0,0,1), -sin(iTime*4.0)*20.0);
-    
-    pArmLup = rotate(qa, vec3(0,1,0));
-    pArmLx  = rotate(qa, vec3(1,0,0));
-    pArmLz  = rotate(qa, vec3(0,0,1));
+        
+    pArmLup = rotate(qb, vec3(0,1,0));
+    pArmLx  = rotate(qb, vec3(1,0,0));
+    pArmLz  = rotate(qb, vec3(0,0,1));
     
     pHandL  = pTorsoL +0.45*pArmLx -2.35*pArmLup;    
     pElbowL = pTorsoL +0.45*pArmLx -1.20*pArmLup;
-
-    qa = quatAxisAngle(vec3(0,0,1), sin(iTime*4.0)*20.0);
     
     pArmRup = rotate(qa, vec3(0,1,0));
     pArmRx  = rotate(qa, vec3(1,0,0));
@@ -448,14 +489,9 @@ void hip()
 {
     float d = sdSphere(s.pos, pHip, 0.5);
     
-    d = opUnion(d, sdSphere(s.pos, pHipT, 0.3));
-    d = opDiff (d, sdPlane (s.pos, pHipT, -pHipUp));
-    
-    d = opUnion(d, sdSphere(s.pos, pHipL, 0.3));
-    d = opDiff (d, sdPlane (s.pos, pHipL, -pHipRotL));
-
-    d = opUnion(d, sdSphere(s.pos, pHipR, 0.3));
-    d = opDiff (d, sdPlane (s.pos, pHipR, -pHipRotR));
+    d = opUnion(d, sdSocket(s.pos, pHipT, -pHipUp,   0.3));
+    d = opUnion(d, sdSocket(s.pos, pHipL, -pHipRotL, 0.3));
+    d = opUnion(d, sdSocket(s.pos, pHipR, -pHipRotR, 0.3));
     
     if (d < s.dist) { s.mat = BODY; s.dist = d; }
 }
@@ -468,11 +504,11 @@ void hip()
 
 void spine(vec3 pos, vec3 mid, vec3 top)
 {
-    float d = sdSphere(s.pos, mid, 0.25);
+    vec3 up = normalize(top-mid);
+    float d = sdSocket(s.pos, mid, up, 0.25);
 
-    if (d > s.dist+0.25) return;
+    if (d > s.dist+0.4) return;
     
-    d = opDiff (d, sdPlane  (s.pos, mid, normalize(top-mid)));
     d = opUnion(d, sdCapsule(s.pos, mid, top, 0.15));
     d = opUnion(d, sdSphere (s.pos, top, 0.25));
 
@@ -491,24 +527,14 @@ void spine(vec3 pos, vec3 mid, vec3 top)
 
 void torso()
 {
-    float d = sdSphere(s.pos, pTorsoT, 1.0);
+    float d = sdSocket(s.pos, pTorsoT, -pTorsoUp, 1.0, 0.1);
     
-    if (d > s.dist+0.2) return;
+    if (d > s.dist+0.25) return;
     
-    d = opDiff (d, 0.15, sdPlane   (s.pos, pTorsoT, -pTorsoUp));
-    d = opDiff (d, 0.15, sdCylinder(s.pos, pTorsoT, pTorsoT-0.1*pTorsoUp, 0.75)-.075); 
-
-    d = opUnion(d, sdSphere(s.pos, pTorsoT, 0.3));
-    d = opDiff (d, sdPlane (s.pos, pTorsoT, -pTorsoUp));
-    
-    d = opUnion(d, sdSphere(s.pos, pTorsoB, 0.3));
-    d = opDiff (d, sdPlane (s.pos, pTorsoB, pTorsoUp));
-     
-    d = opUnion(d, sdSphere(s.pos, pTorsoR, 0.3));
-    d = opDiff (d, sdPlane (s.pos, pTorsoR, -pTorsoRotR));
-
-    d = opUnion(d, sdSphere(s.pos, pTorsoL, 0.3));
-    d = opDiff (d, sdPlane (s.pos, pTorsoL, -pTorsoRotL));
+    d = opUnion(d, sdSocket(s.pos, pTorsoT, -pTorsoUp, 0.3));
+    d = opUnion(d, sdSocket(s.pos, pTorsoB, pTorsoUp, 0.3));
+    d = opUnion(d, sdSocket(s.pos, pTorsoR, -pTorsoRotR, 0.3));
+    d = opUnion(d, sdSocket(s.pos, pTorsoL, -pTorsoRotL, 0.3));
     
     if (d < s.dist) { s.mat = BODY; s.dist = d; }
 }
@@ -581,9 +607,7 @@ void arm(vec3 pos, float side, vec3 elbow, vec3 hand, vec3 up, vec3 x, vec3 z)
     d = sdCapsule(s.pos, elbow-0.25*up, elbow-1.0*up, 0.1);
 
     d = opUnion(d, sdDoubleTorus(s.pos, elbow, x, vec3(0.2, 0.07, 0.15)));
-     
-    d = opUnion(d, sdSphere(s.pos, hand, 0.3));
-    d = opDiff (d, sdPlane (s.pos, hand, up));
+    d = opUnion(d, sdSocket(s.pos, hand, up, 0.3));
      
     if (d < s.dist) { s.mat = BONE; s.dist = d; }
 }
@@ -596,16 +620,15 @@ void arm(vec3 pos, float side, vec3 elbow, vec3 hand, vec3 up, vec3 x, vec3 z)
 
 void foot(vec3 pos, vec3 heel, vec3 toe, vec3 up)
 {
-    float d = sdSphere(s.pos, heel, 0.5);
+    float d = sdHalfSphere(s.pos, heel, up, 0.5);
     
     if (d > s.dist+0.9) return;
     
     d = opUnion(d, 0.1, sdSphere(s.pos, pos, 0.25));
-    d = opUnion(d, sdSphere(s.pos, toe, 0.4));
-    d = opDiff (d, sdPlane (s.pos, heel, up));
+    d = opUnion(d, sdHalfSphere (s.pos, toe, up, 0.4));
     
-    d = min(d, sdTorus(s.pos, heel, up, vec2(0.57, 0.07)));
-    d = min(d, sdTorus(s.pos, toe,  up, vec2(0.47, 0.07)));
+    d = opUnion(d, 0.02, sdTorus(s.pos, heel, up, vec2(0.53, 0.07)));
+    d = opUnion(d, 0.02, sdTorus(s.pos, toe,  up, vec2(0.43, 0.07)));
     
     if (d < s.dist) { s.mat = BODY; s.dist = d; }
 }
@@ -618,11 +641,10 @@ void foot(vec3 pos, vec3 heel, vec3 toe, vec3 up)
 
 void hand(vec3 pos, vec3 palm, vec3 z)
 {    
-    float d = sdSphere(s.pos, palm, 0.4);
+    float d = sdSocket(s.pos, palm, z, 0.4);
     
     if (d > s.dist+0.3) return;
     
-    d = opDiff (d, sdPlane (s.pos, palm, -z));
     d = opUnion(d, sdSphere(s.pos, pos, 0.25));
     /*
     d = min(d, sdCapsule(s.pos, pos+vec3( 0.4,-0.8, 0.1), pos+vec3( 0.4,-1.0, 0.1), 0.1));
@@ -648,11 +670,11 @@ void hand(vec3 pos, vec3 palm, vec3 z)
 
 vec2 map(vec3 p)
 {
-    float planeDist = sdPlane(p, vec3(0,-3.5,0), vec3(0,1,0));
+    float planeDist = sdPlane(p, vec3(0,FLOOR,0), vec3(0,1,0));
    
     #ifdef TOY
     #else
-    if (iCamera.y < -3.5) { planeDist = 1000.0; }
+    if (iCamera.y < FLOOR) { planeDist = 1000.0; }
     #endif
      
     s = sdf(planeDist, PLANE, p);
@@ -701,7 +723,7 @@ vec2 rayMarch(vec3 ro, vec3 rd)
         for (int i = 0; i < MAX_STEPS; i++)
         {
             vec3 p = ro + dz * rd;
-            vec2 hit = vec2(sdPlane(p, vec3(0,-3.5,0), vec3(0,1,0)), PLANE);
+            vec2 hit = vec2(sdPlane(p, vec3(0,FLOOR,0), vec3(0,1,0)), PLANE);
             dz += hit.x;
             if (hit.x < MIN_DIST) return vec2(dz,PLANE);
             if (dz > MAX_DIST) break;
