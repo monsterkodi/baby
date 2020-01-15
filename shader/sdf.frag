@@ -1,13 +1,19 @@
+// #define TOY  1
 
+#ifdef TOY
 #define MAX_STEPS 40
 #define MIN_DIST  0.02
 #define MAX_DIST  60.0
+#else
+#define MAX_STEPS 64
+#define MIN_DIST  0.01
+#define MAX_DIST  100.0
+#endif
 
 #define PI 3.141592653589793
-// #define TOY  1
 #define ZERO min(iFrame,0)
 
-#define FLOOR -4.0
+#define FLOOR -3.5
 
 #define PLANE 0.0
 #define BODY  1.0
@@ -389,7 +395,7 @@ void calcAnim()
     vec4 qa = quatAxisAngle(vec3(0,0,1),  sin(iTime*4.0)*20.0);
     vec4 qb = quatAxisAngle(vec3(0,0,1), -sin(iTime*4.0)*20.0);
     
-    if (false)
+    if (true)
     {
         pHip = vec3(-sin(iTime*4.0), 0, 0);
     }
@@ -451,8 +457,8 @@ void calcAnim()
     
     pPalmL  = pHandL - 0.6 * pArmLup;
     pPalmR  = pHandR - 0.6 * pArmRup;
-    pHandLz = pArmLz;
-    pHandRz = pArmRz;
+    pHandLz = -pArmLx;
+    pHandRz =  pArmRx;
 
     pLegLup = rotate(qa, vec3(0,1,0));
     pLegLx  = rotate(qa, vec3(1,0,0));
@@ -563,20 +569,13 @@ void eye(vec3 pos, vec3 pupil)
 
 void head()
 {
-    float d = sdSphere(s.pos, pHead, 1.3);
+    float d = sdSocket(s.pos, pHead, pHeadUp, 1.3, 0.1);
     
     if (d > s.dist+0.3) return;
     
-    d = opDiff (d, 0.15, sdPlane   (s.pos, pHead, pHeadUp));
-    d = opDiff (d, 0.15, sdCylinder(s.pos, pHead, pHead-0.1*pHeadUp, 1.05)-.075);
-
-    d = opUnion(d,       sdSphere  (s.pos, pHead, 0.3));
-    d = opDiff (d,       sdPlane   (s.pos, pHead, pHeadUp));
-    d = opUnion(d,       sdSphere  (s.pos, pEyeL, 0.33));
-    d = opUnion(d,       sdSphere  (s.pos, pEyeR, 0.33));
-    d = opDiff (d, 0.1,  sdSphere  (s.pos, pEyeL, 0.25));
-    d = opDiff (d, 0.1,  sdSphere  (s.pos, pEyeR, 0.25));
-    d = opDiff (d, 0.1,  sdPlane   (s.pos, pHead-1.4*pHeadZ, pHeadZ));
+    d = opUnion(d, sdSocket(s.pos, pHead, pHeadUp, 0.3));
+    d = opUnion(d, sdSocket(s.pos, pEyeL, pHeadZ, 0.33));
+    d = opUnion(d, sdSocket(s.pos, pEyeR, pHeadZ, 0.33));
 
     if (d < s.dist) { s.mat = BODY; s.dist = d; }
     
@@ -641,23 +640,9 @@ void foot(vec3 pos, vec3 heel, vec3 toe, vec3 up)
 
 void hand(vec3 pos, vec3 palm, vec3 z)
 {    
-    float d = sdSocket(s.pos, palm, z, 0.4);
-    
-    if (d > s.dist+0.3) return;
+    float d = sdSocket(s.pos, palm, -z, 0.5);
     
     d = opUnion(d, sdSphere(s.pos, pos, 0.25));
-    /*
-    d = min(d, sdCapsule(s.pos, pos+vec3( 0.4,-0.8, 0.1), pos+vec3( 0.4,-1.0, 0.1), 0.1));
-    d = min(d, sdCapsule(s.pos, pos+vec3( 0.4,-1.2, 0.1), pos+vec3( 0.4,-1.4, 0.1), 0.1));
-
-    d = min(d, sdCapsule(s.pos, pos+vec3(    0,-1.10,-0.1), pos+vec3(    0,-1.30,-0.1), 0.1));
-    d = min(d, sdCapsule(s.pos, pos+vec3(-0.23,-1.05,-0.1), pos+vec3(-0.23,-1.25,-0.1), 0.1));
-    d = min(d, sdCapsule(s.pos, pos+vec3( 0.23,-1.05,-0.1), pos+vec3( 0.23,-1.25,-0.1), 0.1));
-
-    d = min(d, sdCapsule(s.pos, pos+vec3(    0,-1.50,-0.1), pos+vec3(    0,-1.7, -0.1), 0.1));
-    d = min(d, sdCapsule(s.pos, pos+vec3(-0.23,-1.45,-0.1), pos+vec3(-0.23,-1.65,-0.1), 0.1));
-    d = min(d, sdCapsule(s.pos, pos+vec3( 0.23,-1.45,-0.1), pos+vec3( 0.23,-1.65,-0.1), 0.1));
-	*/
     
     if (d < s.dist) { s.mat = BODY; s.dist = d; }
 }
