@@ -1,9 +1,9 @@
-// #define TOY  1
+#define TOY  1
 
 #ifdef TOY
-#define MAX_STEPS 40
-#define MIN_DIST  0.02
-#define MAX_DIST  60.0
+#define MAX_STEPS 64
+#define MIN_DIST  0.01
+#define MAX_DIST  80.0
 #else
 #define MAX_STEPS 64
 #define MIN_DIST  0.01
@@ -42,8 +42,10 @@ vec3 pEyeL;     vec3 pEyeR;     vec3 pEyeHoleL; vec3 pEyeHoleR;
 vec3 pArmL;     vec3 pArmR;     vec3 pArmLup;   vec3 pArmLx;    vec3 pArmLz;    vec3 pArmRup;   vec3 pArmRx; vec3 pArmRz;
 vec3 pLegL;     vec3 pLegR;     vec3 pLegLup;   vec3 pLegLx;    vec3 pLegLz;    vec3 pLegRup;   vec3 pLegRx; vec3 pLegRz; 
 vec3 pFootL;    vec3 pFootR;    vec3 pFootLup;  vec3 pFootLz;   vec3 pFootRup;  vec3 pFootRz;
-vec3 pHandL;    vec3 pHandR;    vec3 pHandLz;   vec3 pHandRz;
+vec3 pHandL;    vec3 pHandR;    vec3 pHandLz;   vec3 pHandRz;   vec3 pHandLup;  vec3 pHandRup;
 vec3 pHead;     vec3 pHeadUp;   vec3 pHeadZ; 
+vec3 pArmLud;   vec3 pArmRud;
+vec3 pLegLud;   vec3 pLegRud;
 vec3 pElbowL;   vec3 pElbowR;
 vec3 pPalmL;    vec3 pPalmR;
 vec3 pKneeR;    vec3 pKneeL;
@@ -51,6 +53,13 @@ vec3 pHeelL;    vec3 pHeelR;
 vec3 pToeL;     vec3 pToeR;
 vec3 pSpine;
 vec3 pNeck;
+
+vec4 qHip;      vec4 qNeck; vec4 qSpine; vec4 qTorso; 
+vec4 qArmL;     vec4 qArmR; vec4 qHandL; vec4 qHandR;
+vec4 qLegL;     vec4 qLegR; vec4 qFootL; vec4 qFootR;
+vec4 qHead;     vec4 qEyes;
+vec4 qKneeL;    vec4 qKneeR;
+vec4 qElbowL;   vec4 qElbowR;
 
 float rad2deg(float r) { return 180.0 * r / PI; }
 float deg2rad(float d) { return PI * d / 180.0; }
@@ -303,6 +312,79 @@ float sdBearing(vec3 p, vec3 a, vec3 n, float r)
     return opDiff(sdSphere(p, a, r), sdPlane(p, a, n));
 }
 
+// 00000000    0000000    0000000  00000000  
+// 000   000  000   000  000       000       
+// 00000000   000   000  0000000   0000000   
+// 000        000   000       000  000       
+// 000         0000000   0000000   00000000  
+
+void poseDancing()
+{
+    pHip = vec3(-sin(iTime*4.0), 0, 0);
+    
+    vec3 x = vec3(1,0,0);
+    vec3 y = vec3(0,1,0);
+    vec3 z = vec3(0,0,1);
+    
+    float sq = sin(iTime*0.25);
+    float sh = sin(iTime*0.5);
+    float s1 = sin(iTime);
+    float s2 = sin(iTime*2.0);
+    float t2 = sin(iTime*2.0+PI);
+    float s4 = sin(iTime*4.0);
+    float t4 = sin(iTime*4.0+PI);
+    float s8 = sin(iTime*8.0);
+    float s16 = sin(iTime*16.0);
+    
+    vec4 q0 = vec4(0,0,0,1);            
+    vec4 q1 = quatAxisAngle(y, s2*20.0);
+    vec4 q2 = quatAxisAngle(x, s2*20.0-5.0);
+    vec4 q3 = quatAxisAngle(z, t2*10.0-10.0);
+    vec4 q4 = quatAxisAngle(x, t2*10.0);
+    vec4 q5 = quatAxisAngle(y, t4*20.0);
+    vec4 q6 = quatAxisAngle(z, t4*10.0);
+    vec4 q7 = quatAxisAngle(x, s16*3.0);
+    vec4 qh = quatAxisAngle(x, abs(s8)*(sq*20.0+40.0));
+
+    qHip    = quatMul(q2,     q1);  
+    qSpine  = quatMul(qHip,   q4);  
+    qTorso  = quatMul(qHip,   q1); 
+    qNeck   = quatMul(q6,     q5);
+    qHead   = quatMul(q7,  qNeck); 
+    
+    qArmL   = quatAxisAngle(z, -t2*20.0);
+    qArmR   = quatMul(quatAxisAngle(z,  s4*20.0), q3);
+    qLegR   = quatAxisAngle(z,  s4*20.0);
+    qEyes   = quatAxisAngle(y,  s1*15.0);
+            
+    qFootL  = quatAxisAngle(y, -smoothstep(0.0, 1.0, s4)*(sh*20.0+30.0));
+    qFootR  = quatAxisAngle(y,  smoothstep(0.0, 1.0, t4)*(sq*15.0+25.0));
+            
+    qLegL   = quatMul(qLegR, qFootL);  
+    qLegR   = quatMul(qLegR, qFootR);  
+    
+    qKneeL  = quatMul(qLegL, quatAxisAngle(-x, smoothstep(0.0, 1.0, s4)*(sq*40.0+50.0)));
+    qKneeR  = quatMul(qLegR, quatAxisAngle(-x, smoothstep(0.0, 1.0, t4)*(sq*40.0+50.0)));
+    qElbowL = quatMul(qArmL, quatAxisAngle( x, smoothstep(0.0, 1.0, t4)*(sq*50.0+60.0))); 
+    qElbowR = quatMul(qArmR, quatAxisAngle( x, smoothstep(0.0, 1.0, s4)*(sq*50.0+60.0)));
+    
+    qHandR  = quatMul(qh, quatMul(qArmR, qElbowR));
+    qHandL  = quatMul(qh, quatMul(qArmL, qElbowL));
+}
+
+void poseNeutral()
+{
+    pHip = vec0;
+    
+    vec4 q = vec4(0,0,0,1);
+    qHip  = q; qNeck = q; qSpine = q; qTorso = q; 
+    qArmL = q; qArmR = q; qHandL = q; qHandR = q;
+    qLegL = q; qLegR = q; qFootL = q; qFootR = q;
+    qHead = q; qEyes = q;
+    qKneeL = q; qKneeR = q;
+    qElbowL = q; qElbowR = q;
+}
+
 //  0000000   000   000  000  00     00  
 // 000   000  0000  000  000  000   000  
 // 000000000  000 0 000  000  000000000  
@@ -311,37 +393,18 @@ float sdBearing(vec3 p, vec3 a, vec3 n, float r)
 
 void calcAnim()
 {
-    vec4 q1 = quatAxisAngle(vec3(0,1,0),  sin(iTime*2.0)*20.0);
-    vec4 q2 = quatAxisAngle(vec3(1,0,0),  sin(iTime*2.0)*20.0-10.0);
-    vec4 q  = quatMul(q2, q1);
-    vec4 qr = quatAxisAngle(vec3(0,1,0),  sin(iTime*1.0)*15.0);
-    vec4 qz = vec4(0,0,0,1);            
-    vec4 qa = quatAxisAngle(vec3(0,0,1),  sin(iTime*4.0)*20.0);
-    vec4 qb = quatAxisAngle(vec3(0,0,1), -sin(iTime*4.0)*20.0);
-    
-    if (false)
-    {
-        pHip = vec3(-sin(iTime*4.0), 0, 0);
-    }
-    else
-    {
-        q    = qz;
-        qa   = qz;
-        qb   = qz;
-        pHip = vec0;
-    }
-    
-    pHipUp   = rotate(q, vec3(0,1,0));
+    pHipUp   = rotate(qHip, vec3(0,1,0));
     pHipT    = pHip + pHipUp*0.6;
     
-    pHipRotL = rotate(q, rotZ(vec3(0,1,0), 120.0));
-    pHipRotR = rotate(q, rotZ(vec3(0,1,0), -120.0));
+    pHipRotL = rotate(qHip, rotZ(vec3(0,1,0),  120.0));
+    pHipRotR = rotate(qHip, rotZ(vec3(0,1,0), -120.0));
     
     pHipL    = pHip + 0.6*pHipRotL;
     pHipR    = pHip + 0.6*pHipRotR;
     
-    pSpine   = pHipT  + 0.5*pHipUp;
-    pTorsoB  = pSpine + 0.5*pHipUp;
+    vec3 vs = rotate(qSpine, 0.5*pHipUp);
+    pSpine   = pHipT  + vs;
+    pTorsoB  = pSpine + rotate(qSpine, vs);
     
     pTorsoRotL = 1.2*pHipRotL;
     pTorsoRotR = 1.2*pHipRotR;
@@ -351,60 +414,68 @@ void calcAnim()
     pTorsoR  = pTorsoT + pTorsoRotR;
     pTorsoL  = pTorsoT + pTorsoRotL;
     
-    pNeck    = pTorsoT + 0.5*pHipUp;
-    pHead    = pNeck   + 0.5*pHipUp;
+    vec3 vn = rotate(qNeck, 0.5*vec3(0,1,0));
+    pNeck    = pTorsoT + vn;
+    pHead    = pNeck   + rotate(qNeck, vn);
     
-    pEyeL    = pHead+rotate(qz, vec3( 0.5, 0.45, -1.3));
-    pEyeR    = pHead+rotate(qz, vec3(-0.5, 0.45, -1.3));
-    pHeadUp  = rotate(qz, vec3(0,1,0));
-    pHeadZ   = rotate(qz, vec3(0,0,1));
+    pEyeL    = pHead + rotate(qHead, vec3( 0.5, 0.45, -1.3));
+    pEyeR    = pHead + rotate(qHead, vec3(-0.5, 0.45, -1.3));
+    pHeadUp  = rotate(qHead, vec3(0,1,0));
+    pHeadZ   = rotate(qHead, vec3(0,0,1));
     
-    vec3 nZ = rotate(qr, vec3(0,0,-1));
+    vec3 nZ = rotate(qEyes, vec3(0,0,-1));
     vec3 eyeCam = normalize(camPos - (pEyeL+pEyeR)*0.5);
     eyeCam = mix(nZ, eyeCam, dot(nZ, eyeCam));
     pEyeHoleL = pEyeL+eyeCam*0.25;
     pEyeHoleR = pEyeR+eyeCam*0.25;
         
-    pArmLup = rotate(qb, vec3(0,1,0));
-    pArmLx  = rotate(qb, vec3(1,0,0));
-    pArmLz  = rotate(qb, vec3(0,0,1));
+    pArmLup = rotate(qArmL,   vec3(0,1,0));
+    pArmLud = rotate(qElbowL, vec3(0,1,0));
+    pArmLx  = rotate(qArmL,   vec3(1,0,0));
+    pArmLz  = rotate(qArmL,   vec3(0,0,1));
     
-    pHandL  = pTorsoL +0.45*pArmLx -2.35*pArmLup;    
     pElbowL = pTorsoL +0.45*pArmLx -1.20*pArmLup;
+    pHandL  = pElbowL -1.15*pArmLud;    
     
-    pArmRup = rotate(qa, vec3(0,1,0));
-    pArmRx  = rotate(qa, vec3(1,0,0));
-    pArmRz  = rotate(qa, vec3(0,0,1));
+    pArmRup = rotate(qArmR,   vec3(0,1,0));
+    pArmRud = rotate(qElbowR, vec3(0,1,0));
+    pArmRx  = rotate(qArmR,   vec3(1,0,0));
+    pArmRz  = rotate(qArmR,   vec3(0,0,1));
     
-    pHandR  = pTorsoR -0.45*pArmRx -2.35*pArmRup;    
     pElbowR = pTorsoR -0.45*pArmRx -1.20*pArmRup;
-    
-    pPalmL  = pHandL - 0.6 * pArmLup;
-    pPalmR  = pHandR - 0.6 * pArmRup;
-    pHandLz = -pArmLx;
-    pHandRz =  pArmRx;
+    pHandR  = pElbowR -1.15*pArmRud;    
 
-    pLegLup = rotate(qa, vec3(0,1,0));
-    pLegLx  = rotate(qa, vec3(1,0,0));
-    pLegLz  = rotate(qa, vec3(0,0,1));
+    pHandLz = rotate(qHandL, vec3(-1,0,0));
+    pHandRz = rotate(qHandR, vec3( 1,0,0));
+
+    pHandLup = rotate(qHandL, vec3(0,1,0));
+    pHandRup = rotate(qHandR, vec3(0,1,0));
+    pPalmL  = pHandL - 0.6 * pHandLup;
+    pPalmR  = pHandR - 0.6 * pHandRup;
+
+    pLegLup = rotate(qLegL, vec3(0,1,0));
+    pLegLud = rotate(qKneeL, vec3(0,1,0));
+    pLegLx  = rotate(qLegL, vec3(1,0,0));
+    pLegLz  = rotate(qLegL, vec3(0,0,1));
     
-    pFootL  = pHipL +0.45*pLegLx -2.35*pLegLup;    
     pKneeL  = pHipL +0.45*pLegLx -1.20*pLegLup;
+    pFootL  = pKneeL -1.15*pLegLud;
 
-    pLegRup = rotate(qa, vec3(0,1,0));
-    pLegRx  = rotate(qa, vec3(1,0,0));
-    pLegRz  = rotate(qa, vec3(0,0,1));
+    pLegRup = rotate(qLegR, vec3(0,1,0));
+    pLegRud = rotate(qKneeR, vec3(0,1,0));
+    pLegRx  = rotate(qLegR, vec3(1,0,0));
+    pLegRz  = rotate(qLegR, vec3(0,0,1));
     
-    pFootR  = pHipR -0.45*pLegRx -2.35*pLegRup;    
     pKneeR  = pHipR -0.45*pLegRx -1.20*pLegRup;
-    
-    pFootLup = vec3(0,1,0);
-    pFootLz  = vec3(0,0,1);
+    pFootR  = pKneeR -1.15*pLegRud;    
+
+    pFootLup = rotate(qFootL, vec3(0,1,0));
+    pFootLz  = rotate(qFootL, vec3(0,0,1));
     pHeelL   = pFootL -0.75 * pFootLup;
     pToeL    = pHeelL -0.75 * pFootLz;
     
-    pFootRup = vec3(0,1,0);
-    pFootRz  = vec3(0,0,1);
+    pFootRup = rotate(qFootR, vec3(0,1,0));
+    pFootRz  = rotate(qFootR, vec3(0,0,1));
     pHeelR   = pFootR -0.75 * pFootRup;
     pToeR    = pHeelR -0.75 * pFootRz;    
 }
@@ -437,7 +508,7 @@ void spine(vec3 pos, vec3 mid, vec3 top)
     vec3 up = normalize(top-mid);
     float d = sdBearing(s.pos, mid, up, 0.25);
 
-    if (d > s.dist+0.5) return;
+    if (d > s.dist+0.6) return;
     
     d = opUnion(d, sdCapsule(s.pos, mid, top, 0.15));
     d = opUnion(d, sdSphere (s.pos, top, 0.25));
@@ -480,7 +551,7 @@ void eye(vec3 pos, vec3 pupil)
     float d = sdSphere(s.pos, pos, 0.25);
     if (d > s.dist) return;
     
-    d = opDiff(d, 0.01, sdSphere(s.pos, pupil, 0.15));
+    d = opDiff(d, 0.01, sdSphere(s.pos, pupil, 0.125));
 
     if (d < s.dist) { s.mat = BULB; s.dist = d; }
 }
@@ -513,7 +584,7 @@ void head()
 // 000   000  000   000  000 0 000  
 // 000   000  000   000  000   000  
 
-void arm(vec3 pos, float side, vec3 elbow, vec3 hand, vec3 up, vec3 x, vec3 z)
+void arm(vec3 pos, float side, vec3 elbow, vec3 hand, vec3 up, vec3 ud, vec3 x, vec3 z)
 {
     float bb = sdSphere(s.pos, elbow, 2.0);
     if (bb > s.dist) return;
@@ -527,10 +598,10 @@ void arm(vec3 pos, float side, vec3 elbow, vec3 hand, vec3 up, vec3 x, vec3 z)
      
     if (d < s.dist) { s.mat = BONE; s.dist = d; }
     
-    d = sdCapsule(s.pos, elbow-0.25*up, elbow-1.0*up, 0.1);
+    d = sdCapsule(s.pos, elbow-0.25*ud, elbow-1.0*ud, 0.1);
 
     d = opUnion(d, sdDoubleTorus(s.pos, elbow, x, vec3(0.2, 0.07, 0.15)));
-    d = opUnion(d, sdBearing(s.pos, hand, up, 0.3));
+    d = opUnion(d, sdBearing(s.pos, hand, ud, 0.3));
      
     if (d < s.dist) { s.mat = BONE; s.dist = d; }
 }
@@ -564,7 +635,7 @@ void foot(vec3 pos, vec3 heel, vec3 toe, vec3 up)
 
 void hand(vec3 pos, vec3 palm, vec3 z)
 {    
-    float d = sdSocket(s.pos, palm, -z, 0.5);
+    float d = sdSocket(s.pos, palm+z*0.15, -z, 0.5);
     
     d = opUnion(d, sdSphere(s.pos, pos, 0.25));
     
@@ -593,10 +664,10 @@ float map(vec3 p)
     spine(pTorsoT, pNeck, pHead);
     head ();
              
-    arm  (pTorsoR,  1.0, pElbowR, pHandR, pArmRup, pArmRx, pArmRz);
-    arm  (pTorsoL, -1.0, pElbowL, pHandL, pArmLup, pArmLx, pArmLz);
-    arm  (pHipR,    1.0, pKneeR,  pFootR, pLegRup, pLegRx, pLegRz);
-    arm  (pHipL,   -1.0, pKneeL,  pFootL, pLegLup, pLegLx, pLegLz);
+    arm  (pTorsoR,  1.0, pElbowR, pHandR, pArmRup, pArmRud, pArmRx,  pArmRz);
+    arm  (pTorsoL, -1.0, pElbowL, pHandL, pArmLup, pArmLud, pArmLx,  pArmLz);
+    arm  (pHipR,    1.0, pKneeR,  pFootR, pLegRup, pLegRud, pLegRx, pLegRz);
+    arm  (pHipL,   -1.0, pKneeL,  pFootL, pLegLup, pLegLud, pLegLx, pLegLz);
     foot (pFootR,        pHeelR,  pToeR,  pFootRup);
     foot (pFootL,        pHeelL,  pToeL,  pFootLup);
     hand (pHandR,        pPalmR,  pHandRz);
@@ -684,7 +755,7 @@ float hardShadow(vec3 ro, vec3 rd, float mint, float maxt, const float w)
 
 float getLight(vec3 p, vec3 n)
 {
-    float t = sin(iTime*0.2);
+    float t = 0.0; // sin(iTime*0.2);
     vec3 lp = rotY(rotX(vec3(0, 10, -10), -10.0 - 20.0*t), 20.0*t);
     vec3 l = normalize(lp - p);
  
@@ -712,12 +783,12 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         ct = vec0;
         camPos = rotY(rotX(vec3(0,0,-15), -20.0+10.0*sin(iTime*0.1)), 50.0*sin(iTime*0.2));
     #else
-        ct = iCenter;
-        camPos = iCamera;
-        camPos.x *= -1.0;
-        ct.x *= -1.0;
+        ct = iCenter; camPos = iCamera;
+        camPos.x *= -1.0; ct.x *= -1.0;
     #endif
 
+    if (true) poseDancing();
+    else      poseNeutral();
     calcAnim();
     
     vec3 ww = normalize(ct-camPos);
