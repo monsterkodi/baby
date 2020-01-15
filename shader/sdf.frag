@@ -237,34 +237,6 @@ float sdCapsule(vec3 p, vec3 a, vec3 b, float r)
     return length(p-c)-r;        
 }
 
-float sdLink( vec3 p, vec3 a, float le, float r1, float r2 )
-{
-  p = p-a;
-  vec3 q = vec3( p.x, max(abs(p.y)-le,0.0), p.z );
-  return length(vec2(length(q.xy)-r1,q.z)) - r2;
-}
-
-float sdCylinder(vec3 p, vec3 a, float h, float r)
-{
-    p = p - a;
-    vec2 d = abs(vec2(length(p.xz),p.y)) - vec2(r,h);
-    return min(max(d.x,d.y),0.0) + length(max(d,0.0));
-}
-
-float sdCylinder(vec3 p, vec3 a, vec3 b, float r)
-{
-    vec3  ba = b - a;
-    vec3  pa = p - a;
-    float baba = dot(ba,ba);
-    float paba = dot(pa,ba);
-    float x = length(pa*baba-ba*paba) - r*baba;
-    float y = abs(paba-baba*0.5)-baba*0.5;
-    float x2 = x*x;
-    float y2 = y*y*baba;
-    float d = (max(x,y)<0.0)?-min(x2,y2):(((x>0.0)?x2:0.0)+((y>0.0)?y2:0.0));
-    return sign(d)*sqrt(abs(d))/baba;
-}
-
 float sdTorus(vec3 p, vec3 a, vec3 n, vec2 r)
 {
     vec3 q = p-a;
@@ -290,7 +262,7 @@ float sdBend(vec3 p, vec3 a, vec3 n, vec3 d, float side, vec2 r)
     if (dot(q,side*d) > 0.0) return length(q)-r.y;
     
     vec3 c = cross(d,n);
-    vec3 pp = q-r.x*c+side*r.x*d;
+    vec3 pp = q - r.x*c + side*r.x*d;
     if (dot(pp,c) > 0.0) return length(pp)-r.y;
 
     return length(vec2(length(posOnPlane(q, n)-r.x*c)-r.x,abs(dot(n, q))))-r.y;
@@ -318,16 +290,16 @@ float sdSocket(vec3 p, vec3 a, vec3 n, float r, float k)
     vec3 q = p-a;
     float dp = dot(q, n);
     float ds = length(q)-r;
-    if (dp > 0.0)
+    if (dp > k)
     {
         return ds;
     }
-    float dt = sdTorus(p, a, n, vec2(r-k,k));
-    if (ds < -k*2.0 && dt > 0.0)
+    else if (ds < -k*2.0)
     {
-        return -dp;
+        return -dp+k;
     }
-    return dt;
+
+    return sdTorus(p, a+k*n, n, vec2(r-k,k));
 }
 
 float sdSocket(vec3 p, vec3 a, vec3 n, float r)
@@ -513,7 +485,7 @@ void spine(vec3 pos, vec3 mid, vec3 top)
     vec3 up = normalize(top-mid);
     float d = sdSocket(s.pos, mid, up, 0.25);
 
-    if (d > s.dist+0.4) return;
+    if (d > s.dist+0.5) return;
     
     d = opUnion(d, sdCapsule(s.pos, mid, top, 0.15));
     d = opUnion(d, sdSphere (s.pos, top, 0.25));
