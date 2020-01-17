@@ -9,7 +9,6 @@
 { Mesh, MeshBuilder, ShaderMaterial, Vector2, Vector3 } = require 'babylonjs'
 { performance } = require 'perf_hooks'
 { slash } = require 'kxk'
-# Vect = require './vect'
         
 class Shader
     
@@ -28,7 +27,7 @@ class Shader
             }
             """
         
-        fragSource = slash.readText "#{__dirname}/../shader/sdf.frag"
+        fragSource = slash.readText "#{__dirname}/../shader/kalamari.frag"
                     
         fragmentShader = """
             precision highp float;
