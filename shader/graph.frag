@@ -87,5 +87,15 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     vec3 col;
     col = mix(checker(uv), gc, 1.0-d);
+    
+    
+    float z = iTime,
+        tau = 6.2832,
+          d = length(uv), a = atan(uv.x,uv.y),
+          s = a - tau*4.*sqrt(d) +z,       // spiral coordinate
+          t = iDate.w/60.;
+    
+    col = vec3(s);
+    
     fragColor = vec4(col, 1.0);
 }
