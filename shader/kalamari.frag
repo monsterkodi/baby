@@ -186,6 +186,11 @@ float sdTetra(vec3 p, vec3 a, float s, float r)
     return d;
 }
 
+float sdSocket(vec3 p, vec3 a, vec3 n, float r)
+{
+    return opDiff(opDiff(sdSphere(p, a, r), 0.2, sdPlane(p, a, -n)), 0.2, sdSphere(p, a, r-0.2));
+}
+
 // 00000000  000   000  00000000  
 // 000        000 000   000       
 // 0000000     00000    0000000   
@@ -206,16 +211,21 @@ void eye(vec3 pos, vec3 pupil, vec3 lens)
     if (d < s.dist) { s.mat = PUPL; s.dist = d; }
 }
 
+//  0000000   00000000   00     00  
+// 000   000  000   000  000   000  
+// 000000000  0000000    000000000  
+// 000   000  000   000  000 0 000  
+// 000   000  000   000  000   000  
+
+void arm(vec3 pos, vec3 n)
+{
+}
+
 // 000   000  00000000   0000000   0000000    
 // 000   000  000       000   000  000   000  
 // 000000000  0000000   000000000  000   000  
 // 000   000  000       000   000  000   000  
 // 000   000  00000000  000   000  0000000    
-
-float sdSocket(vec3 p, vec3 a, vec3 n, float r)
-{
-    return opDiff(opDiff(sdSphere(p, a, r), 0.2, sdPlane(p, a, -n)), 0.2, sdSphere(p, a, r-0.2));
-}
 
 void head(vec3 pos)
 {
@@ -240,30 +250,35 @@ void head(vec3 pos)
     d = opUnion(d, sdSocket(s.pos, eyel, left,  sr));
     d = opUnion(d, sdSocket(s.pos, eyer, right, sr));
     d = opUnion(d, sdSocket(s.pos, eyeb, back,  sr));
+        
+    float oo = 0.4;
+    float od = 0.8;
     
+    vec3 arml = pos - od*vy - oo*left;
+    vec3 armr = pos - od*vy - oo*right;
+    vec3 armb = pos - od*vy - oo*back;
+    
+    vec3 armln = normalize(arml - 0.03*left  - vy);
+    vec3 armrn = normalize(armr - 0.03*right - vy);
+    vec3 armbn = normalize(armb - 0.03*back  - vy);
+    
+    d = opUnion(d, sdSocket(s.pos, arml, armln, 0.35));
+    d = opUnion(d, sdSocket(s.pos, armr, armrn, 0.35));
+    d = opUnion(d, sdSocket(s.pos, armb, armbn, 0.35));
+        
     if (d < s.dist) { s.mat = HEAD; s.dist = d; }
     
     vec3 nl = normalize(camPos - eyel);
     vec3 nr = normalize(camPos - eyer);
     vec3 nb = normalize(camPos - eyeb);
     
-    // nl = left;
-    // nr = right;
-    
     eye(eyel, eyel + pd*nl, eyel + ld*nl);
     eye(eyer, eyer + pd*nr, eyer + ld*nr);
     eye(eyeb, eyeb + pd*nb, eyeb + ld*nb);
-}
-
-//  0000000   00000000   00     00  
-// 000   000  000   000  000   000  
-// 000000000  0000000    000000000  
-// 000   000  000   000  000 0 000  
-// 000   000  000   000  000   000  
-
-void arms()
-{
     
+    arm(arml, armln);
+    arm(armr, armrn);
+    arm(armb, armbn);
 }
 
 // 00     00   0000000   00000000   
@@ -277,7 +292,6 @@ float map(vec3 p)
     s = sdf(1000.0, p, NONE);
          
     head (vec3(0,0,0));
-    arms ();
 
     return s.dist;
 }
@@ -350,6 +364,7 @@ float getLight(vec3 p, vec3 n)
     if (mat == PUPL)
     {
         dif = mix(pow(dif, 16.0), 1.0*dif, 0.2);
+        dif += 1.0 - smoothstep(0.0, 0.2, dif);
         ambient = 0.0;
     }
     else if (mat == BULB)
@@ -397,7 +412,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         
     vec3 col;
     
-    if      (mat == NONE)  col = vec3(0.01,0.01,0.02); 
+    if      (mat == NONE)  col = vec3(0.05,0.05,0.3); 
     else if (mat == HEAD)  col = vec3(0.3,0.3,1.0); 
     else if (mat == TAIL)  col = vec3(1.0,1.0,0.0);
     else if (mat == PUPL)  col = vec3(0.1,0.1,0.5);
