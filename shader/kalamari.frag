@@ -1,10 +1,10 @@
-#define TOY  1
+// #define TOY  1
 
 #define MAX_STEPS 64
 #define MIN_DIST  0.01
 #define MAX_DIST  80.0
 
-#define PI 3.141592653589793
+#define PI 3.1415926535897
 #define ZERO min(iFrame,0)
 
 #define NONE  0
@@ -35,6 +35,45 @@ vec3 vz = vec3(0,0,1);
     
 float rad2deg(float r) { return 180.0 * r / PI; }
 float deg2rad(float d) { return PI * d / 180.0; }
+
+// 0000000    000   0000000   000  000000000  
+// 000   000  000  000        000     000     
+// 000   000  000  000  0000  000     000     
+// 000   000  000  000   000  000     000     
+// 0000000    000   0000000   000     000     
+
+float digitBin(const int x)
+{
+    return x==0?480599.0:x==1?139810.0:x==2?476951.0:x==3?476999.0:x==4?350020.0:x==5?464711.0:x==6?464727.0:x==7?476228.0:x==8?481111.0:x==9?481095.0:0.0;
+}
+
+float digit(vec2 vStringCoords, float fValue, float fMaxDigits, float fDecimalPlaces)
+{       
+    if ((vStringCoords.y < 0.0) || (vStringCoords.y >= 1.0)) return 0.0;
+    
+    bool bNeg = fValue < 0.0;
+	fValue = abs(fValue);
+    
+	float fLog10Value = log2(abs(fValue)) / log2(10.0);
+	float fBiggestIndex = max(floor(fLog10Value), 0.0);
+	float fDigitIndex = fMaxDigits - floor(vStringCoords.x);
+	float fCharBin = 0.0;
+    if (fDigitIndex > (-fDecimalPlaces - 1.01)) {
+        if (fDigitIndex > fBiggestIndex) {
+			if((bNeg) && (fDigitIndex < (fBiggestIndex+1.5))) fCharBin = 1792.0;
+		} else {		
+            if (fDigitIndex == -1.0) {
+                if (fDecimalPlaces > 0.0) fCharBin = 2.0;
+			} else {
+                float fReducedRangeValue = fValue;
+                if (fDigitIndex < 0.0) { fReducedRangeValue = fract( fValue ); fDigitIndex += 1.0; }
+				float fDigitValue = (abs(fReducedRangeValue / (pow(10.0, fDigitIndex))));
+                fCharBin = digitBin(int(floor(mod(fDigitValue, 10.0))));
+			}
+        }
+	}
+    return floor(mod((fCharBin / pow(2.0, floor(fract(vStringCoords.x) * 4.0) + (floor(vStringCoords.y * 5.0) * 4.0))), 2.0));
+}
 
 //  0000000   000   000   0000000   000000000  
 // 000   000  000   000  000   000     000     
@@ -394,7 +433,16 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     vec2 uv = (fragCoord-.5*iResolution.xy)/iResolution.y;
     vec3 ct;
     
+    #ifdef TOY
+    ct = vec3(0,0,0); 
+    float my = 2.0*(iMouse.y/iResolution.y-0.5);
+    float mx = 2.0*(iMouse.x/iResolution.x-0.5);
+    float md = 4.0;
+    camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, 89.0*my), vy, 180.0*mx);
+    #else
     ct = iCenter; camPos = iCamera;
+    #endif
+    
     camPos.x *= -1.0; ct.x *= -1.0;
 
     vec3 ww = normalize(ct-camPos);
@@ -419,5 +467,11 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     else col = vec3(1,1,1);
 
     col = pow(col*l, vec3(1.0/2.2));
+    //col = vec3(mx, 0, my);
+    
+    vec2  fontSize = vec2(20.0, 35.0);  
+    float isDigit = digit(fragCoord / fontSize, 1000.0/iMs, 2.0, 0.0);
+    col = mix( col, vec3(1.0, 1.0, 1.0), isDigit);
+    
     fragColor = vec4(col, 1.0);
 }

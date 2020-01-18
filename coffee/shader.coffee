@@ -27,6 +27,7 @@ class Shader
             }
             """
         
+        # fragSource = slash.readText "#{__dirname}/../shader/graph.frag"
         fragSource = slash.readText "#{__dirname}/../shader/kalamari.frag"
                     
         fragmentShader = """
