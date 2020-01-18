@@ -342,22 +342,29 @@ float hardShadow(vec3 ro, vec3 rd, float mint, float maxt, const float w)
 
 float getLight(vec3 p, vec3 n)
 {
-    vec3 lp = vec3(0, 10, 0);
+    vec3 lp = mix(camPos, vec3(0, 10, 0), 0.15);
     vec3 l = normalize(lp-p);
  
-    float dif = dot(n,l);
+    float ambient = 0.04;
+    float dif = clamp(dot(n,l), 0.0, 1.0);
+    if (mat == PUPL)
+    {
+        dif = mix(pow(dif, 16.0), 1.0*dif, 0.2);
+        ambient = 0.0;
+    }
+    else if (mat == BULB)
+    {
+        dif = mix(pow(dif, 32.0), 3.0*dif+1.0, 0.2);
+    }
+    else if (mat == HEAD)
+    {
+        dif = pow(dif, 4.0);
+    }
     
     vec3 off = p+n*2.0*MIN_DIST;
 
-    dif *= hardShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.5);
-        
-    float ambient = 0.2;
-    
-    if (mat == BULB)
-    {
-        ambient = 0.5;
-    }
-    
+    dif *= hardShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.2);
+            
     return clamp(dif, ambient, 1.0);
 }
 
@@ -390,11 +397,12 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         
     vec3 col;
     
-    if      (mat == NONE)  col = vec3(0.2,0.2,0.2); 
+    if      (mat == NONE)  col = vec3(0.01,0.01,0.02); 
     else if (mat == HEAD)  col = vec3(0.3,0.3,1.0); 
     else if (mat == TAIL)  col = vec3(1.0,1.0,0.0);
-    else if (mat == PUPL)  col = vec3(0.5,0.5,1.0);
+    else if (mat == PUPL)  col = vec3(0.1,0.1,0.5);
     else col = vec3(1,1,1);
 
-    fragColor = vec4(col * l, 1.0);
+    col = pow(col*l, vec3(1.0/2.2));
+    fragColor = vec4(col, 1.0);
 }
