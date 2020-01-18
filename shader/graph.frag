@@ -90,6 +90,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     float s = atan(uv.x,uv.y) - sqrt(length(uv)) - max(sin(iTime),0.0);    
     col = vec3(s);
-    
+    col = vec3(fract(atan(uv.y, uv.x)/6.3 + 10.*length(uv) - max(0.0,sin(iTime))));
     fragColor = vec4(col, 1.0);
 }
