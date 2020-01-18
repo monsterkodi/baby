@@ -27,6 +27,8 @@ struct sdf {
 sdf s;
 int mat;
 vec3 camPos;
+vec3 camTgt;
+vec3 camDir;
 
 vec3 v0 = vec3(0,0,0);
 vec3 vx = vec3(1,0,0);
@@ -201,26 +203,26 @@ float sdPlane(vec3 p, vec3 a, vec3 n)
 
 float sdTetra(vec3 p, vec3 a, float s, float r)
 {
-    vec3 c1 = vec3(-5.551115123125783e-17, 0.9957819157813607, -0.09175170953613682);
-    vec3 c2 = vec3(0.8164965809277261, -0.28867513459481303, 0.5);
-    vec3 c3 = vec3(5.551115123125783e-17, -0.41843164659173454, -0.9082482904638632);
-    vec3 c4 = vec3(-0.8164965809277261, -0.2886751345948131, 0.49999999999999994);
+    vec3 c1 = vec3( 0, 1, 0);
+    vec3 c2 = vec3( 0.8165, -0.3333,  0.47140);
+    vec3 c3 = vec3( 0,      -0.3333, -0.94281);
+    vec3 c4 = vec3(-0.8165, -0.3333,  0.47140);
     
     c1 *= s;
     c2 *= s;
     c3 *= s;
     c4 *= s;
-    
-    vec3 n1 = normalize(cross(c2-c1,c1-c3));
-    vec3 n2 = normalize(cross(c2-c1,c4-c2));
-    vec3 n3 = normalize(cross(c2-c3,c2-c4));
-    vec3 n4 = normalize(cross(c3-c1,c3-c4));
+        
+    vec3 n1 = vec3( 0.0000,  0.3333,  0.942812);
+    vec3 n2 = vec3( 0.8165,  0.3333, -0.471400);
+    vec3 n3 = vec3( 0.0000, -1.0000,  0.000000);
+    vec3 n4 = vec3(-0.8165,  0.3333, -0.471400);
     
     float d = sdSphere(p,a,2.0); 
-    d = opDiff(d, r, sdPlane(p, c1, n1));
-    d = opDiff(d, r, sdPlane(p, c4, n2));
-    d = opDiff(d, r, sdPlane(p, c4, n3));
-    d = opDiff(d, r, sdPlane(p, c4, n4));
+    d = opDiff(d, r, sdPlane(p, c1, -n1));
+    d = opDiff(d, r, sdPlane(p, c2, -n2));
+    d = opDiff(d, r, sdPlane(p, c3, -n3));
+    d = opDiff(d, r, sdPlane(p, c4, -n4));
   
     return d;
 }
@@ -276,13 +278,18 @@ void head(vec3 pos)
     float pd = 0.4;
     float ld = 0.2;
     
-    vec3 left = vec3(0.8164965809277259, 0.28867513459481303, -0.5);
+    vec3 n1 = vec3( 0.0000,  0.3333,  0.942812);
+    vec3 n2 = vec3( 0.8165,  0.3333, -0.471400);
+    vec3 n3 = vec3( 0.0000, -1.0000,  0.000000);
+    vec3 n4 = vec3(-0.8165,  0.3333, -0.471400);
+    
+    vec3 left = n2;
     vec3 eyel = pos + ed*left;
     
-    vec3 right = vec3(-0.8164965809277261, 0.2886751345948129, -0.5);
+    vec3 right = n4;
     vec3 eyer = pos + ed*right;
     
-    vec3 back = vec3(-4.509849296471688e-17, 0.41843164659173443, 0.9082482904638631);
+    vec3 back = n1;
     vec3 eyeb = pos + ed*back;
     
     float sr = 0.56;
@@ -395,29 +402,35 @@ float hardShadow(vec3 ro, vec3 rd, float mint, float maxt, const float w)
 
 float getLight(vec3 p, vec3 n)
 {
-    vec3 lp = mix(camPos, vec3(0, 10, 0), 0.15);
+    // vec3 lp = mix(camPos, vec3(0, 10, 0), 0.15);
+    vec3 cr = cross(camDir, vec3(0,1,0));
+    vec3 up = normalize(cross(cr,camDir));
+    vec3 lp = camPos + vec3(0,2.0,0) + up*5.0; //+up*5.0;
+    lp *= 5.0;
+    // vec3 lp = vec3(0, 5, 10);
     vec3 l = normalize(lp-p);
  
-    float ambient = 0.04;
+    float ambient = 0.005;
     float dif = clamp(dot(n,l), 0.0, 1.0);
     if (mat == PUPL)
     {
+        dif = clamp(dot(n,normalize(mix(camPos,lp,0.1)-p)), 0.0, 1.0);
         dif = mix(pow(dif, 16.0), 1.0*dif, 0.2);
         dif += 1.0 - smoothstep(0.0, 0.2, dif);
-        ambient = 0.0;
+        ambient = 0.1;
     }
     else if (mat == BULB)
     {
         dif = mix(pow(dif, 32.0), 3.0*dif+1.0, 0.2);
+        ambient = 0.2;
     }
     else if (mat == HEAD)
     {
         dif = pow(dif, 4.0);
-    }
-    
+        
     vec3 off = p+n*2.0*MIN_DIST;
-
     dif *= hardShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.2);
+    }
             
     return clamp(dif, ambient, 1.0);
 }
@@ -434,18 +447,21 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     vec3 ct;
     
     #ifdef TOY
-    ct = vec3(0,0,0); 
+    camTgt = vec3(0,0,0); 
     float my = 2.0*(iMouse.y/iResolution.y-0.5);
     float mx = 2.0*(iMouse.x/iResolution.x-0.5);
     float md = 4.0;
-    camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, 89.0*my), vy, 180.0*mx);
+    camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, 89.0*my), vy, -180.0*mx);
     #else
-    ct = iCenter; camPos = iCamera;
+    camTgt = iCenter;
+    camPos = iCamera;
+    camPos.x *= -1.0;
+    // camTgt.x *= -1.0;
     #endif
     
-    camPos.x *= -1.0; ct.x *= -1.0;
-
-    vec3 ww = normalize(ct-camPos);
+    camDir = normalize(camTgt-camPos);
+    
+    vec3 ww = normalize(camTgt-camPos);
     vec3 uu = normalize(cross(ww, vec3(0,1,0)));
     vec3 vv = normalize(cross(uu, ww));
     
@@ -460,18 +476,26 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         
     vec3 col;
     
-    if      (mat == NONE)  col = vec3(0.05,0.05,0.3); 
+    vec3 bg = vec3(.005, .005, .025) * clamp(1.0-1.0*length(uv), 0., 1.);
+    
+    if (mat == NONE)  
+    {
+        vec2 guv = fragCoord.xy - iResolution.xy / 2.;
+        float grid = dot(step(mod(guv.xyxy, vec4(10,10,100,100)), vec4(1)), vec4(.5, .5, 1., 1.));
+        col = mix(bg, vec3(0.02,0.02,0.1), grid);
+        l = 1.0;
+    }
     else if (mat == HEAD)  col = vec3(0.3,0.3,1.0); 
-    else if (mat == TAIL)  col = vec3(1.0,1.0,0.0);
     else if (mat == PUPL)  col = vec3(0.1,0.1,0.5);
-    else col = vec3(1,1,1);
+    else if (mat == TAIL)  col = vec3(1.0,1.0,0.0);
+    else if (mat == BULB)  col = vec3(0.9,0.8,0.7);
 
-    col = pow(col*l, vec3(1.0/2.2));
-    //col = vec3(mx, 0, my);
-    
+    #ifndef TOY
     vec2  fontSize = vec2(20.0, 35.0);  
-    float isDigit = digit(fragCoord / fontSize, 1000.0/iMs, 2.0, 0.0);
+    float isDigit = digit(fragCoord / fontSize, iMs, 2.0, 0.0);
     col = mix( col, vec3(1.0, 1.0, 1.0), isDigit);
+    #endif
     
+    col = pow(col*l, vec3(1.0/2.2));
     fragColor = vec4(col, 1.0);
 }

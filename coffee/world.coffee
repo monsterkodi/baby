@@ -6,7 +6,7 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ elem, prefs } = require 'kxk'
+{ elem, klog, prefs } = require 'kxk'
 { Camera, Color3, DirectionalLight, Engine, HemisphericLight, MeshBuilder, Scene, Space, StandardMaterial, Vector3 } = require 'babylonjs'
 { vec } = require './poly/math'
 generate = require './poly/generate'
@@ -78,25 +78,26 @@ class World
   
         vy = vec(0,1,0);
         vx = vec(1,0,0);
-        c1 = vec( 1.0, 1.0, 1.0).normalize().rotate(vy, -45.0).rotate(vx, -60.0);
-        c2 = vec( 1.0,-1.0,-1.0).normalize().rotate(vy, -45.0).rotate(vx, -60.0);
-        c3 = vec(-1.0, 1.0,-1.0).normalize().rotate(vy, -45.0).rotate(vx, -60.0);
-        c4 = vec(-1.0,-1.0, 1.0).normalize().rotate(vy, -45.0).rotate(vx, -60.0);
         
-        n1 = c1.minus(c4).crossed(c4.minus(c2)).normalize();
-        n2 = c2.minus(c3).crossed(c3.minus(c1)).normalize();
-        n3 = c3.minus(c2).crossed(c2.minus(c4)).normalize();
-        n4 = c4.minus(c1).crossed(c1.minus(c3)).normalize();
+        c1 = vec( 1.0, 1.0, 1.0).normalize().rotate(vy, -45.0).rotate(vx, -54.735)
+        c2 = vec( 1.0,-1.0,-1.0).normalize().rotate(vy, -45.0).rotate(vx, -54.735)
+        c3 = vec(-1.0, 1.0,-1.0).normalize().rotate(vy, -45.0).rotate(vx, -54.735)
+        c4 = vec(-1.0,-1.0, 1.0).normalize().rotate(vy, -45.0).rotate(vx, -54.735)
         
-        # klog("vec3 c1 = vec3(#{c1.x}, #{c1.y}, #{c1.z});");
-        # klog("vec3 c2 = vec3(#{c2.x}, #{c2.y}, #{c2.z});");
-        # klog("vec3 c3 = vec3(#{c3.x}, #{c3.y}, #{c3.z});");
-        # klog("vec3 c4 = vec3(#{c4.x}, #{c4.y}, #{c4.z});");
-#         
-        # klog("vec3 n1 = vec3(#{n1.x}, #{n1.y}, #{n1.z});");
-        # klog("vec3 n2 = vec3(#{n2.x}, #{n2.y}, #{n2.z});");
-        # klog("vec3 n3 = vec3(#{n3.x}, #{n3.y}, #{n3.z});");
-        # klog("vec3 n4 = vec3(#{n4.x}, #{n4.y}, #{n4.z});");
+        n1 = c1.minus(c4).crossed(c4.minus(c2)).normalize()
+        n2 = c2.minus(c3).crossed(c3.minus(c1)).normalize()
+        n3 = c3.minus(c2).crossed(c2.minus(c4)).normalize()
+        n4 = c4.minus(c1).crossed(c1.minus(c3)).normalize()
+        
+        klog "vec3 c1 = vec3(#{c1.x}, #{c1.y}, #{c1.z});"
+        klog "vec3 c2 = vec3(#{c2.x}, #{c2.y}, #{c2.z});"
+        klog "vec3 c3 = vec3(#{c3.x}, #{c3.y}, #{c3.z});"
+        klog "vec3 c4 = vec3(#{c4.x}, #{c4.y}, #{c4.z});"
+             
+        klog "vec3 n1 = vec3(#{n1.x}, #{n1.y}, #{n1.z});"
+        klog "vec3 n2 = vec3(#{n2.x}, #{n2.y}, #{n2.z});"
+        klog "vec3 n3 = vec3(#{n3.x}, #{n3.y}, #{n3.z});"
+        klog "vec3 n4 = vec3(#{n4.x}, #{n4.y}, #{n4.z});"
         
         @shader = new Shader @
         # if 0
