@@ -29,6 +29,7 @@ class Shader
         
         # fragSource = slash.readText "#{__dirname}/../shader/graph.frag"
         fragSource = slash.readText "#{__dirname}/../shader/kalamari.frag"
+        # fragSource = slash.readText "#{__dirname}/../shader/twist.frag"
                     
         fragmentShader = """
             precision highp float;

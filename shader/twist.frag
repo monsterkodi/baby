@@ -1,8 +1,8 @@
-#define TOY  1
+// #define TOY  1
 
-#define MAX_STEPS 64
-#define MIN_DIST  0.01
-#define MAX_DIST  80.0
+#define MAX_STEPS 128
+#define MIN_DIST  0.001
+#define MAX_DIST  180.0
 
 #define PI 3.1415926535897
 #define ZERO min(iFrame,0)
@@ -178,13 +178,6 @@ float opDiff(float d1, float k, float d2)
     return mix(d1, -d2, h) + k*h*(1.0-h); 
 }
 
-float opInter(float d1, float d2) 
-{
-    float k = 0.05;
-    float h = clamp(0.5 - 0.5*(d2-d1)/k, 0.0, 1.0);
-    return mix(d2, d1, h) + k*h*(1.0-h);
-}
-
 //  0000000  0000000    
 // 000       000   000  
 // 0000000   000   000  
@@ -201,36 +194,14 @@ float sdPlane(vec3 p, vec3 a, vec3 n)
     return dot(n, p-a);
 }
 
-float sdTetra(vec3 p, vec3 a, float s, float r)
+float sdCapsule(vec3 p, vec3 a, vec3 b, float r)
 {
-    p = p - a;
-    vec3 c1 = vec3( 0, 1, 0);
-    vec3 c2 = vec3( 0.8165, -0.3333,  0.47140);
-    vec3 c3 = vec3( 0,      -0.3333, -0.94281);
-    vec3 c4 = vec3(-0.8165, -0.3333,  0.47140);
-    
-    c1 *= s;
-    c2 *= s;
-    c3 *= s;
-    c4 *= s;
-        
-    vec3 n1 = vec3( 0.0000,  0.3333,  0.942812);
-    vec3 n2 = vec3( 0.8165,  0.3333, -0.471400);
-    vec3 n3 = vec3( 0.0000, -1.0000,  0.000000);
-    vec3 n4 = vec3(-0.8165,  0.3333, -0.471400);
-    
-    float d = sdSphere(p,v0,2.0); 
-    d = opDiff(d, r, sdPlane(p, c1, -n1));
-    d = opDiff(d, r, sdPlane(p, c2, -n2));
-    d = opDiff(d, r, sdPlane(p, c3, -n3));
-    d = opDiff(d, r, sdPlane(p, c4, -n4));
-  
-    return d;
-}
-
-float sdSocket(vec3 p, vec3 a, vec3 n, float r)
-{
-    return opDiff(opDiff(sdSphere(p, a, r), 0.2, sdPlane(p, a, -n)), 0.2, sdSphere(p, a, r-0.2));
+    vec3 ab = b-a;
+    vec3 ap = p-a;
+    float t = dot(ab,ap) / dot(ab,ab);
+    t = clamp(t, 0.0, 1.0);
+    vec3 c = a + t*ab;
+    return length(p-c)-r;        
 }
 
 float sdCone(vec3 p, vec3 a, vec3 b, float r1, float r2)
@@ -243,135 +214,38 @@ float sdCone(vec3 p, vec3 a, vec3 b, float r1, float r2)
     return length(p-c)-(t*r2+(1.0-t)*r1);      
 }
 
-// 00000000  000   000  00000000  
-// 000        000 000   000       
-// 0000000     00000    0000000   
-// 000          000     000       
-// 00000000     000     00000000  
+// 000000000  000   000  000   0000000  000000000  
+//    000     000 0 000  000  000          000     
+//    000     000000000  000  0000000      000     
+//    000     000   000  000       000     000     
+//    000     00     00  000  0000000      000     
 
-void eye(vec3 pos, vec3 pupil, vec3 lens)
+void twist(vec3 pos) // vec3 r, vec3 n
 {
-    float d = sdSphere(s.pos, pos, 0.4);
-    if (d > s.dist) return;
-    
-    d = opDiff(d, 0.05, sdSphere(s.pos, pupil, 0.2));
-
-    if (d < s.dist) { s.mat = BULB; s.dist = d; }
-    
-    d = min(d, sdSphere(s.pos, lens, 0.21));
-    
-    if (d < s.dist) { s.mat = PUPL; s.dist = d; }
-}
-
-//  0000000   00000000   00     00  
-// 000   000  000   000  000   000  
-// 000000000  0000000    000000000  
-// 000   000  000   000  000 0 000  
-// 000   000  000   000  000   000  
-
-void arm(vec3 pos, vec3 r, vec3 n)
-{
+    vec3 r = vec3( 0, 0, 1);
+    vec3 n = vec3( 0,-1, 0); 
     vec3 p = s.pos-pos;
     
     float d = 1000.0;
     
-    d = min(d, sdSphere(p, v0, 0.25));
-    
-    n *= 0.3;
-    
-    vec3 p1 = v0;
-    vec3 p2 = p1 + n;
+    vec3 p1 = pos;
+    vec3 p2 = pos + n;
     
     float lf = 1.0;
     float sf = 1.0;
-    float a  = -(sin(iTime*2.0)+1.0)*17.0+5.0;
+    float a = sin(iTime)*30.0;
     
     for (int i = 0; i < 25; i++)
     {
-        d = opUnion(d, sdCone(p, p1, p2, 0.2*sf, 0.2*sf*0.9));
+        d = min(d, sdCone(p, p1, p2, 0.5*sf, 0.5*sf*0.9));
         p1 = p2;
         n  = rotAxisAngle(n, r, a) * lf;
         sf *= 0.9;
-        lf *= 0.988;
+        lf *= 0.991;
         p2 += n;
     }
     
-    if (d < s.dist) { s.mat = TAIL; s.dist = d; }
-}
-
-// 000   000  00000000   0000000   0000000    
-// 000   000  000       000   000  000   000  
-// 000000000  0000000   000000000  000   000  
-// 000   000  000       000   000  000   000  
-// 000   000  00000000  000   000  0000000    
-
-void head(vec3 pos)
-{
-    float d = sdTetra(s.pos, pos, 2.0, 0.7);
     if (d < s.dist) { s.mat = HEAD; s.dist = d; }
-    
-    vec3 p;
-    float ed = 0.8;
-    float pd = 0.4;
-    float ld = 0.2;
-    
-    vec3 n1 = vec3( 0.0000,  0.3333,  0.942812);
-    vec3 n2 = vec3( 0.8165,  0.3333, -0.471400);
-    vec3 n3 = vec3( 0.0000, -1.0000,  0.000000);
-    vec3 n4 = vec3(-0.8165,  0.3333, -0.471400);
-    
-    vec3 left = n2;
-    vec3 eyel = pos + ed*left;
-    
-    vec3 right = n4;
-    vec3 eyer = pos + ed*right;
-    
-    vec3 back = n1;
-    vec3 eyeb = pos + ed*back;
-    
-    float sr = 0.56;
-    d = opUnion(d, sdSocket(s.pos, eyel, left,  sr));
-    d = opUnion(d, sdSocket(s.pos, eyer, right, sr));
-    d = opUnion(d, sdSocket(s.pos, eyeb, back,  sr));
-        
-    float oo = 0.4;
-    float od = 0.8;
-    
-    vec3 arml = pos - od*vy - oo*left;
-    vec3 armr = pos - od*vy - oo*right;
-    vec3 armb = pos - od*vy - oo*back;
-    
-    vec3 armln = normalize(arml - 0.03*left  - vy);
-    vec3 armrn = normalize(armr - 0.03*right - vy);
-    vec3 armbn = normalize(armb - 0.03*back  - vy);
-    
-    d = opUnion(d, sdSocket(s.pos, arml, armln, 0.35));
-    d = opUnion(d, sdSocket(s.pos, armr, armrn, 0.35));
-    d = opUnion(d, sdSocket(s.pos, armb, armbn, 0.35));
-        
-    if (d < s.dist) { s.mat = HEAD; s.dist = d; }
-    
-    vec3 nl = normalize(camPos - eyel);
-    vec3 nr = normalize(camPos - eyer);
-    vec3 nb = normalize(camPos - eyeb);
-    
-    eye(eyel, eyel + pd*nl, eyel + ld*nl);
-    eye(eyer, eyer + pd*nr, eyer + ld*nr);
-    eye(eyeb, eyeb + pd*nb, eyeb + ld*nb);
-    
-    vec3 armlr = normalize(cross(arml, armln));
-    vec3 armrr = normalize(cross(armr, armrn));
-    vec3 armbr = normalize(cross(armb, armbn));
-    
-    float t = (sin(iTime*2.0)+1.0);
-    
-    armln = rotAxisAngle(armln, armlr, t*15.);
-    armrn = rotAxisAngle(armrn, armrr, t*15.);
-    armbn = rotAxisAngle(armbn, armbr, t*15.);
-    
-    arm(arml, armlr, armln);
-    arm(armr, armrr, armrn);
-    arm(armb, armbr, armbn);
 }
 
 // 00     00   0000000   00000000   
@@ -384,7 +258,7 @@ float map(vec3 p)
 {
     s = sdf(1000.0, p, NONE);
          
-    head (vec3(0,1.0+0.3*cos(iTime*2.0),0));
+    twist(v0);
 
     return s.dist;
 }
@@ -451,13 +325,13 @@ float getLight(vec3 p, vec3 n)
 {
     vec3 cr = cross(camDir, vec3(0,1,0));
     vec3 up = normalize(cross(cr,camDir));
-    vec3 lp = camPos + vec3(0,2.0,0) + up*5.0; 
+    vec3 lp = camPos + vec3(0,2.0,0) + up*5.0;
     lp *= 5.0;
     vec3 l = normalize(lp-p);
  
     float ambient = 0.005;
     float dif = clamp(dot(n,l), 0.0, 1.0);
-    if (mat == PUPL || mat == TAIL)
+    if (mat == PUPL)
     {
         dif = clamp(dot(n,normalize(mix(camPos,lp,0.1)-p)), 0.0, 1.0);
         dif = mix(pow(dif, 16.0), 1.0*dif, 0.2);
@@ -473,8 +347,8 @@ float getLight(vec3 p, vec3 n)
     {
         dif = pow(dif, 4.0);
         
-        vec3 off = p+n*2.0*MIN_DIST;
-        dif *= hardShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.2);
+    vec3 off = p+n*2.0*MIN_DIST;
+    dif *= hardShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.2);
     }
             
     return clamp(dif, ambient, 1.0);
@@ -495,13 +369,12 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     camTgt = vec3(0,0,0); 
     float my = 2.0*(iMouse.y/iResolution.y-0.5);
     float mx = 2.0*(iMouse.x/iResolution.x-0.5);
-    float md = 8.0;
+    float md = 4.0;
     if (iMouse.z < 0.0)
     {
         mx = iTime/4.;
     	my = 0.75*sin(iTime/8.);
     }
-    
     camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, 89.0*my), vy, -180.0*mx);
     #else
     camTgt = iCenter;
@@ -537,9 +410,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         l = 1.0;
     }
     else if (mat == HEAD)  col = vec3(0.3,0.3,1.0); 
-    else if (mat == TAIL)  col = vec3(0.2,0.2,0.9); 
     else if (mat == PUPL)  col = vec3(0.1,0.1,0.5);
-    else if (mat == BULB)  col = vec3(1.0,1.0,1.0);
+    else if (mat == TAIL)  col = vec3(1.0,1.0,0.0);
+    else if (mat == BULB)  col = vec3(0.9,0.8,0.7);
 
     #ifndef TOY
     vec2  fontSize = vec2(20.0, 35.0);  
