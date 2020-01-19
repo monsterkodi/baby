@@ -50,6 +50,7 @@ class Camera extends UniversalCamera
         @moveZ      = 0
         @quat       = quat()
         
+        @downButtons = 0
         @mouseDelta = x:0, y:0
             
         super 'Camera' new Vector3(0 0 0), @scene
@@ -163,7 +164,10 @@ class Camera extends UniversalCamera
         
         @downPos = vec @mouseX, @mouseY
         
-    onMouseUp: (event) => #klog 'up'
+    onMouseUp: (event) => 
+    
+        @downButtons = 0
+        #klog 'up'
 
     onMouseDrag: (event) =>
 

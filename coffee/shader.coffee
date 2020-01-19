@@ -6,7 +6,7 @@
 0000000   000   000  000   000  0000000    00000000  000   000  
 ###
 
-{ Mesh, MeshBuilder, ShaderMaterial, Vector2, Vector3 } = require 'babylonjs'
+{ Mesh, MeshBuilder, ShaderMaterial, Vector2, Vector3, Vector4 } = require 'babylonjs'
 { performance } = require 'perf_hooks'
 { slash } = require 'kxk'
         
@@ -28,7 +28,8 @@ class Shader
             """
         
         # fragSource = slash.readText "#{__dirname}/../shader/graph.frag"
-        fragSource = slash.readText "#{__dirname}/../shader/kalamari.frag"
+        # fragSource = slash.readText "#{__dirname}/../shader/kalamari.frag"
+        fragSource = slash.readText "#{__dirname}/../shader/school.frag"
         # fragSource = slash.readText "#{__dirname}/../shader/twist.frag"
                     
         fragmentShader = """
@@ -41,7 +42,7 @@ class Shader
             uniform float iRotate;
             uniform float iDegree;
             uniform vec2  iDelta;
-            uniform vec2  iMouse;
+            uniform vec4  iMouse;
             uniform vec2  iResolution;
             uniform vec3  iCenter;
             uniform vec3  iCamera;
@@ -85,7 +86,7 @@ class Shader
         @shaderMaterial.setFloat   'iRotate'     @world.camera.rotate
         @shaderMaterial.setFloat   'iDegree'     @world.camera.degree
         @shaderMaterial.setVector2 'iDelta'      new Vector2(@world.camera.mouseDelta.x, @world.camera.mouseDelta.y) 
-        @shaderMaterial.setVector2 'iMouse'      new Vector2(mouseX*dpr, @world.canvas.height-mouseY*dpr)
+        @shaderMaterial.setVector4 'iMouse'      new Vector4(mouseX*dpr, @world.canvas.height-mouseY*dpr, @world.camera.downButtons, 0)
         @shaderMaterial.setVector2 'iResolution' new Vector2(@world.canvas.width, @world.canvas.height)
         @shaderMaterial.setVector3 'iCenter'     new Vector3(@world.camera.center.x, @world.camera.center.y, @world.camera.center.z)
         @shaderMaterial.setVector3 'iCamera'     new Vector3(@world.camera.position.x, @world.camera.position.y, @world.camera.position.z)
