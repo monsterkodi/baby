@@ -1,4 +1,4 @@
-#define TOY  1
+// #define TOY  1
 
 #define MAX_STEPS 64
 #define MIN_DIST  0.01
@@ -365,9 +365,9 @@ void head(vec3 pos)
     
     float t = (sin(iTime*2.0)+1.0);
     
-    armln = rotAxisAngle(armln, armlr, t*15.);
-    armrn = rotAxisAngle(armrn, armrr, t*15.);
-    armbn = rotAxisAngle(armbn, armbr, t*15.);
+    armln = rotAxisAngle(armln, armlr, t*15.0);
+    armrn = rotAxisAngle(armrn, armrr, t*15.0);
+    armbn = rotAxisAngle(armbn, armbr, t*15.0);
     
     arm(arml, armlr, armln);
     arm(armr, armrr, armrn);
@@ -496,7 +496,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     float my = 2.0*(iMouse.y/iResolution.y-0.5);
     float mx = 2.0*(iMouse.x/iResolution.x-0.5);
     float md = 8.0;
-    if (iMouse.z < 0.0)
+    if (iMouse.z <= 0.0)
     {
         mx = iTime/4.;
     	my = 0.75*sin(iTime/8.);
@@ -531,7 +531,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     if (mat == NONE)  
     {
-        vec2 guv = fragCoord.xy - iResolution.xy / 2.;
+        vec2  guv = fragCoord.xy - iResolution.xy / 2.;
         float grid = dot(step(mod(guv.xyxy, vec4(10,10,100,100)), vec4(1)), vec4(.5, .5, 1., 1.));
         col = mix(bg, vec3(0.02,0.02,0.1), grid);
         l = 1.0;
