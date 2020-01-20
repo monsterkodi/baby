@@ -1,8 +1,8 @@
-// #define TOY  1
+#define TOY  1
 
 #define MAX_STEPS 64
 #define MIN_DIST  0.01
-#define MAX_DIST  50.0
+#define MAX_DIST  25.0
 
 #define PI 3.1415926535897
 #define ZERO min(iFrame,0)
@@ -19,18 +19,19 @@ struct ray {
 };
 
 struct sdf {
-    float dist;
+    float dist;
     vec3  pos;
     int   mat;
-    float scale;
+    float scale;
 };
 
 sdf s;
 int mat;
 vec3 camPos;
+vec3 camAbs;
 vec3 camTgt;
 vec3 camDir;
-float spaceMod = 7.0;
+float spaceMod = 8.0;
 
 vec3 v0 = vec3(0,0,0);
 vec3 vx = vec3(1,0,0);
@@ -153,19 +154,20 @@ vec3 rotRayAngle(vec3 position, vec3 ro, vec3 rd, float angle)
 // 000   000  00000000   
 // 000   000  000        
 //  0000000   000        
-
+
+
 float opUnion(float d1, float d2, float k) 
 {
-    k *= s.scale;
+    k *= s.scale;
     float h = clamp(0.5 + 0.5*(d2-d1)/k, 0.0, 1.0);
     return mix(d2, d1, h) - k*h*(1.0-h);
 }
 
 float opUnion(float d1, float d2) 
 {
-    return opUnion(d1, d2, 0.05);
+    return opUnion(d1, d2, 0.05);
 }
-
+
 float opDiff(float d1, float d2, float k) 
 {
     float h = clamp(0.5 - 0.5*(d2+d1)/k, 0.0, 1.0);
@@ -174,9 +176,9 @@ float opDiff(float d1, float d2, float k)
 
 float opDiff(float d1, float d2) 
 {
-    return opDiff(d1, d2, 0.05);
+    return opDiff(d1, d2, 0.05);
 }
-
+
 //  0000000  0000000    
 // 000       000   000  
 // 0000000   000   000  
@@ -221,7 +223,7 @@ float sdTetra(vec3 a, float scale, float r)
 
 float sdSocket(vec3 a, vec3 n, float r)
 {
-    return opDiff(opDiff(sdSphere(a, r), sdSphere(a, r-0.2)), sdPlane(a, -n), 0.2);
+    return opDiff(opDiff(sdSphere(a, r), sdSphere(a, r-0.2)), sdPlane(a, -n), 0.2);
 }
 
 float sdCone(vec3 a, vec3 b, float r1, float r2)
@@ -231,7 +233,7 @@ float sdCone(vec3 a, vec3 b, float r1, float r2)
     float t = dot(ab,ap) / dot(ab,ab);
     t = clamp(t, 0.0, 1.0);
     vec3 c = a + t*ab;
-    return (length(s.pos-c)-(t*r2+(1.0-t)*r1))*s.scale;
+    return (length(s.pos-c)-(t*r2+(1.0-t)*r1))*s.scale;
 }
 
 // 00000000  000   000  00000000  
@@ -264,7 +266,7 @@ void arm(vec3 pos, vec3 r, vec3 n, float aa)
 {
     float d = sdSphere(pos, 0.25);
     
-    n *= 0.3;
+    n *= 0.3;
     
     vec3 p1 = pos;
     vec3 p2 = p1 + n;
@@ -294,15 +296,19 @@ void arm(vec3 pos, vec3 r, vec3 n, float aa)
 
 void head(vec3 pos, float var)
 {
-    float tt = 1.0-fract((iTime*(3.0-2.0*var)+var*PI*2.0)/PI/2.0);
+    float av = abs(var);
+    float tt = 1.0-fract((iTime*(3.0+av)+var*PI*2.0)/PI/2.0);
     float aa = cos(tt*tt*PI*2.0);    
     
-    vec3 sorig = s.pos;
+    float ra = iTime*40.0*var;
+    
+    pos.y -= 0.3*(aa+1.0)*(1.2-av);
     
-    s.scale = 0.8+var*0.5;
-    s.pos = pos+rotAxisAngle(s.pos-pos, vy, var*180.0+360.0*fract(iTime*var*0.1))/s.scale;
-    
-    pos.y -= 0.3*(aa+1.0);
+    vec3 sorig = s.pos;
+    vec3 cp = pos+rotAxisAngle(camAbs-pos, vy, ra);
+    
+    s.scale = 0.5+(1.0-av)*0.5;
+    s.pos = pos+rotAxisAngle(s.pos-pos, vy, ra)/s.scale;
     
     float d = sdTetra(pos, 2.0, 0.7);
     
@@ -365,16 +371,16 @@ void head(vec3 pos, float var)
     arm(armr, armrr, armrn, aa);
     arm(armb, armbr, armbn, aa);
     
-    vec3 nl = normalize(camPos - eyel);
-    vec3 nr = normalize(camPos - eyer);
-    vec3 nb = normalize(camPos - eyeb);
+    vec3 nl = normalize(cp - eyel);
+    vec3 nr = normalize(cp - eyer);
+    vec3 nb = normalize(cp - eyeb);
     
     eye(eyel, eyel + pd*nl, eyel + ld*nl);
     eye(eyer, eyer + pd*nr, eyer + ld*nr);
     eye(eyeb, eyeb + pd*nb, eyeb + ld*nb);
-    
-    s.pos = sorig;
-    s.scale = 1.0;
+    
+    s.pos = sorig;
+    s.scale = 1.0;
 }
 
 // 00     00   0000000   00000000   
@@ -385,7 +391,7 @@ void head(vec3 pos, float var)
 
 vec3 hash33(vec3 p3)
 {
-	p3 = fract(p3 * vec3(.1031, .1030, .0973));
+    p3 = fract(p3 * vec3(.1031, .1030, .0973));
     p3 += dot(p3, p3.yxz+33.33);
     return fract((p3.xxy + p3.yxx)*p3.zyx);
 }
@@ -393,14 +399,17 @@ vec3 hash33(vec3 p3)
 float map(vec3 p)
 {
     vec3 q = mod(p, spaceMod) - spaceMod/2.0;
-    q.y = p.y; 
-
+    vec3 h3 = hash33(floor(p/spaceMod));
+   float var = sin(h3.x*100.0);
+    
+    camAbs = camPos+(q-p);
+    
     s = sdf(MAX_DIST, q, NONE, 1.0);
          
     float as = sin(iTime);
      
-    vec3 h3 = hash33(trunc(p/spaceMod));
-    head(vec3(h3.x,2.0*h3.y+as*0.2,h3.z), sin(h3.x*100.0));
+    // head(sin(h3*100.0)*0.5+vec3(0,0.5,0), sin(h3.x*100.0));
+    head(vec3(0,1.1,0), var);
 
     return s.dist;
 }
@@ -445,13 +454,10 @@ float rayMarch(vec3 ro, vec3 rd)
 
 float getLight(vec3 p, vec3 n)
 {
-    vec3 cr = cross(camDir, vec3(0,1,0));
-    vec3 up = normalize(cross(cr,camDir));
-    vec3 lp = camPos + vec3(0,2.0,0) + up*5.0; 
-    lp *= 5.0;
+    vec3 lp = camPos+vy*2.0;
     vec3 l = normalize(lp-p);
  
-    float ambient = 0.005;
+    float ambient = 0.007;
     float dif = clamp(dot(n,l), 0.0, 1.0);
     if (mat == PUPL || mat == TAIL)
     {
@@ -485,8 +491,8 @@ float getLight(vec3 p, vec3 n)
 vec3 fog(vec3 col, float dist)
 {
     float f = 1.0-dist/MAX_DIST;
-    vec3 fc = vec3(0.001,0.001,0.01);
-    f = smoothstep(MAX_DIST*0.15, MAX_DIST, dist);
+    vec3 fc = vec3(0.0005,0.0005,0.005);
+    f = smoothstep(0., MAX_DIST, dist);
     return mix(col, fc, f);
 }
 
@@ -502,23 +508,26 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     vec3 ct;
     
     #ifdef TOY
-        camTgt = vec3(spaceMod/2.,spaceMod/2.,spaceMod/2.); 
+    	camTgt = vec3(0,0,0); 
         float my = -2.0*(iMouse.y/iResolution.y-0.5);
         float mx =  2.0*(iMouse.x/iResolution.x-0.5);
-        float md =  12.0;
+        float md =  2.0;
         if (iMouse.z <= 0.0)
         {
             mx = -1.425+0.05*sin(iTime/10.);
-            my = 0.25+0.05*sin(iTime/5.);
+            my = 0.1+0.05*sin(iTime/5.);
         }
         
-        camPos = camTgt+rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, -89.0*my), vy, -180.0*mx);
+        camPos = camTgt+rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, -89.0*my), vy, -180.0*mx);    
     #else
         camTgt = iCenter;
         camPos = iCamera;
         camPos.x *= -1.0;
         camTgt.x *= -1.0;
     #endif
+    
+        camTgt.y -= iTime*0.5;
+        camPos.y -= iTime*0.5;
     
     camDir = normalize(camTgt-camPos);
     
@@ -528,8 +537,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     float ss = sin(iTime*1.5+2.0*PI*uv.x) * cos(iTime*2.5+20.0*uv.y);
     float sc = cos(iTime*2.5+2.0*PI*uv.y);
-    uv.y+=ss*0.002;
-    uv.x+=sc*0.004;
+    uv.y+=ss*0.008;
+    uv.x+=sc*0.005;
     
     vec3 rd = normalize(uv.x*uu + uv.y*vv + 1.0*ww);
     
@@ -551,12 +560,11 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     col *= l;
     
     col = fog(col, d);
-    
-    #ifndef TOY
-        vec2  fontSize = vec2(20.0, 35.0);  
-        float isDigit = digit(fragCoord / fontSize, iMs, 2.0, 0.0);
-        col = mix( col, vec3(1.0, 1.0, 1.0), isDigit);
-    #endif
+
+        
+    vec2  fontSize = vec2(20.0, 35.0);  
+    float isDigit = digit(fragCoord / fontSize, iTimeDelta*1000., 2.0, 0.0);
+    col = mix( col, vec3(1.0, 1.0, 1.0), isDigit);
     
     col = pow(col, vec3(1.0/2.2));
     fragColor = vec4(col, 1.0);

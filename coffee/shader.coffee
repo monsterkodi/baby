@@ -35,6 +35,7 @@ class Shader
         fragmentShader = """
             precision highp float;
             uniform float iTime;
+            uniform float iTimeDelta;
             uniform float iMs;
             uniform float iDist;
             uniform float iMinDist;
@@ -62,7 +63,7 @@ class Shader
             ,
                 attributes: ['position' 'normal' 'uv']
                 uniforms:   ['worldViewProjection' 'iMs' 'iDist' 'iMaxDist' 'iMinDist' 'iCenter' 'iCamera'
-                             'iDelta' 'iTime' 'iMouse' 'iResolution' 'iRotate' 'iDegree' 'iFrame']
+                             'iDelta' 'iTime' 'iTimeDelta' 'iMouse' 'iResolution' 'iRotate' 'iDegree' 'iFrame']
             
         @plane = MeshBuilder.CreatePlane "plane", { width: 10, height: 10 }, @scene
         @plane.material = @shaderMaterial
@@ -80,6 +81,7 @@ class Shader
         @shaderMaterial.setInt     'iFrame'      @iFrame++
         @shaderMaterial.setFloat   'iMs'         @world.engine.getDeltaTime()
         @shaderMaterial.setFloat   'iTime'       performance.now()/1000
+        @shaderMaterial.setFloat   'iTimeDelta'  @world.engine.getDeltaTime()/1000
         @shaderMaterial.setFloat   'iDist'       @world.camera.dist
         @shaderMaterial.setFloat   'iMinDist'    @world.camera.minDist
         @shaderMaterial.setFloat   'iMaxDist'    @world.camera.maxDist
