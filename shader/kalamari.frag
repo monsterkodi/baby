@@ -26,9 +26,12 @@ struct sdf {
 
 sdf s;
 int mat;
+bool animat;
 vec3 camPos;
 vec3 camTgt;
 vec3 camDir;
+
+float aa = 0.0;
 
 vec3 v0 = vec3(0,0,0);
 vec3 vx = vec3(1,0,0);
@@ -306,9 +309,7 @@ void arm(vec3 pos, vec3 r, vec3 n, float aa)
 // 000   000  00000000  000   000  0000000    
 
 void head(vec3 pos)
-{
-    float tt = 1.0-fract(iTime*0.5);
-    float aa = cos(tt*tt*PI*2.0);    
+{    
     pos -= 0.3*vy*(aa+1.0);
     
     float d = sdTetra(s.pos, pos, 2.0, 0.7);
@@ -367,13 +368,16 @@ void head(vec3 pos)
         eye(eyeb, eyeb + pd*nb, eyeb + ld*nb);
     }
         
-    if (dpy < 0.0)
+    if (dpy < 0.5)
     {    
         vec3 armlr = normalize(cross(arml, armln));
         vec3 armrr = normalize(cross(armr, armrn));
         vec3 armbr = normalize(cross(armb, armbn));
             
-        float t = (aa+1.0)*15.0*(-sin(iTime*PI-PI/4.0));
+        float t = (aa+1.0)*15.0;
+        
+        if (animat) t *= -sin(iTime*PI-PI/4.0);
+        
         armln = rotAxisAngle(armln, armlr, t);
         armrn = rotAxisAngle(armrn, armrr, t);
         armbn = rotAxisAngle(armbn, armbr, t);
@@ -500,21 +504,39 @@ float getLight(vec3 p, vec3 n)
 // 000 0 000  000   000  000  000  0000  
 // 000   000  000   000  000  000   000  
 
+const int KEY_LEFT  = 37;
+const int KEY_UP    = 38;
+const int KEY_RIGHT = 39;
+const int KEY_DOWN  = 40;
+
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
-{
+{    
+    bool camrot = texelFetch(iChannel0, ivec2(KEY_RIGHT, 2), 0).x < 0.5;
+	bool water  = texelFetch(iChannel0, ivec2(KEY_LEFT,  2), 0).x < 0.5;
+	bool scroll = texelFetch(iChannel0, ivec2(KEY_DOWN,  2), 0).x < 0.5;
+         animat = texelFetch(iChannel0, ivec2(KEY_UP,    2), 0).x < 0.5;
+        
+    if (animat) 
+    {
+        float tt = 1.0-fract(iTime*0.5);
+		aa = cos(tt*tt*PI*2.0);  
+    }
+    
     vec2 uv = (fragCoord-.5*iResolution.xy)/iResolution.y;
     vec3 ct;
     
     #ifdef TOY
     camTgt = vec3(0,0,0); 
-    float my = 2.0*(iMouse.y/iResolution.y-0.5);
     float mx = 2.0*(iMouse.x/iResolution.x-0.5);
+    float my = 2.0*(iMouse.y/iResolution.y-0.5);
     float md = 8.0;
-    if (iMouse.z <= 0.0)
+    
+    if (iMouse.z <= 0.0 && camrot)
     {
         mx = iTime/4.;
         my = -0.5*sin(iTime/8.);
     }
+    
     camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, 89.0*my), vy, -180.0*mx);
     #else
     camTgt = iCenter;
@@ -528,12 +550,30 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     vec3 ww = normalize(camTgt-camPos);
     vec3 uu = normalize(cross(ww, vec3(0,1,0)));
     vec3 vv = normalize(cross(uu, ww));
+        
+    float ss, sc;
+    if (water) 
+    {
+    	ss = sin(iTime*1.5+2.0*PI*uv.x) * cos(iTime*0.5+20.0*uv.y);
+    	sc = cos(iTime*0.5+2.0*PI*uv.y);
+    }
+    else
+    {
+        ss = 0.0;
+        sc = 0.0;
+    }
+    
+    uv.y+=ss*0.01;
+    uv.x+=sc*0.02;
     
     vec3 rd = normalize(uv.x*uu + uv.y*vv + 1.0*ww);
-    
+
     float d = rayMarch(camPos, rd);
     mat = s.mat;
     
+    uv.y+=ss*0.1;
+    uv.x+=sc*0.2;
+
     vec3  p = camPos + d * rd;
     vec3  n = getNormal(p);
     float l = getLight(p,n);
@@ -544,7 +584,12 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     if (mat == NONE)  
     {
-        vec2  guv = fragCoord.xy - iResolution.xy / 2.;
+        vec2 guv = fragCoord.xy - iResolution.xy / 2.;
+        if (scroll)
+        {
+        	guv.y += fract(iTime*0.01)*1000.0;
+        }
+        
         float grid = dot(step(mod(guv.xyxy, vec4(10,10,100,100)), vec4(1)), vec4(.5, .5, 1., 1.));
         col = mix(bg, vec3(0.02,0.02,0.1), grid);
         l = 1.0;
