@@ -269,7 +269,7 @@ void eye(vec3 pos, vec3 pupil, vec3 lens)
 // 000   000  000   000  000 0 000  
 // 000   000  000   000  000   000  
 
-void arm(vec3 pos, vec3 r, vec3 n)
+void arm(vec3 pos, vec3 r, vec3 n, float aa)
 {
     vec3 p = s.pos-pos;
     
@@ -284,7 +284,7 @@ void arm(vec3 pos, vec3 r, vec3 n)
     
     float lf = 1.0;
     float sf = 1.0;
-    float a  = -(sin(iTime*2.0)+1.0)*17.0+5.0;
+    float a  = -(1.0+aa)*17.0+4.5;
     
     for (int i = 0; i < 25; i++)
     {
@@ -307,10 +307,13 @@ void arm(vec3 pos, vec3 r, vec3 n)
 
 void head(vec3 pos)
 {
+    float tt = 1.0-fract(iTime*0.5);
+    float aa = cos(tt*tt*PI*2.0);    
+    pos -= 0.3*vy*(aa+1.0);
+    
     float d = sdTetra(s.pos, pos, 2.0, 0.7);
     if (d < s.dist) { s.mat = HEAD; s.dist = d; }
     
-    vec3 p;
     float ed = 0.8;
     float pd = 0.4;
     float ld = 0.2;
@@ -362,16 +365,15 @@ void head(vec3 pos)
     vec3 armlr = normalize(cross(arml, armln));
     vec3 armrr = normalize(cross(armr, armrn));
     vec3 armbr = normalize(cross(armb, armbn));
+        
+    float t = (aa+1.0)*15.0*(-sin(iTime*PI-PI/4.0));
+    armln = rotAxisAngle(armln, armlr, t);
+    armrn = rotAxisAngle(armrn, armrr, t);
+    armbn = rotAxisAngle(armbn, armbr, t);
     
-    float t = (sin(iTime*2.0)+1.0);
-    
-    armln = rotAxisAngle(armln, armlr, t*15.0);
-    armrn = rotAxisAngle(armrn, armrr, t*15.0);
-    armbn = rotAxisAngle(armbn, armbr, t*15.0);
-    
-    arm(arml, armlr, armln);
-    arm(armr, armrr, armrn);
-    arm(armb, armbr, armbn);
+    arm(arml, armlr, armln, aa);
+    arm(armr, armrr, armrn, aa);
+    arm(armb, armbr, armbn, aa);
 }
 
 // 00     00   0000000   00000000   
@@ -384,7 +386,7 @@ float map(vec3 p)
 {
     s = sdf(1000.0, p, NONE);
          
-    head (vec3(0,1.0+0.3*cos(iTime*2.0),0));
+    head(vec3(0,1,0));
 
     return s.dist;
 }
