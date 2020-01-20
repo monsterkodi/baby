@@ -1,8 +1,8 @@
-// #define TOY  1
+#define TOY  1
 
 #define MAX_STEPS 64
 #define MIN_DIST  0.01
-#define MAX_DIST  80.0
+#define MAX_DIST  15.0
 
 #define PI 3.1415926535897
 #define ZERO min(iFrame,0)
@@ -318,24 +318,23 @@ void head(vec3 pos)
     float pd = 0.4;
     float ld = 0.2;
     
-    vec3 n1 = vec3( 0.0000,  0.3333,  0.942812);
-    vec3 n2 = vec3( 0.8165,  0.3333, -0.471400);
-    vec3 n3 = vec3( 0.0000, -1.0000,  0.000000);
-    vec3 n4 = vec3(-0.8165,  0.3333, -0.471400);
+    vec3 left  = vec3( 0.8165,  0.3333, -0.471400);
+    vec3 right = vec3(-0.8165,  0.3333, -0.471400);
+    vec3 back  = vec3( 0.0000,  0.3333,  0.942812);
     
-    vec3 left = n2;
+    float dpy = sdPlane(s.pos, pos, vy);
+    
     vec3 eyel = pos + ed*left;
-    
-    vec3 right = n4;
     vec3 eyer = pos + ed*right;
-    
-    vec3 back = n1;
     vec3 eyeb = pos + ed*back;
     
-    float sr = 0.56;
-    d = opUnion(d, sdSocket(s.pos, eyel, left,  sr));
-    d = opUnion(d, sdSocket(s.pos, eyer, right, sr));
-    d = opUnion(d, sdSocket(s.pos, eyeb, back,  sr));
+    if (dpy > -.5)
+    {
+        float sr = 0.56;
+        d = opUnion(d, sdSocket(s.pos, eyel, left,  sr));
+        d = opUnion(d, sdSocket(s.pos, eyer, right, sr));
+        d = opUnion(d, sdSocket(s.pos, eyeb, back,  sr));
+    }
         
     float oo = 0.4;
     float od = 0.8;
@@ -348,32 +347,45 @@ void head(vec3 pos)
     vec3 armrn = normalize(armr - 0.03*right - vy);
     vec3 armbn = normalize(armb - 0.03*back  - vy);
     
-    d = opUnion(d, sdSocket(s.pos, arml, armln, 0.35));
-    d = opUnion(d, sdSocket(s.pos, armr, armrn, 0.35));
-    d = opUnion(d, sdSocket(s.pos, armb, armbn, 0.35));
-        
+    if (dpy < 0.0)
+    {
+        d = opUnion(d, sdSocket(s.pos, arml, armln, 0.35));
+        d = opUnion(d, sdSocket(s.pos, armr, armrn, 0.35));
+        d = opUnion(d, sdSocket(s.pos, armb, armbn, 0.35));
+    }
+            
     if (d < s.dist) { s.mat = HEAD; s.dist = d; }
-    
-    vec3 nl = normalize(camPos - eyel);
-    vec3 nr = normalize(camPos - eyer);
-    vec3 nb = normalize(camPos - eyeb);
-    
-    eye(eyel, eyel + pd*nl, eyel + ld*nl);
-    eye(eyer, eyer + pd*nr, eyer + ld*nr);
-    eye(eyeb, eyeb + pd*nb, eyeb + ld*nb);
-    
-    vec3 armlr = normalize(cross(arml, armln));
-    vec3 armrr = normalize(cross(armr, armrn));
-    vec3 armbr = normalize(cross(armb, armbn));
         
-    float t = (aa+1.0)*15.0*(-sin(iTime*PI-PI/4.0));
-    armln = rotAxisAngle(armln, armlr, t);
-    armrn = rotAxisAngle(armrn, armrr, t);
-    armbn = rotAxisAngle(armbn, armbr, t);
-    
-    arm(arml, armlr, armln, aa);
-    arm(armr, armrr, armrn, aa);
-    arm(armb, armbr, armbn, aa);
+    if (dpy > -.5)
+    {        
+        vec3 nl = normalize(camPos - eyel);
+        vec3 nr = normalize(camPos - eyer);
+        vec3 nb = normalize(camPos - eyeb);
+        
+        eye(eyel, eyel + pd*nl, eyel + ld*nl);
+        eye(eyer, eyer + pd*nr, eyer + ld*nr);
+        eye(eyeb, eyeb + pd*nb, eyeb + ld*nb);
+    }
+        
+    if (dpy < 0.0)
+    {    
+        vec3 armlr = normalize(cross(arml, armln));
+        vec3 armrr = normalize(cross(armr, armrn));
+        vec3 armbr = normalize(cross(armb, armbn));
+            
+        float t = (aa+1.0)*15.0*(-sin(iTime*PI-PI/4.0));
+        armln = rotAxisAngle(armln, armlr, t);
+        armrn = rotAxisAngle(armrn, armrr, t);
+        armbn = rotAxisAngle(armbn, armbr, t);
+        
+        float dpl = sdPlane(s.pos, eyel, left);
+        float dpr = sdPlane(s.pos, eyer, right);
+        float dpb = sdPlane(s.pos, eyeb, back);
+        
+        if (dpl < -1.0) arm(arml, armlr, armln, aa);
+        if (dpb < -1.0) arm(armb, armbr, armbn, aa);
+        if (dpr < -1.0) arm(armr, armrr, armrn, aa);
+    }
 }
 
 // 00     00   0000000   00000000   
@@ -501,9 +513,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     if (iMouse.z <= 0.0)
     {
         mx = iTime/4.;
-    	my = 0.75*sin(iTime/8.);
+        my = -0.5*sin(iTime/8.);
     }
-    
     camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, 89.0*my), vy, -180.0*mx);
     #else
     camTgt = iCenter;
@@ -545,7 +556,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 
     #ifndef TOY
     vec2  fontSize = vec2(20.0, 35.0);  
-    float isDigit = digit(fragCoord / fontSize, iMs, 2.0, 0.0);
+    float isDigit = digit(fragCoord / fontSize, iTimeDelta*1000., 2.0, 0.0);
     col = mix( col, vec3(1.0, 1.0, 1.0), isDigit);
     #endif
     
