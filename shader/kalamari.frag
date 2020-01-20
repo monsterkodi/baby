@@ -1,4 +1,4 @@
-#define TOY  1
+// #define TOY  1
 
 #define MAX_STEPS 64
 #define MIN_DIST  0.01
@@ -498,6 +498,20 @@ float getLight(vec3 p, vec3 n)
     return clamp(dif, ambient, 1.0);
 }
 
+// 00000000   0000000    0000000   
+// 000       000   000  000        
+// 000000    000   000  000  0000  
+// 000       000   000  000   000  
+// 000        0000000    0000000   
+
+vec3 fog(vec3 col, float dist)
+{
+    float f = 1.0-dist/MAX_DIST;
+    vec3 fc = vec3(0.0005,0.0005,0.005);
+    f = smoothstep(0., MAX_DIST, dist);
+    return mix(col, fc, f);
+}
+
 // 00     00   0000000   000  000   000  
 // 000   000  000   000  000  0000  000  
 // 000000000  000000000  000  000 0 000  
@@ -510,11 +524,18 @@ const int KEY_RIGHT = 39;
 const int KEY_DOWN  = 40;
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
-{    
+{   
+    #ifdef TOY
     bool camrot = texelFetch(iChannel0, ivec2(KEY_RIGHT, 2), 0).x < 0.5;
 	bool water  = texelFetch(iChannel0, ivec2(KEY_LEFT,  2), 0).x < 0.5;
 	bool scroll = texelFetch(iChannel0, ivec2(KEY_DOWN,  2), 0).x < 0.5;
          animat = texelFetch(iChannel0, ivec2(KEY_UP,    2), 0).x < 0.5;
+    #else
+    bool camrot = true;
+    bool water  = true;
+    bool scroll = true;
+         animat = true;
+    #endif
         
     if (animat) 
     {
@@ -599,6 +620,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     else if (mat == PUPL)  col = vec3(0.1,0.1,0.5);
     else if (mat == BULB)  col = vec3(1.0,1.0,1.0);
 
+    //col = fog(col, d);
+    
     #ifndef TOY
     vec2  fontSize = vec2(20.0, 35.0);  
     float isDigit = digit(fragCoord / fontSize, iTimeDelta*1000., 2.0, 0.0);
