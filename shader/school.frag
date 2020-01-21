@@ -489,7 +489,6 @@ float softShadow(vec3 ro, vec3 lp, float k)
 
 float shiny(float rough, float NoH, const vec3 h) 
 {
-    // Walter et al. 2007, "Microfacet Models for Refraction through Rough Surfaces"
     float oneMinusNoHSquared = 1.0 - NoH * NoH;
     float a = NoH * rough;
     float k = rough / (oneMinusNoHSquared + a * a);
@@ -497,12 +496,14 @@ float shiny(float rough, float NoH, const vec3 h)
     return d;
 }
 
-float getLight(vec3 p, vec3 n)
+
+vec3 getLight(vec3 p, vec3 n, vec3 col)
 {
+    if (mat == NONE) return col;
+    
     vec3 cr = cross(camDir, vec3(0,1,0));
     vec3 up = normalize(cross(cr,camDir));
-    vec3 lp = camPos + vec3(0,2.0,0) + up*5.0; 
-    lp *= 2.0;
+    vec3 lp = 2.0 * (camPos + vec3(0,2.0,0) + up*5.0); 
     vec3 l = normalize(lp-p);
  
     float ambient = 0.005;
@@ -535,17 +536,12 @@ float getLight(vec3 p, vec3 n)
     
     if (mat != PUPL && mat != BULB)
     {
-        if (soft)
-        {
-            dif *= softShadow(p, lp, 4.0);        
-        }
-        else
-        {
-            dif *= softShadow(p, lp, 10.0);
-        }
+        dif *= softShadow(p, lp, 4.0);        
     }
     
-    return clamp(dif, ambient, 1.0);
+    vec3 hl = vec3(pow(clamp01(smoothstep(0.9,1.0,dot(n, l))), 20.0));
+    
+    return col * clamp(dif, ambient, 1.0) + hl;
 }
 
 // 00000000   0000000    0000000   
@@ -556,7 +552,7 @@ float getLight(vec3 p, vec3 n)
 
 vec3 fog(vec3 col, vec3 bg, float dist)
 {
-    float f = smoothstep(0.*MAX_DIST, MAX_DIST, dist);
+    float f = smoothstep(5.0, 9.5, dist);
     return mix(col, bg, f);
 }
 
@@ -589,7 +585,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     vec2 uv = (fragCoord-.5*iResolution.xy)/iResolution.y;
     
-    float md = 8.0;
+    float md = 7.0;
     float mx = 2.0*(iMouse.x/iResolution.x-0.5);
     float my = 2.0*(iMouse.y/iResolution.y-0.5);
     
@@ -600,7 +596,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         dither = true;
     }
     
-    camTgt = v0; 
+    camTgt = vec3(0,-0.6,0); 
     camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, 89.0*my), vy, -180.0*mx);
     
     #ifndef TOY
@@ -631,7 +627,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         sc = 0.0;
     }
     
-    uv.y+=ss*0.01; uv.x+=sc*0.02; // foreground wobble
+    uv.y+=ss*0.005; uv.x+=sc*0.01; // foreground wobble
     
     vec3 rd = normalize(uv.x*uu + uv.y*vv + 1.0*ww);
 
@@ -642,23 +638,21 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 
     vec3  p = camPos + d * rd;
     vec3  n = getNormal(p);
-    float l = getLight(p,n);
         
     vec3 col;
     
     vec3 bg = vec3(.001, .001, .01) * clamp(1.0-1.0*length(uv), 0., 1.);
     
-    if      (mat == HEAD)  col = vec3(0.3,0.3,1.0); 
+    if      (mat == HEAD)  col = vec3(0.23,0.23,1.0);
     else if (mat == TAIL)  col = vec3(0.2,0.2,0.9); 
     else if (mat == PUPL)  col = vec3(0.1,0.1,0.5);
     else if (mat == BULB)  col = vec3(1.0,1.0,1.0);
     else if (mat == NONE)  
     {        
         col = bg;
-        l = 1.0;
     }
 
-    col *= l;
+    col = getLight(p, n, col);
     
     if (mat != NONE)
     {
