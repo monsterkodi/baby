@@ -541,10 +541,19 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     bool dither = texelFetch(iChannel0, ivec2(KEY_DOWN,  2), 0).x < 0.5;
          animat = texelFetch(iChannel0, ivec2(KEY_UP,    2), 0).x < 0.5;
     #else
+    /*
     bool camrot = true;
-    bool water  = true;
+    bool water  = false;
     bool dither = false;
-         animat = true;
+         animat = false;
+    */   
+    bool camrot = texelFetch(iChannel0, ivec2(KEY_RIGHT, 0), 0).x > 0.5;
+    // bool water  = texelFetch(iChannel0, ivec2(KEY_LEFT,  0), 0).x > 0.5;
+    bool water  = texture2D(iChannel0, vec2(0,0)).r < 0.5;
+    //bool water  = true;
+    bool dither = texelFetch(iChannel0, ivec2(KEY_DOWN,  0), 0).x > 0.5;
+         animat = texelFetch(iChannel0, ivec2(KEY_UP,    0), 0).x > 0.5;
+         
     #endif
         
     if (animat) 
@@ -618,12 +627,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     vec3 bg = vec3(.001, .001, .01) * clamp(1.0-1.0*length(uv), 0., 1.);
     
-    // if (dither)
-    // {
-        // float dit = gradientNoise(fragCoord.xy+1337.0*fract(iTime));
-        // bg += vec3(dit/10000.0);
-    // }
-    
     if      (mat == HEAD)  col = vec3(0.3,0.3,1.0); 
     else if (mat == TAIL)  col = vec3(0.2,0.2,0.9); 
     else if (mat == PUPL)  col = vec3(0.1,0.1,0.5);
@@ -643,7 +646,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     if (dither)
     {
-        float dit = gradientNoise(fragCoord.xy+1337.0*fract(iTime));
+        float dit = gradientNoise(fragCoord.xy);
         col += vec3(dit/10000.0);
     }
     

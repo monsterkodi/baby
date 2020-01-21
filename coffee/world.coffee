@@ -28,6 +28,8 @@ class World
         @paused = false
         @view.focus()
         
+        @keys = new Float32Array 3*256
+        
         @canvas = elem 'canvas' class:'babylon' parent:@view
         
         @engine = new Engine @canvas
@@ -215,7 +217,27 @@ class World
     
     modKeyComboEventDown: (mod, key, combo, event) ->
         
-        # klog 'modKeyComboEventDown' mod, key, combo, event.which
+        # klog 'modKeyComboEventDown' mod, key, combo, event.which, key.charCodeAt(0)
+        if event.which < 256
+            # @keys[0]     = 1
+            # @keys[1]     = 1
+            # @keys[2]     = 1
+            # @keys[256]     = 1
+            # @keys[257]     = 1
+            # @keys[258]     = 1
+            # @keys[512]     = 1
+            # @keys[513]     = 1
+            # @keys[514]     = 1
+            @keys[event.which]     = 1
+            @keys[event.which+256] = 1
+            @keys[event.which+512] = 1
+            # @keys[event.which+512+256]  = 1
+            # @keys[event.which+512+512]  = 1
+            # @keys[event.which+1024+256] = 1
+            # @keys[event.which+1024+512] = 1
+            # @keys[event.which+2048+256] = 1
+            # @keys[event.which+2048+512] = 1
+            # klog @keys
         switch key
             when 'e' then @camera.moveUp()
             when 'q' then @camera.moveDown()
@@ -229,6 +251,11 @@ class World
     modKeyComboEventUp: (mod, key, combo, event) ->
 
         # klog 'modKeyComboEventUp' mod, key, combo, event.code
+        if event.which < 256
+            @keys[event.which]     = 0
+            @keys[event.which+256] = 0
+            @keys[event.which+512] = 0
+        
         switch key
             when 'e' then @camera.stopUp()
             when 'q' then @camera.stopDown()

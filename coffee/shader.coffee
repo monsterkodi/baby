@@ -6,7 +6,7 @@
 0000000   000   000  000   000  0000000    00000000  000   000  
 ###
 
-{ Mesh, MeshBuilder, ShaderMaterial, Vector2, Vector3, Vector4 } = require 'babylonjs'
+{ Mesh, MeshBuilder, RawTexture, ShaderMaterial, Vector2, Vector3, Vector4 } = require 'babylonjs'
 { performance } = require 'perf_hooks'
 { slash } = require 'kxk'
         
@@ -48,6 +48,7 @@ class Shader
             uniform vec3  iCenter;
             uniform vec3  iCamera;
             uniform int   iFrame;
+            uniform sampler2D iChannel0;
             
             #{fragSource}
                                     
@@ -62,7 +63,7 @@ class Shader
                 vertexSource:  vertexShader
             ,
                 attributes: ['position' 'normal' 'uv']
-                uniforms:   ['worldViewProjection' 'iMs' 'iDist' 'iMaxDist' 'iMinDist' 'iCenter' 'iCamera'
+                uniforms:   ['worldViewProjection' 'iMs' 'iDist' 'iMaxDist' 'iMinDist' 'iCenter' 'iCamera' 
                              'iDelta' 'iTime' 'iTimeDelta' 'iMouse' 'iResolution' 'iRotate' 'iDegree' 'iFrame']
             
         @plane = MeshBuilder.CreatePlane "plane", { width: 10, height: 10 }, @scene
@@ -77,7 +78,11 @@ class Shader
         
         mouseX = @world.camera.mouseX ? 0;
         mouseY = @world.camera.mouseY ? @world.canvas.height/dpr;
+
+        # texture = new RawTexture @world.keys, 256, 3, Texture.TEXTUREFORMAT_R_INTEGER, @scene, false, false, Texture.NEAREST_SAMPLINGMODE, Engine.TEXTURETYPE_UNSIGNED_BYTE
+        texture = RawTexture.CreateRTexture @world.keys, 256, 3, @scene, false # Texture.TEXTUREFORMAT_R_INTEGER, @scene, false, false, Texture.NEAREST_SAMPLINGMODE, Engine.TEXTURETYPE_UNSIGNED_BYTE
         
+        @shaderMaterial.setTexture 'iChannel0'   texture
         @shaderMaterial.setInt     'iFrame'      @iFrame++
         @shaderMaterial.setFloat   'iMs'         @world.engine.getDeltaTime()
         @shaderMaterial.setFloat   'iTime'       performance.now()/1000
