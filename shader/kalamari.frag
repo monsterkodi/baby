@@ -1,4 +1,4 @@
-// #define TOY  1
+#define TOY  1
 
 #define MAX_STEPS 64
 #define MIN_DIST  0.01
@@ -459,6 +459,32 @@ float hardShadow(vec3 ro, vec3 rd, float mint, float maxt, const float w)
     return 1.0;
 }
 
+float softShadow(vec3 ro, vec3 lp, float k)
+{
+    const int maxIterationsShad = 24; 
+    
+    vec3 rd = (lp-ro);
+
+    float shade = 1.;
+    float dist = .0035;    
+    float end = max(length(rd), .001);
+    float stepDist = end/float(maxIterationsShad);
+    
+    rd /= end;
+
+    for (int i=0; i<maxIterationsShad; i++)
+    {
+        float h = map(ro + rd*dist);
+        shade = min(shade, k*h/dist);
+        //shade = min(shade, smoothstep(0., 1., k*h/dist));
+        dist += clamp(h, .02, stepDist*2.);
+        
+        if (h<.0001 || dist > end) break; 
+    }
+
+    return min(max(shade, 0.) + .05, 1.); 
+}
+
 // 000      000   0000000   000   000  000000000  
 // 000      000  000        000   000     000     
 // 000      000  000  0000  000000000     000     
@@ -480,7 +506,7 @@ float getLight(vec3 p, vec3 n)
         dif = clamp(dot(n,normalize(mix(camPos,lp,0.1)-p)), 0.0, 1.0);
         dif = mix(pow(dif, 16.0), 1.0*dif, 0.2);
         dif += 1.0 - smoothstep(0.0, 0.2, dif);
-        ambient = 0.1;
+        if (mat == PUPL) ambient = 0.1;
     }
     else if (mat == BULB)
     {
@@ -490,26 +516,10 @@ float getLight(vec3 p, vec3 n)
     else if (mat == HEAD)
     {
         dif = pow(dif, 4.0);
-        
-        vec3 off = p+n*2.0*MIN_DIST;
-        dif *= hardShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.2);
     }
-            
+    //dif *= hardShadow(p, normalize(lp-p), MIN_DIST, 100.0, 0.2);
+    dif *= softShadow(p, lp, 1.4);        
     return clamp(dif, ambient, 1.0);
-}
-
-// 00000000   0000000    0000000   
-// 000       000   000  000        
-// 000000    000   000  000  0000  
-// 000       000   000  000   000  
-// 000        0000000    0000000   
-
-vec3 fog(vec3 col, float dist)
-{
-    float f = 1.0-dist/MAX_DIST;
-    vec3 fc = vec3(0.0005,0.0005,0.005);
-    f = smoothstep(0., MAX_DIST, dist);
-    return mix(col, fc, f);
 }
 
 // 00     00   0000000   000  000   000  
@@ -524,18 +534,11 @@ const int KEY_RIGHT = 39;
 const int KEY_DOWN  = 40;
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
-{   
-    #ifdef TOY
+{    
     bool camrot = texelFetch(iChannel0, ivec2(KEY_RIGHT, 2), 0).x < 0.5;
 	bool water  = texelFetch(iChannel0, ivec2(KEY_LEFT,  2), 0).x < 0.5;
 	bool scroll = texelFetch(iChannel0, ivec2(KEY_DOWN,  2), 0).x < 0.5;
          animat = texelFetch(iChannel0, ivec2(KEY_UP,    2), 0).x < 0.5;
-    #else
-    bool camrot = true;
-    bool water  = true;
-    bool scroll = true;
-         animat = true;
-    #endif
         
     if (animat) 
     {
@@ -620,8 +623,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     else if (mat == PUPL)  col = vec3(0.1,0.1,0.5);
     else if (mat == BULB)  col = vec3(1.0,1.0,1.0);
 
-    //col = fog(col, d);
-    
     #ifndef TOY
     vec2  fontSize = vec2(20.0, 35.0);  
     float isDigit = digit(fragCoord / fontSize, iTimeDelta*1000., 2.0, 0.0);

@@ -15,7 +15,7 @@ class Shader
     @: (@world) ->
 
         @scene = @world.scene
-        
+        @frameRates = []
         @iFrame = 0
         vertexShader =  """
             precision highp float;
@@ -29,13 +29,15 @@ class Shader
         
         # fragSource = slash.readText "#{__dirname}/../shader/graph.frag"
         # fragSource = slash.readText "#{__dirname}/../shader/kalamari.frag"
-        fragSource = slash.readText "#{__dirname}/../shader/school.frag"
+        fragSource = slash.readText "#{__dirname}/../shader/kalamari_wet.frag"
+        # fragSource = slash.readText "#{__dirname}/../shader/school.frag"
         # fragSource = slash.readText "#{__dirname}/../shader/twist.frag"
                     
         fragmentShader = """
             precision highp float;
             uniform float iTime;
             uniform float iTimeDelta;
+            uniform float iFrameRate;
             uniform float iMs;
             uniform float iDist;
             uniform float iMinDist;
@@ -63,7 +65,7 @@ class Shader
                 vertexSource:  vertexShader
             ,
                 attributes: ['position' 'normal' 'uv']
-                uniforms:   ['worldViewProjection' 'iMs' 'iDist' 'iMaxDist' 'iMinDist' 'iCenter' 'iCamera' 
+                uniforms:   ['worldViewProjection' 'iMs' 'iDist' 'iMaxDist' 'iMinDist' 'iCenter' 'iCamera' 'iFrameRate' 
                              'iDelta' 'iTime' 'iTimeDelta' 'iMouse' 'iResolution' 'iRotate' 'iDegree' 'iFrame']
             
         @plane = MeshBuilder.CreatePlane "plane", { width: 10, height: 10 }, @scene
@@ -78,12 +80,16 @@ class Shader
         
         mouseX = @world.camera.mouseX ? 0;
         mouseY = @world.camera.mouseY ? @world.canvas.height/dpr;
-
-        # texture = new RawTexture @world.keys, 256, 3, Texture.TEXTUREFORMAT_R_INTEGER, @scene, false, false, Texture.NEAREST_SAMPLINGMODE, Engine.TEXTURETYPE_UNSIGNED_BYTE
-        texture = RawTexture.CreateRTexture @world.keys, 256, 3, @scene, false # Texture.TEXTUREFORMAT_R_INTEGER, @scene, false, false, Texture.NEAREST_SAMPLINGMODE, Engine.TEXTURETYPE_UNSIGNED_BYTE
         
-        @shaderMaterial.setTexture 'iChannel0'   texture
+        @frameRates.push @world.engine.getFps()
+        if @frameRates.length > 30 then @frameRates.shift()
+        fps = 0
+        for r in @frameRates then fps += r
+        fps /= @frameRates.length
+
+        @shaderMaterial.setTexture 'iChannel0'   RawTexture.CreateRTexture @world.keys, 256, 3, @scene, false
         @shaderMaterial.setInt     'iFrame'      @iFrame++
+        @shaderMaterial.setFloat   'iFrameRate'  Math.round fps
         @shaderMaterial.setFloat   'iMs'         @world.engine.getDeltaTime()
         @shaderMaterial.setFloat   'iTime'       performance.now()/1000
         @shaderMaterial.setFloat   'iTimeDelta'  @world.engine.getDeltaTime()/1000
@@ -97,5 +103,8 @@ class Shader
         @shaderMaterial.setVector2 'iResolution' new Vector2(@world.canvas.width, @world.canvas.height)
         @shaderMaterial.setVector3 'iCenter'     new Vector3(@world.camera.center.x, @world.camera.center.y, @world.camera.center.z)
         @shaderMaterial.setVector3 'iCamera'     new Vector3(@world.camera.position.x, @world.camera.position.y, @world.camera.position.z)
-                
+            
+        for i in [256...512] 
+            @world.keys[i] = 0
+        
 module.exports = Shader

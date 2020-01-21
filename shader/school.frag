@@ -1,8 +1,9 @@
 // #define TOY  1
 
 #define MAX_STEPS 64
-#define MIN_DIST  0.01
+#define MIN_DIST   0.01
 #define MAX_DIST  20.0
+#define SHADOW     0.1
 
 #define PI 3.1415926535897
 #define ZERO min(iFrame,0)
@@ -26,6 +27,7 @@ struct sdf {
 
 sdf s;
 int mat;
+bool soft;
 bool animat;
 vec3 camPos;
 vec3 camTgt;
@@ -41,17 +43,19 @@ vec3 vz = vec3(0,0,1);
 float rad2deg(float r) { return 180.0 * r / PI; }
 float deg2rad(float d) { return PI * d / 180.0; }
 
-vec3 hash33(vec3 p3)
-{
-    p3 = fract(p3 * vec3(.1031, .1030, .0973));
-    p3 += dot(p3, p3.yxz+33.33);
-    return fract((p3.xxy + p3.yxx)*p3.zyx);
-}
+vec3 hash33(vec3 p3)
+{
+    p3 = fract(p3 * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yxz+33.33);
+    return fract((p3.xxy + p3.yxx)*p3.zyx);
+}
 
-float gradientNoise(vec2 uv)
-{
-    return fract(52.9829189 * fract(dot(uv, vec2(0.06711056, 0.00583715))));
-}
+float clamp01(float v) { return clamp(v, 0.0, 1.0); }
+
+float gradientNoise(vec2 uv)
+{
+    return fract(52.9829189 * fract(dot(uv, vec2(0.06711056, 0.00583715))));
+}
 
 // 0000000    000   0000000   000  000000000  
 // 000   000  000  000        000     000     
@@ -457,18 +461,24 @@ float rayMarch(vec3 ro, vec3 rd)
 //      000  000   000  000   000  000   000  000   000  000   000  
 // 0000000   000   000  000   000  0000000     0000000   00     00  
 
-float hardShadow(vec3 ro, vec3 rd, float mint, float maxt, const float w)
+float softShadow(vec3 ro, vec3 lp, float k)
 {
-    for (float t=mint+float(ZERO); t<maxt;)
+    float shade = 1.;
+    float dist = .0035;    
+    vec3 rd = (lp-ro);
+    float end = max(length(rd), 0.001);
+    float stepDist = end/12.0;
+    rd /= end;
+    for (int i=0; i<12; i++)
     {
-        float h = map(ro+rd*t);
-        if (h < 0.001)
-        {
-            return w;
-        }
-        t+=h;
+        float h = map(ro+rd*dist);
+        shade = min(shade, k*h/dist);
+        dist += clamp(h, 0.02, stepDist*2.0);
+        
+        if (h < 0.0001 || dist > end) break; 
     }
-    return 1.0;
+
+    return min(max(shade, 0.0) + SHADOW, 1.0); 
 }
 
 // 000      000   0000000   000   000  000000000  
@@ -477,22 +487,33 @@ float hardShadow(vec3 ro, vec3 rd, float mint, float maxt, const float w)
 // 000      000  000   000  000   000     000     
 // 0000000  000   0000000   000   000     000     
 
+float shiny(float rough, float NoH, const vec3 h) 
+{
+    // Walter et al. 2007, "Microfacet Models for Refraction through Rough Surfaces"
+    float oneMinusNoHSquared = 1.0 - NoH * NoH;
+    float a = NoH * rough;
+    float k = rough / (oneMinusNoHSquared + a * a);
+    float d = k * k * (1.0 / PI);
+    return d;
+}
+
 float getLight(vec3 p, vec3 n)
 {
     vec3 cr = cross(camDir, vec3(0,1,0));
     vec3 up = normalize(cross(cr,camDir));
     vec3 lp = camPos + vec3(0,2.0,0) + up*5.0; 
-    lp *= 5.0;
+    lp *= 2.0;
     vec3 l = normalize(lp-p);
  
     float ambient = 0.005;
     float dif = clamp(dot(n,l), 0.0, 1.0);
+    
     if (mat == PUPL || mat == TAIL)
     {
         dif = clamp(dot(n,normalize(mix(camPos,lp,0.1)-p)), 0.0, 1.0);
         dif = mix(pow(dif, 16.0), 1.0*dif, 0.2);
         dif += 1.0 - smoothstep(0.0, 0.2, dif);
-        ambient = 0.1;
+        if (mat == PUPL) ambient = 0.1;
     }
     else if (mat == BULB)
     {
@@ -501,26 +522,43 @@ float getLight(vec3 p, vec3 n)
     }
     else if (mat == HEAD)
     {
-        dif = pow(dif, 4.0);
+        float exp = soft ? 8.0 : 2.0;
+        float smx = soft ? 0.5 : 0.99;
         
-        vec3 off = p+n*2.0*MIN_DIST;
-        dif *= hardShadow(off, normalize(lp-off), MIN_DIST, 100.0, 0.2);
+        vec3  n2c = normalize(camPos-p);
+        vec3  bcl = normalize(n2c + l);
+        float dnh = clamp01(dot(n, bcl));
+        float shi = shiny(0.45, dnh, bcl);
+        
+        dif = clamp01(mix(pow(dif, exp), shi, smx));
     }
-            
+    
+    if (mat != PUPL && mat != BULB)
+    {
+        if (soft)
+        {
+            dif *= softShadow(p, lp, 4.0);        
+        }
+        else
+        {
+            dif *= softShadow(p, lp, 10.0);
+        }
+    }
+    
     return clamp(dif, ambient, 1.0);
 }
 
-// 00000000   0000000    0000000   
-// 000       000   000  000        
-// 000000    000   000  000  0000  
-// 000       000   000  000   000  
-// 000        0000000    0000000   
-
-vec3 fog(vec3 col, vec3 bg, float dist)
-{
-    float f = smoothstep(0.*MAX_DIST, MAX_DIST, dist);
-    return mix(col, bg, f);
-}
+// 00000000   0000000    0000000   
+// 000       000   000  000        
+// 000000    000   000  000  0000  
+// 000       000   000  000   000  
+// 000        0000000    0000000   
+
+vec3 fog(vec3 col, vec3 bg, float dist)
+{
+    float f = smoothstep(0.*MAX_DIST, MAX_DIST, dist);
+    return mix(col, bg, f);
+}
 
 // 00     00   0000000   000  000   000  
 // 000   000  000   000  000  0000  000  
@@ -532,29 +570,16 @@ const int KEY_LEFT  = 37;
 const int KEY_UP    = 38;
 const int KEY_RIGHT = 39;
 const int KEY_DOWN  = 40;
+const int KEY_SPACE = 32;
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {   
-    #ifdef TOY
+    bool dither = true;
     bool camrot = texelFetch(iChannel0, ivec2(KEY_RIGHT, 2), 0).x < 0.5;
     bool water  = texelFetch(iChannel0, ivec2(KEY_LEFT,  2), 0).x < 0.5;
-    bool dither = texelFetch(iChannel0, ivec2(KEY_DOWN,  2), 0).x < 0.5;
+    bool space  = texelFetch(iChannel0, ivec2(KEY_SPACE, 2), 0).x < 0.5;
+         soft   = texelFetch(iChannel0, ivec2(KEY_DOWN,  2), 0).x < 0.5;
          animat = texelFetch(iChannel0, ivec2(KEY_UP,    2), 0).x < 0.5;
-    #else
-    /*
-    bool camrot = true;
-    bool water  = false;
-    bool dither = false;
-         animat = false;
-    */   
-    bool camrot = texelFetch(iChannel0, ivec2(KEY_RIGHT, 0), 0).x > 0.5;
-    // bool water  = texelFetch(iChannel0, ivec2(KEY_LEFT,  0), 0).x > 0.5;
-    bool water  = texture2D(iChannel0, vec2(0,0)).r < 0.5;
-    //bool water  = true;
-    bool dither = texelFetch(iChannel0, ivec2(KEY_DOWN,  0), 0).x > 0.5;
-         animat = texelFetch(iChannel0, ivec2(KEY_UP,    0), 0).x > 0.5;
-         
-    #endif
         
     if (animat) 
     {
@@ -563,33 +588,29 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     }
     
     vec2 uv = (fragCoord-.5*iResolution.xy)/iResolution.y;
-    vec3 ct;
     
-    #ifdef TOY
-    camTgt = vec3(0,0,0); 
+    float md = 8.0;
     float mx = 2.0*(iMouse.x/iResolution.x-0.5);
     float my = 2.0*(iMouse.y/iResolution.y-0.5);
-    float md = 8.0;
     
     if (iMouse.z <= 0.0 && camrot)
     {
         mx = iTime/4.;
         my = -0.5*sin(iTime/8.);
-        
         dither = true;
     }
     
+    camTgt = v0; 
     camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, 89.0*my), vy, -180.0*mx);
-    #else
-    camTgt = iCenter;
-    camPos = iCamera;
-    camPos.x *= -1.0;
-    camTgt.x *= -1.0;
     
-    if (iMouse.z <= 0.0)
-    {
-        dither = true;
-    }
+    #ifndef TOY
+        if (space)
+        {
+            camTgt = iCenter;
+            camPos = iCamera;
+            camPos.x *= -1.0;
+            camTgt.x *= -1.0;
+        }
     #endif
     
     camDir = normalize(camTgt-camPos);
@@ -646,13 +667,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     if (dither)
     {
-        float dit = gradientNoise(fragCoord.xy);
+        float dit = gradientNoise(fragCoord.xy);
         col += vec3(dit/10000.0);
     }
     
     #ifndef TOY
     vec2  fontSize = vec2(20.0, 35.0);  
-    float isDigit = digit(fragCoord / fontSize, iTimeDelta*1000., 2.0, 0.0);
+    float isDigit = digit(fragCoord / fontSize, iFrameRate, 2.0, 0.0);
     col = mix( col, vec3(1.0, 1.0, 1.0), isDigit);
     #endif
     

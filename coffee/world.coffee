@@ -218,26 +218,10 @@ class World
     modKeyComboEventDown: (mod, key, combo, event) ->
         
         # klog 'modKeyComboEventDown' mod, key, combo, event.which, key.charCodeAt(0)
-        if event.which < 256
-            # @keys[0]     = 1
-            # @keys[1]     = 1
-            # @keys[2]     = 1
-            # @keys[256]     = 1
-            # @keys[257]     = 1
-            # @keys[258]     = 1
-            # @keys[512]     = 1
-            # @keys[513]     = 1
-            # @keys[514]     = 1
+        if event.which < 256 and not event.repeat
             @keys[event.which]     = 1
             @keys[event.which+256] = 1
-            @keys[event.which+512] = 1
-            # @keys[event.which+512+256]  = 1
-            # @keys[event.which+512+512]  = 1
-            # @keys[event.which+1024+256] = 1
-            # @keys[event.which+1024+512] = 1
-            # @keys[event.which+2048+256] = 1
-            # @keys[event.which+2048+512] = 1
-            # klog @keys
+            @keys[event.which+512] = 1-@keys[event.which+512]
         switch key
             when 'e' then @camera.moveUp()
             when 'q' then @camera.moveDown()
@@ -252,9 +236,7 @@ class World
 
         # klog 'modKeyComboEventUp' mod, key, combo, event.code
         if event.which < 256
-            @keys[event.which]     = 0
-            @keys[event.which+256] = 0
-            @keys[event.which+512] = 0
+            @keys[event.which] = 0
         
         switch key
             when 'e' then @camera.stopUp()
