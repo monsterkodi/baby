@@ -375,9 +375,10 @@ void head(vec3 pos)
         
     if (dpy > -.5)
     {        
-        vec3 nl = normalize(camPos - eyel);
-        vec3 nr = normalize(camPos - eyer);
-        vec3 nb = normalize(camPos - eyeb);
+        vec3 cp = camPos + 0.2*vec3(sin(iTime*5.5), -7.0*sin(iTime)*aa+sin(iTime*3.7), 0);
+        vec3 nl = normalize(cp - eyel);
+        vec3 nr = normalize(cp - eyer);
+        vec3 nb = normalize(cp - eyeb);
         
         eye(eyel, eyel + pd*nl, eyel + ld*nl);
         eye(eyer, eyer + pd*nr, eyer + ld*nr);
@@ -502,7 +503,7 @@ vec3 getLight(vec3 p, vec3 n, vec3 col)
     
     vec3 cr = cross(camDir, vec3(0,1,0));
     vec3 up = normalize(cross(cr,camDir));
-    vec3 lp = 2.0 * (camPos + vec3(0,2.0,0) + up*5.0); 
+    vec3 lp = 4.0 * (camPos + vec3(0,2.0*sin(iTime),0) + up*(5.0+cos(iTime*1.3)) + cr*2.0*sin(iTime*1.73)); 
     vec3 l = normalize(lp-p);
  
     float ambient = 0.005;
@@ -535,10 +536,10 @@ vec3 getLight(vec3 p, vec3 n, vec3 col)
     
     if (mat != PUPL && mat != BULB)
     {
-    	dif *= softShadow(p, lp, 4.0);        
+        dif *= softShadow(p, lp, 4.0);        
     }
     
-   	vec3 hl = vec3(pow(clamp01(smoothstep(0.9,1.0,dot(n, l))), 20.0));
+    vec3 hl = vec3(pow(clamp01(smoothstep(0.9,1.0,dot(n, l))), 20.0));
     
     return col * clamp(dif, ambient, 1.0) + hl;
 }
@@ -591,7 +592,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     if (iMouse.z <= 0.0 && camrot)
     {
         mx = iTime/16.;
-        my = -0.35*sin(iTime/8.);
+        my = -0.35*sin(iTime/8.);
         dither = true;
     }
     
