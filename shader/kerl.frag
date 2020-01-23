@@ -258,9 +258,8 @@ float sdBend(vec3 p, vec3 a, vec3 n, vec3 d, float side, vec2 r)
     
     vec3 c = cross(d,n);
     vec3 pp = q - r.x*c + side*r.x*d;
-    if (dot(pp,c) > 0.0) return length(pp)-r.y;
 
-    return length(vec2(length(posOnPlane(q, n)-r.x*c)-r.x,abs(dot(n, q))))-r.y;
+    return length((dot(pp,c) > 0.0) ? pp : vec2(length(posOnPlane(q, n)-r.x*c)-r.x,abs(dot(n, q))))-r.y;
 }
 
 float sdSphere(vec3 p, vec3 a, float r)

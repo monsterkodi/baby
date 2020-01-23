@@ -8,14 +8,12 @@
 
 #define PI 3.1415926535897
 #define ZERO min(iFrame,0)
-#define AA 2
 
 #define NONE  0
 #define PLANE 1
 #define HEAD  2
 #define BULB  3
 #define PUPL  4
-#define BLCK  5
 #define BBOX  6
 
 struct ray {
@@ -31,6 +29,7 @@ struct sdf {
 
 sdf s;
 int mat;
+int AA = 2;
 vec2 frag;
 bool soft;
 float brth;
@@ -38,6 +37,10 @@ bool animat;
 vec3 camPos;
 vec3 camTgt;
 vec3 camDir;
+
+vec3 pHead, nyHead, nzHead;
+vec3 pEyeT, pEyeL, pEyeR, nEyeL, nEyeR, pEarL, nEarL, pEarR, nEarR, pPupL, pPupR, pLnsL, pLnsR,
+     pLegL, nLegL, pLegR, nLegR, pLegF, nLegF; 
 
 vec3 v0 = vec3(0,0,0);
 vec3 vx = vec3(1,0,0);
@@ -231,6 +234,11 @@ float sdPlane(vec3 p, vec3 a, vec3 n)
     return dot(n, p-a);
 }
 
+float sdPlane(vec3 p, vec3 n)
+{   
+    return dot(n, p);
+}
+
 vec3 posOnPlane(vec3 p, vec3 n)
 {
     return p-dot(p,n)*n;
@@ -242,7 +250,7 @@ float sdTorus(vec3 p, vec3 a, vec3 n, float rl, float rs)
     return length(vec2(length(posOnPlane(q, n))-rl,abs(dot(n, q))))-rs;
 }
 
-float sdConeBend(vec3 p, vec3 a, vec3 b, float fa, float fb, bool smth)
+float sdConeBend(vec3 p, vec3 a, vec3 b, float fa, float fb)
 {
     vec3 ab = b-a;
     vec3 ap = p-a;
@@ -287,7 +295,7 @@ void eye(vec3 pos, vec3 pupil, vec3 lens)
 
 float leg(vec3 pos, vec3 n)
 {
-    float d = sdConeBend(s.pos, pos, pos+n*0.2, 2.1, 2.5, true);
+    float d = sdConeBend(s.pos, pos, pos+n*0.2, 2.1, 2.5);
     
     d = opDiff(d, 0.2, sdPlane(s.pos, pos+n*0.5, -n));
     d = opDiff(d, 0.1, sdSphere(s.pos, pos+n*0.7, 0.4));
@@ -295,13 +303,78 @@ float leg(vec3 pos, vec3 n)
     return d;
 }
 
+// 00000000   0000000   00000000   
+// 000       000   000  000   000  
+// 0000000   000000000  0000000    
+// 000       000   000  000   000  
+// 00000000  000   000  000   000  
+
 float ear(vec3 pos, vec3 n)
 {
-    float d = sdConeBend(s.pos, pos, pos+n*0.23, 0.7, 1.1, true);
+    float d = sdConeBend(s.pos, pos, pos+n*0.23, 0.7, 1.1);
     
     d = opDiff(d, 0.25, sdSphere(s.pos, pos+n*(0.5 + 0.15*brth/2.0), 0.1));
     
     return d;
+}
+
+//  0000000   000   000  000  00     00  
+// 000   000  0000  000  000  000   000  
+// 000000000  000 0 000  000  000000000  
+// 000   000  000  0000  000  000 0 000  
+// 000   000  000   000  000  000   000  
+
+void anim()
+{
+    float tt = 1.0-fract(iTime*0.5);
+    float aa = cos(tt*tt*PI*2.0); 
+    float ab = cos(tt*PI*2.0); 
+    
+    brth = 1.0*mix(smoothstep(-0.8, 0.95, aa), ab, 0.3);
+    
+    vec3 hsh1 = hash31(floor(iTime*0.3));
+    vec3 hsh2 = hash31(floor(iTime));
+    
+    pEyeT = camPos + hsh1*2.0 + hsh2*0.5;
+}
+    
+void pose()
+{
+    pHead = vec3(0,1.35,-brth*0.015);
+    
+    nyHead = rotAxisAngle(vy, vx, -2.0*brth);
+    nzHead = rotAxisAngle(vz, vx, -2.0*brth);
+    
+    nEarL = rotAxisAngle(rotAxisAngle(nzHead, vx, -48.0), nyHead,  130.0);
+    nEarR = rotAxisAngle(rotAxisAngle(nzHead, vx, -48.0), nyHead, -130.0);
+  
+    pEarL = pHead + nEarL*1.1;
+    pEarR = pHead + nEarR*1.1;
+  
+    nEarL = normalize(nEarL+vec3( brth*0.2,0,0));
+    nEarR = normalize(nEarR+vec3(-brth*0.2,0,0));
+    
+    nEyeL = rotAxisAngle(rotAxisAngle(nzHead, vx, -42.0), nyHead,  48.0);
+    nEyeR = rotAxisAngle(rotAxisAngle(nzHead, vx, -42.0), nyHead, -48.0);
+    
+    pEyeL  = pHead + nEyeL*0.9;
+    pEyeR  = pHead + nEyeR*0.9;
+    
+    nLegL = rotAxisAngle(rotAxisAngle(vz, vx, 42.0 - 3.0*brth), nyHead,  120.0);
+    nLegR = rotAxisAngle(rotAxisAngle(vz, vx, 42.0 - 3.0*brth), nyHead, -120.0);
+    nLegF = rotAxisAngle(rotAxisAngle(vz, vx, 42.0 + 0.5*brth), nyHead,    0.0);
+    
+    vec3 nl = normalize(pEyeT - pEyeL);
+    vec3 nr = normalize(pEyeT - pEyeR);
+        
+    float pd = 0.3;
+    float ld = 0.16;
+
+    pPupL = pEyeL + pd*nl;
+    pPupR = pEyeR + pd*nr;
+    
+    pLnsL = pEyeL + ld*nl;
+    pLnsR = pEyeR + ld*nr;
 }
 
 // 000   000  00000000   0000000   0000000    
@@ -310,9 +383,9 @@ float ear(vec3 pos, vec3 n)
 // 000   000  000       000   000  000   000  
 // 000   000  00000000  000   000  0000000    
 
-void head(vec3 pos)
+void head()
 {        
-    float bd = sdSphere(s.pos, pos, 2.5);    
+    float bd = sdSphere(s.pos, pHead, 2.3);    
 
     if (bd > MIN_DIST*1.1) 
     {
@@ -320,53 +393,22 @@ void head(vec3 pos)
         return;
     }
 
-    float tt = 1.0-fract(iTime*0.35);
-    float aa = cos(tt*tt*PI*2.0); 
-    float ab = cos(tt*PI*2.0); 
-    
-    brth = 2.0*mix(smoothstep(-0.8, 0.95, aa), ab, 0.3);
-    pos.z -= brth*0.015;
-    vec3 off = vec3(0, 1.35, 0);
-    
-    vec3 ny = rotAxisAngle(vy, vx, -2.0*brth);
-    vec3 nz = rotAxisAngle(vz, vx, -2.0*brth);
-    float d = sdSphere(s.pos, pos, 1.0+brth*0.01);
+    float d = sdSphere(s.pos, pHead, 1.0+brth*0.01);
 
-    vec3 earln = rotAxisAngle(rotAxisAngle(nz, vx, -48.0), ny,  130.0);
-    vec3 earrn = rotAxisAngle(rotAxisAngle(nz, vx, -48.0), ny, -130.0);
-    d = opUnion(d, 0.2, ear(pos + earln*1.1, normalize(earln+hash31(floor(iTime*0.7))*0.2)));
-    d = opUnion(d, 0.2, ear(pos + earrn*1.1, normalize(earrn+hash31(floor(iTime*0.7)+0.5)*0.2)));
+    d = opUnion(d, 0.2, ear(pEarL, nEarL));
+    d = opUnion(d, 0.2, ear(pEarR, nEarR));
+            
+    d = opUnion(d, 0.15, sdTorus(s.pos, pEyeL, nEyeL, 0.4, 0.05));
+    d = opUnion(d, 0.15, sdTorus(s.pos, pEyeR, nEyeR, 0.4, 0.05));
     
-    vec3 eyeln = rotAxisAngle(rotAxisAngle(nz, vx, -42.0), ny,  48.0);
-    vec3 eyern = rotAxisAngle(rotAxisAngle(nz, vx, -42.0), ny, -48.0);
-    vec3 eyel  = pos + eyeln*0.9;
-    vec3 eyer  = pos + eyern*0.9;
-        
-    d = opUnion(d, 0.15, sdTorus(s.pos, eyel, eyeln, 0.4, 0.05));
-    d = opUnion(d, 0.15, sdTorus(s.pos, eyer, eyern, 0.4, 0.05));
-    
-    vec3 legln = rotAxisAngle(rotAxisAngle(vz, vx, 42.0 - 3.0*brth), ny,  120.0);
-    vec3 legrn = rotAxisAngle(rotAxisAngle(vz, vx, 42.0 - 3.0*brth), ny, -120.0);
-    vec3 legfn = rotAxisAngle(rotAxisAngle(vz, vx, 42.0 + 0.5*brth), ny,    0.0);
-    
-    d = opUnion(d, 0.2, leg(pos + legln, legln));
-    d = opUnion(d, 0.2, leg(pos + legrn, legrn));
-    d = opUnion(d, 0.2, leg(pos + legfn, legfn));
+    d = opUnion(d, 0.2, leg(pHead + nLegL, nLegL));
+    d = opUnion(d, 0.2, leg(pHead + nLegR, nLegR));
+    d = opUnion(d, 0.2, leg(pHead + nLegF, nLegF));
     
     if (d < s.dist) { s.mat = HEAD; s.dist = d; }
-    
-    vec3 hsh1 = hash31(floor(iTime*0.3));
-    vec3 hsh2 = hash31(floor(iTime));
-    
-    vec3 cp = camPos + hsh1*2.0 + hsh2*0.5;
-    vec3 nl = normalize(cp - eyel);
-    vec3 nr = normalize(cp - eyer);
         
-    float pd = 0.3;
-    float ld = 0.16;
-    
-    eye(eyel, eyel + pd*nl, eyel + ld*nl);
-    eye(eyer, eyer + pd*nr, eyer + ld*nr);
+    eye(pEyeL, pPupL, pLnsL);
+    eye(pEyeR, pPupR, pLnsR);
 }
 
 void plane(vec3 pos)
@@ -387,7 +429,7 @@ float map(vec3 p)
     s = sdf(1000.0, p, NONE);
          
     plane(v0);
-    head(vec3(0,1.35,0));
+    head();
 
     return s.dist;
 }
@@ -556,25 +598,12 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     bool space  = texelFetch(iChannel0, ivec2(KEY_SPACE, 2), 0).x > 0.5;
          soft   = texelFetch(iChannel0, ivec2(KEY_DOWN,  2), 0).x < 0.5;
          animat = texelFetch(iChannel0, ivec2(KEY_UP,    2), 0).x < 0.5;
-        
-    if (animat)
-    {
-        float tt = 1.0-fract(iTime*0.5);
-    }
-    
+          
+    if (!soft) AA = 1;
+         
     float d;
     vec3 cols = v0;
     vec3 col, foc;
-    
-#if AA > 1
-    for( int am=ZERO; am<AA; am++ )
-    for( int an=ZERO; an<AA; an++ )
-    {
-    vec2 ao = vec2(float(am),float(an)) / float(AA) - 0.5;
-    vec2 uv = ((fragCoord+ao)-.5*iResolution.xy)/iResolution.y;
-#else    
-    vec2 uv = (fragCoord-.5*iResolution.xy)/iResolution.y;
-#endif
     
     float aspect = iResolution.x/iResolution.y;
     
@@ -605,40 +634,51 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     camDir = normalize(camTgt-camPos);
     
-    vec3 ww = normalize(camTgt-camPos);
-    vec3 uu = normalize(cross(ww, vec3(0,1,0)));
-    vec3 vv = normalize(cross(uu, ww));
-        
-    vec3 rd = normalize(uv.x*uu + uv.y*vv + 1.0*ww);
-
-    d = rayMarch(camPos, rd);
-    mat = s.mat;
+    if (animat) { anim(); }
+    else { pEyeT = camPos; }
     
-    vec3  p = camPos + d * rd;
-    vec3  n = getNormal(p);
-            
-    if      (mat == HEAD)  col = vec3(1.0, 1.0, 0.0);
-    else if (mat == PLANE) col = vec3(0.5, 0.0, 0.0);
-    else if (mat == PUPL)  col = vec3(0.1, 0.1, 0.5);
-    else if (mat == BULB)  col = vec3(1.0, 1.0, 1.0);
-    else if (mat == NONE)  col = vec3(0.22, 0.0, 0.0);
-    foc = vec3(0.22, 0.0, 0.0);
-
-    col = getLight(p, n, col);
-        
-    if (mat != NONE)
+    pose();
+    
+    vec2 ao = vec2(0);
+    vec2 uv;
+    
+    for( int am=ZERO; am<AA; am++ )
+    for( int an=ZERO; an<AA; an++ )
     {
-        col = fog(col, foc, d);
-    }
+        if (AA > 1) ao = vec2(float(am),float(an))/float(AA)-0.5;
+
+        uv = (fragCoord+ao-.5*iResolution.xy)/iResolution.y;
+                
+        vec3 ww = normalize(camTgt-camPos);
+        vec3 uu = normalize(cross(ww, vec3(0,1,0)));
+        vec3 vv = normalize(cross(uu, ww));
+            
+        vec3 rd = normalize(uv.x*uu + uv.y*vv + 1.0*ww);
         
-    cols += col;
+        d = rayMarch(camPos, rd);
+        mat = s.mat;
         
-#if AA>1
+        vec3  p = camPos + d * rd;
+        vec3  n = getNormal(p);
+                
+        if      (mat == HEAD)  col = vec3(1.0, 1.0, 0.0);
+        else if (mat == PLANE) col = vec3(0.5, 0.0, 0.0);
+        else if (mat == PUPL)  col = vec3(0.1, 0.1, 0.5);
+        else if (mat == BULB)  col = vec3(1.0, 1.0, 1.0);
+        else if (mat == NONE)  col = vec3(0.22, 0.0, 0.0);
+        foc = vec3(0.22, 0.0, 0.0);
+    
+        col = getLight(p, n, col);
+            
+        if (mat != NONE)
+        {
+            col = fog(col, foc, d);
+        }
+            
+        cols += col;
     }
+    
     col = cols/float(AA*AA);
-#else
-    col = cols;
-#endif
     
     col *= clamp(1.0-1.1*length((fragCoord-.5*iResolution.xy)/iResolution.xy), 0.0, 1.0);
     
