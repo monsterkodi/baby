@@ -2,8 +2,8 @@
 
 #define MAX_STEPS 128
 #define MIN_DIST   0.005
-#define MAX_DIST  50.0
-#define SHADOW     0.3
+#define MAX_DIST  20.0
+#define SHADOW     0.4
 #define FLOOR      0.0
 
 #define PI 3.1415926535897
@@ -297,9 +297,9 @@ float leg(vec3 pos, vec3 n)
 
 float ear(vec3 pos, vec3 n)
 {
-    float d = sdConeBend(s.pos, pos, pos+n*0.22, 1.0, 1.3, true);
+    float d = sdConeBend(s.pos, pos, pos+n*0.23, 0.7, 1.1, true);
     
-    d = opDiff(d, 0.2, sdSphere(s.pos, pos+n*(0.6 + 0.15*brth/2.0), 0.1));
+    d = opDiff(d, 0.25, sdSphere(s.pos, pos+n*(0.5 + 0.15*brth/2.0), 0.1));
     
     return d;
 }
@@ -312,7 +312,7 @@ float ear(vec3 pos, vec3 n)
 
 void head(vec3 pos)
 {        
-    float bd = sdSphere(s.pos, pos, 1.75);    
+    float bd = sdSphere(s.pos, pos, 2.5);    
 
     if (bd > MIN_DIST*1.1) 
     {
@@ -334,8 +334,8 @@ void head(vec3 pos)
 
     vec3 earln = rotAxisAngle(rotAxisAngle(nz, vx, -48.0), ny,  130.0);
     vec3 earrn = rotAxisAngle(rotAxisAngle(nz, vx, -48.0), ny, -130.0);
-    d = opUnion(d, 0.2, ear(pos + earln, normalize(earln+hash31(floor(iTime*0.7))*0.2)));
-    d = opUnion(d, 0.2, ear(pos + earrn, normalize(earrn+hash31(floor(iTime*0.7)+0.5)*0.2)));
+    d = opUnion(d, 0.2, ear(pos + earln*1.1, normalize(earln+hash31(floor(iTime*0.7))*0.2)));
+    d = opUnion(d, 0.2, ear(pos + earrn*1.1, normalize(earrn+hash31(floor(iTime*0.7)+0.5)*0.2)));
     
     vec3 eyeln = rotAxisAngle(rotAxisAngle(nz, vx, -42.0), ny,  48.0);
     vec3 eyern = rotAxisAngle(rotAxisAngle(nz, vx, -42.0), ny, -48.0);
@@ -436,9 +436,9 @@ float softShadow(vec3 ro, vec3 lp, float k)
     float dist = MIN_DIST;    
     vec3 rd = (lp-ro);
     float end = max(length(rd), MIN_DIST);
-    float stepDist = end/22.0;
+    float stepDist = end/25.0;
     rd /= end;
-    for (int i=0; i<22; i++)
+    for (int i=0; i<25; i++)
     {
         float h = map(ro+rd*dist);
         if (s.mat != BBOX)
@@ -472,7 +472,7 @@ vec3 getLight(vec3 p, vec3 n, vec3 col)
     
     vec3 cr = cross(camDir, vec3(0,1,0));
     vec3 up = normalize(cross(cr,camDir));
-    vec3 lp = 2.0 * (camPos + vec3(0,2.0,0) + up*5.0); 
+    vec3 lp = 2.0 * (camPos + vec3(-0.5,1.0,0) + up*2.0); 
     vec3 l = normalize(lp-p);
  
     float ambient = 0.005;
@@ -492,29 +492,33 @@ vec3 getLight(vec3 p, vec3 n, vec3 col)
     }
     else if (mat == HEAD)
     {
-        float exp = soft ? 4.0 : 2.0;
-        float smx = soft ? 0.75 : 0.99;
+        float exp = 1.5;
+        float smx = 0.27;
         
         vec3  n2c = normalize(camPos-p);
         vec3  bcl = normalize(n2c + l);
         float dnh = dot(n, bcl);
-        float shi = shiny(1.9, dnh, bcl);
+        float shi = shiny(2.5, dnh, bcl);
         
         dif = pow(dif, exp);
-        dif += shi;
+        dif = mix(dif, shi, smx);
         ambient = 0.1;
     }
     
-    //if (mat != PUPL && mat != BULB)
-    if (mat == HEAD || mat == PLANE)
+    if (mat == HEAD || mat == PLANE || mat == BULB)
     {
-        dif *= softShadow(p, lp, 4.0);        
+        dif *= softShadow(p, lp, 6.0);        
     }
     
     vec3 hl = v0;
     if (mat == PUPL || mat == BULB)
     {
         hl = vec3(pow(clamp01(smoothstep(0.9,1.0,dot(n, l))), 20.0));
+    }
+    else if (mat == HEAD)
+    {
+        float hv = pow(clamp01(smoothstep(0.7,1.0,dot(n, l))), 1.2);
+        hl = col*hv*0.3;
     }
     
     return col * clamp(dif, ambient, 1.0) + hl;
@@ -548,17 +552,20 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {   
     frag = fragCoord;
     bool dither = true;
-    bool camrot = texelFetch(iChannel0, ivec2(KEY_RIGHT, 2), 0).x > 0.5;
-    bool space  = texelFetch(iChannel0, ivec2(KEY_SPACE, 2), 0).x < 0.5;
+    bool camrot = texelFetch(iChannel0, ivec2(KEY_RIGHT, 2), 0).x < 0.5;
+    bool space  = texelFetch(iChannel0, ivec2(KEY_SPACE, 2), 0).x > 0.5;
          soft   = texelFetch(iChannel0, ivec2(KEY_DOWN,  2), 0).x < 0.5;
          animat = texelFetch(iChannel0, ivec2(KEY_UP,    2), 0).x < 0.5;
         
-    if (animat) 
+    if (animat)
     {
         float tt = 1.0-fract(iTime*0.5);
     }
-    vec3 col;
-        
+    
+    float d;
+    vec3 cols = v0;
+    vec3 col, foc;
+    
 #if AA > 1
     for( int am=ZERO; am<AA; am++ )
     for( int an=ZERO; an<AA; an++ )
@@ -571,18 +578,19 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     float aspect = iResolution.x/iResolution.y;
     
-    float md = 7.0;
+    float md = 5.5;
     float mx = 2.0*(iMouse.x/iResolution.x-0.5);
     float my = 2.0*(iMouse.y/iResolution.y-0.5);
     
     if (iMouse.z <= 0.0 && camrot)
     {
-        mx = iTime/4.;
-        my = -0.5+0.25*sin(iTime/8.);
-        dither = true;
+        float ts = 276.2;
+        mx = 0.3*sin(ts+iTime/12.0);
+        my = -0.20-0.10*cos(ts+iTime/8.0);
     }
     
-    camTgt = vec3(0,1.0,0); 
+    camTgt = vec3(0,1.2,0); 
+
     camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, 89.0*my), vy, -180.0*mx);
     
     #ifndef TOY
@@ -603,36 +611,33 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         
     vec3 rd = normalize(uv.x*uu + uv.y*vv + 1.0*ww);
 
-    float d = rayMarch(camPos, rd);
+    d = rayMarch(camPos, rd);
     mat = s.mat;
     
     vec3  p = camPos + d * rd;
     vec3  n = getNormal(p);
             
-    ifdef TOY
     if      (mat == HEAD)  col = vec3(1.0, 1.0, 0.0);
     else if (mat == PLANE) col = vec3(0.5, 0.0, 0.0);
     else if (mat == PUPL)  col = vec3(0.1, 0.1, 0.5);
     else if (mat == BULB)  col = vec3(1.0, 1.0, 1.0);
-    else if (mat == NONE)  col = vec3(0.3, 0.0, 0.0);
-   #else
-    if      (mat == HEAD)  col = vec3(0.03);
-    else if (mat == PLANE) col = vec3(0.02);
-    else if (mat == PUPL)  col = vec3(0.01);
-    else if (mat == BULB)  col = vec3(0.09);
-    else if (mat == NONE)  col = vec3(0.01);
-    #endif
-    
+    else if (mat == NONE)  col = vec3(0.22, 0.0, 0.0);
+    foc = vec3(0.22, 0.0, 0.0);
+
     col = getLight(p, n, col);
-    
+        
     if (mat != NONE)
     {
-        col = fog(col, vec3(0.01), d);
+        col = fog(col, foc, d);
     }
-    
+        
+    cols += col;
+        
 #if AA>1
     }
-    col /= float(AA*AA);
+    col = cols/float(AA*AA);
+#else
+    col = cols;
 #endif
     
     col *= clamp(1.0-1.1*length((fragCoord-.5*iResolution.xy)/iResolution.xy), 0.0, 1.0);
