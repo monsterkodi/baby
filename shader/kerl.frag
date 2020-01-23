@@ -696,20 +696,7 @@ vec3 getNormal(vec3 p)
 float rayMarch(vec3 ro, vec3 rd)
 {
     float dz = 0.0;
-    /*
-    if (!rayIntersectsSphere(ro, rd, vec3(0,1.0,0), 5.0))
-    {
-        for (int i = 0; i < MAX_STEPS; i++)
-        {
-            vec3 p = ro + dz * rd;
-            vec2 hit = vec2(sdPlane(p, vec3(0,FLOOR,0), vec3(0,1,0)), PLANE);
-            dz += hit.x;
-            if (hit.x < MIN_DIST) return vec2(dz,PLANE);
-            if (dz > MAX_DIST) break;
-        }
-        return vec2(dz,-1.0);
-    }
-    */
+
     for (int i = ZERO; i < MAX_STEPS; i++)
     {
         vec3 p = ro + dz * rd;
