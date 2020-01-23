@@ -599,7 +599,14 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
          soft   = texelFetch(iChannel0, ivec2(KEY_DOWN,  2), 0).x < 0.5;
          animat = texelFetch(iChannel0, ivec2(KEY_UP,    2), 0).x < 0.5;
           
-    if (!soft) AA = 1;
+    if (!soft) 
+    {
+        AA = 1;   
+    }
+    else
+    { 
+        if (iTimeDelta < 0.02) AA = 3;
+    }
          
     float d;
     vec3 cols = v0;
