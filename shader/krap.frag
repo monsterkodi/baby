@@ -1,13 +1,14 @@
 // #define TOY  1
 
 #define MAX_STEPS 128
-#define MIN_DIST   0.001
+#define MIN_DIST   0.005
 #define MAX_DIST  50.0
-#define SHADOW     0.1
+#define SHADOW     0.3
 #define FLOOR      0.0
 
 #define PI 3.1415926535897
 #define ZERO min(iFrame,0)
+#define AA 2
 
 #define NONE  0
 #define PLANE 1
@@ -15,6 +16,7 @@
 #define BULB  3
 #define PUPL  4
 #define BLCK  5
+#define BBOX  6
 
 struct ray {
     vec3 pos;
@@ -31,6 +33,7 @@ sdf s;
 int mat;
 vec2 frag;
 bool soft;
+float brth;
 bool animat;
 vec3 camPos;
 vec3 camTgt;
@@ -87,13 +90,20 @@ float digit(vec2 vStringCoords, float fValue, float fMaxDigits, float fDecimalPl
     float fBiggestIndex = max(floor(fLog10Value), 0.0);
     float fDigitIndex = fMaxDigits - floor(vStringCoords.x);
     float fCharBin = 0.0;
-    if (fDigitIndex > (-fDecimalPlaces - 1.01)) {
-        if (fDigitIndex > fBiggestIndex) {
+    if (fDigitIndex > (-fDecimalPlaces - 1.01)) 
+    {
+        if (fDigitIndex > fBiggestIndex) 
+        {
             if((bNeg) && (fDigitIndex < (fBiggestIndex+1.5))) fCharBin = 1792.0;
-        } else {        
-            if (fDigitIndex == -1.0) {
+        } 
+        else 
+        {
+            if (fDigitIndex == -1.0) 
+            {
                 if (fDecimalPlaces > 0.0) fCharBin = 2.0;
-            } else {
+            } 
+            else 
+            {
                 float fReducedRangeValue = fValue;
                 if (fDigitIndex < 0.0) { fReducedRangeValue = fract( fValue ); fDigitIndex += 1.0; }
                 float fDigitValue = (abs(fReducedRangeValue / (pow(10.0, fDigitIndex))));
@@ -101,7 +111,7 @@ float digit(vec2 vStringCoords, float fValue, float fMaxDigits, float fDecimalPl
             }
         }
     }
-    return floor(mod((fCharBin / pow(2.0, floor(fract(vStringCoords.x) * 4.0) + (floor(vStringCoords.y * 5.0) * 4.0))), 2.0));
+    return floor(mod(fCharBin / pow(2.0, floor(fract(vStringCoords.x) * 4.0) + (floor(vStringCoords.y * 5.0) * 4.0)), 2.0));
 }
 
 //  0000000   000   000   0000000   000000000  
@@ -285,6 +295,15 @@ float leg(vec3 pos, vec3 n)
     return d;
 }
 
+float ear(vec3 pos, vec3 n)
+{
+    float d = sdConeBend(s.pos, pos, pos+n*0.22, 1.0, 1.3, true);
+    
+    d = opDiff(d, 0.2, sdSphere(s.pos, pos+n*(0.6 + 0.15*brth/2.0), 0.1));
+    
+    return d;
+}
+
 // 000   000  00000000   0000000   0000000    
 // 000   000  000       000   000  000   000  
 // 000000000  0000000   000000000  000   000  
@@ -293,18 +312,30 @@ float leg(vec3 pos, vec3 n)
 
 void head(vec3 pos)
 {        
+    float bd = sdSphere(s.pos, pos, 1.75);    
+
+    if (bd > MIN_DIST*1.1) 
+    {
+        if (bd < s.dist) { s.mat = BBOX; s.dist = bd; }
+        return;
+    }
+
     float tt = 1.0-fract(iTime*0.35);
     float aa = cos(tt*tt*PI*2.0); 
     float ab = cos(tt*PI*2.0); 
     
-    
-    float brth = 2.0*mix(smoothstep(-0.8, 0.95, aa), ab, 0.3);
+    brth = 2.0*mix(smoothstep(-0.8, 0.95, aa), ab, 0.3);
     pos.z -= brth*0.015;
     vec3 off = vec3(0, 1.35, 0);
     
     vec3 ny = rotAxisAngle(vy, vx, -2.0*brth);
     vec3 nz = rotAxisAngle(vz, vx, -2.0*brth);
-    float d = sdSphere(s.pos, pos, 1.0);
+    float d = sdSphere(s.pos, pos, 1.0+brth*0.01);
+
+    vec3 earln = rotAxisAngle(rotAxisAngle(nz, vx, -48.0), ny,  130.0);
+    vec3 earrn = rotAxisAngle(rotAxisAngle(nz, vx, -48.0), ny, -130.0);
+    d = opUnion(d, 0.2, ear(pos + earln, normalize(earln+hash31(floor(iTime*0.7))*0.2)));
+    d = opUnion(d, 0.2, ear(pos + earrn, normalize(earrn+hash31(floor(iTime*0.7)+0.5)*0.2)));
     
     vec3 eyeln = rotAxisAngle(rotAxisAngle(nz, vx, -42.0), ny,  48.0);
     vec3 eyern = rotAxisAngle(rotAxisAngle(nz, vx, -42.0), ny, -48.0);
@@ -402,15 +433,16 @@ float rayMarch(vec3 ro, vec3 rd)
 float softShadow(vec3 ro, vec3 lp, float k)
 {
     float shade = 1.;
-    float dist = 0.1;    
+    float dist = MIN_DIST;    
     vec3 rd = (lp-ro);
-    float end = max(length(rd), 0.001);
-    float stepDist = end/12.0;
+    float end = max(length(rd), MIN_DIST);
+    float stepDist = end/22.0;
     rd /= end;
-    for (int i=0; i<12; i++)
+    for (int i=0; i<22; i++)
     {
         float h = map(ro+rd*dist);
-        shade = min(shade, k*h/dist);
+        if (s.mat != BBOX)
+            shade = min(shade, k*h/dist);
         dist += clamp(h, 0.02, stepDist*2.0);
         
         if (h < 0.0 || dist > end) break; 
@@ -473,7 +505,8 @@ vec3 getLight(vec3 p, vec3 n, vec3 col)
         ambient = 0.1;
     }
     
-    if (mat != PUPL && mat != BULB)
+    //if (mat != PUPL && mat != BULB)
+    if (mat == HEAD || mat == PLANE)
     {
         dif *= softShadow(p, lp, 4.0);        
     }
@@ -485,6 +518,18 @@ vec3 getLight(vec3 p, vec3 n, vec3 col)
     }
     
     return col * clamp(dif, ambient, 1.0) + hl;
+}
+
+// 00000000   0000000    0000000   
+// 000       000   000  000        
+// 000000    000   000  000  0000  
+// 000       000   000  000   000  
+// 000        0000000    0000000   
+
+vec3 fog(vec3 col, vec3 bg, float dist)
+{
+    float f = smoothstep(5.0, MAX_DIST, dist);
+    return mix(col, bg, f);
 }
 
 // 00     00   0000000   000  000   000  
@@ -512,8 +557,19 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     {
         float tt = 1.0-fract(iTime*0.5);
     }
-    
+    vec3 col;
+        
+#if AA > 1
+    for( int am=ZERO; am<AA; am++ )
+    for( int an=ZERO; an<AA; an++ )
+    {
+    vec2 ao = vec2(float(am),float(an)) / float(AA) - 0.5;
+    vec2 uv = ((fragCoord+ao)-.5*iResolution.xy)/iResolution.y;
+#else    
     vec2 uv = (fragCoord-.5*iResolution.xy)/iResolution.y;
+#endif
+    
+    float aspect = iResolution.x/iResolution.y;
     
     float md = 7.0;
     float mx = 2.0*(iMouse.x/iResolution.x-0.5);
@@ -552,32 +608,45 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     vec3  p = camPos + d * rd;
     vec3  n = getNormal(p);
-        
-    vec3 col;
-    
-    vec3 bg = vec3(0.3, 0.0, 0.0); //  * clamp(1.0-1.0*length(uv), 0., 1.);
-    
+            
+    ifdef TOY
     if      (mat == HEAD)  col = vec3(1.0, 1.0, 0.0);
     else if (mat == PLANE) col = vec3(0.5, 0.0, 0.0);
     else if (mat == PUPL)  col = vec3(0.1, 0.1, 0.5);
     else if (mat == BULB)  col = vec3(1.0, 1.0, 1.0);
-    else if (mat == NONE)  
-    {        
-        col = bg;
-    }
-
+    else if (mat == NONE)  col = vec3(0.3, 0.0, 0.0);
+   #else
+    if      (mat == HEAD)  col = vec3(0.03);
+    else if (mat == PLANE) col = vec3(0.02);
+    else if (mat == PUPL)  col = vec3(0.01);
+    else if (mat == BULB)  col = vec3(0.09);
+    else if (mat == NONE)  col = vec3(0.01);
+    #endif
+    
     col = getLight(p, n, col);
+    
+    if (mat != NONE)
+    {
+        col = fog(col, vec3(0.01), d);
+    }
+    
+#if AA>1
+    }
+    col /= float(AA*AA);
+#endif
+    
+    col *= clamp(1.0-1.1*length((fragCoord-.5*iResolution.xy)/iResolution.xy), 0.0, 1.0);
     
     if (dither)
     {
         float dit = gradientNoise(fragCoord.xy);
-        col += vec3(dit/10000.0);
+        col += vec3(dit/1024.0);
     }
     
     #ifndef TOY
     vec2  fontSize = vec2(20.0, 35.0);  
     float isDigit = digit(fragCoord / fontSize, iFrameRate, 2.0, 0.0);
-    col = mix( col, vec3(1.0, 1.0, 1.0), isDigit);
+    col = mix(col, vec3(1.0, 1.0, 1.0), isDigit);
     #endif
     
     col = pow(col, vec3(1.0/2.2));

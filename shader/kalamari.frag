@@ -1,4 +1,4 @@
-#define TOY  1
+//#define TOY  1
 
 #define MAX_STEPS 64
 #define MIN_DIST   0.01
@@ -13,6 +13,7 @@
 #define TAIL  2
 #define BULB  3
 #define PUPL  4
+#define BBOX  5
 
 struct ray {
     vec3 pos;
@@ -325,9 +326,16 @@ void arm(vec3 pos, vec3 r, vec3 n, float aa)
 // 000   000  00000000  000   000  0000000    
 
 void head(vec3 pos)
-{    
+{        
     pos -= 0.3*vy*(aa+1.0);
     
+    float bd = sdSphere(s.pos, pos, 6.0);    
+    if (bd > MIN_DIST*1.1) 
+    {
+        if (bd < s.dist) { s.mat = BBOX; s.dist = bd; }
+        return;
+    }
+    
     float d = sdTetra(s.pos, pos, 2.0, 0.7);
     if (d < s.dist) { s.mat = HEAD; s.dist = d; }
     
@@ -473,7 +481,8 @@ float softShadow(vec3 ro, vec3 lp, float k)
     for (int i=0; i<12; i++)
     {
         float h = map(ro+rd*dist);
-        shade = min(shade, k*h/dist);
+        if (s.mat != BBOX)
+            shade = min(shade, k*h/dist);
         dist += clamp(h, 0.02, stepDist*2.0);
         
         if (h < 0.0001 || dist > end) break; 
