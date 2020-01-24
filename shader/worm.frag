@@ -1,17 +1,17 @@
 // #define TOY  1
 
-#define MAX_STEPS 64
+#define MAX_STEPS 128
 #define MIN_DIST  0.005
-#define MAX_DIST  25.0
+#define MAX_DIST  50.0
 
 #define PI 3.1415926535897
 #define ZERO min(iFrame,0)
 
-#define NONE  0
-#define HEAD  1
-#define TAIL  2
-#define BULB  3
-#define PUPL  4
+#define NONE   0
+#define RED    1
+#define GREEN  2
+#define BLUE   3
+#define HEAD   4
 
 struct ray {
     vec3 pos;
@@ -259,6 +259,24 @@ float sdCapsule(vec3 p, vec3 a, vec3 b, float r)
     return length(p-c)-r;        
 }
 
+void coords()
+{
+    float d = MAX_DIST;
+    float r = 0.04;
+    
+    d = sdCapsule(s.pos, v0, vx*MAX_DIST, r);
+    if (s.pos.x > 0.5) d = min(d, sdSphere(vec3(-0.5+fract(s.pos.x-0.5), s.pos.y, s.pos.z), v0, r*2.0));
+    if (d < s.dist) { s.mat = RED; s.dist = d; }
+    
+    d = sdCapsule(s.pos, v0, vy*MAX_DIST, r);
+    if (s.pos.y > 0.5) d = min(d, sdSphere(vec3(s.pos.x, -0.5+fract(s.pos.y-0.5), s.pos.z), v0, r*2.0));
+    if (d < s.dist) { s.mat = GREEN; s.dist = d; }
+
+    d = sdCapsule(s.pos, v0, vz*MAX_DIST, r);
+    if (s.pos.z > 0.5) d = min(d, sdSphere(vec3(s.pos.x, s.pos.y, -0.5+fract(s.pos.z-0.5)), v0, r*2.0));
+    if (d < s.dist) { s.mat = BLUE; s.dist = d; }
+}
+
 // 000      00000000   0000000   00000000  
 // 000      000       000   000  000       
 // 000      0000000   000000000  000000    
@@ -278,7 +296,7 @@ void leaf()
     
     d = opDiff(d, 0.2, -co);
     
-    if (d < s.dist) { s.mat = TAIL; s.dist = d; }
+    if (d < s.dist) { s.mat = HEAD; s.dist = d; }
 }
 
 // 000000000  000   000  000   0000000  000000000  
@@ -324,15 +342,21 @@ void twist()
 void curl()
 {
     vec3 p = s.pos;
+    // p.x = abs(p.x);
+    // vec3 cntr = vec3(2.0+sin(iTime),2.0+sin(iTime),0);
+    // vec3 cntr = vec3(2.0+2.0*sin(iTime),-2.0+2.0*sin(iTime),0);
+    vec3 cntr = vec3(0.0,0.0,0);
+    float d = sdSphere(s.pos, cntr, 0.1);
+    if (d < s.dist) { s.mat = RED; s.dist = d; }
     
-    if (p.x > 0.0)
+    // if (p.x > 0.0)
     {
-        p -= vec3(2,0,0);
+        p -= cntr;
         p = rotAxisAngle(p, vz, length(p)*10.0);
-        p += vec3(2,0,0);
+        p += cntr;
     }
 
-    float d = sdCapsule(p, 10.0*vx, -10.0*vx, 1.1);
+    d = sdCapsule(p, 5.0*vx, -5.0*vx, 1.1);
     if (d < s.dist) { s.mat = HEAD; s.dist = d; }
 }
 
@@ -345,6 +369,8 @@ void curl()
 float map(vec3 p)
 {
     s = sdf(1000.0, p, NONE);
+    
+    coords();
      
     //leaf();
     //twist();
@@ -446,24 +472,12 @@ float getLight(vec3 p, vec3 n)
  
     float ambient = 0.005;
     float dif = clamp(dot(n,l), 0.0, 1.0);
-    if (mat == PUPL || mat == TAIL)
-    {
-        dif = clamp(dot(n,normalize(mix(camPos,lp,0.1)-p)), 0.0, 1.0);
-        dif = mix(pow(dif, 16.0), 1.0*dif, 0.2);
-        dif += 1.0 - smoothstep(0.0, 0.2, dif);
-        if (mat == PUPL) ambient = 0.1;
-    }
-    else if (mat == BULB)
-    {
-        dif = mix(pow(dif, 32.0), 3.0*dif+1.0, 0.2);
-        ambient = 0.2;
-    }
-    else if (mat == HEAD)
+    if (mat == HEAD)
     {
         dif = pow(dif, 4.0);
     }
     //dif *= hardShadow(p, normalize(lp-p), MIN_DIST, 100.0, 0.2);
-    dif *= softShadow(p, lp, 1.4);        
+    // dif *= softShadow(p, lp, 1.4);        
     return clamp(dif, ambient, 1.0);
 }
 
@@ -505,7 +519,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     camTgt = vec3(0,1.2,0); 
 
-    camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, 89.0*my), vy, -180.0*mx);
+    camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,-md), vx, 89.0*my), vy, -180.0*mx);
     
     #ifndef TOY
         if (space)
@@ -539,24 +553,39 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         float grid = dot(step(mod(guv.xyxy, vec4(10,10,100,100)), vec4(1)), vec4(.5, .5, 1., 1.));
         col = mix(vec3(.001), vec3(0.02,0.02,0.02), grid);
     }
-    else if (mat == HEAD)  col = getLight(p,n) * vec3(0.1);
+    else 
+    {
+        switch (mat) 
+        {
+         case RED:   col = red;   break;
+         case GREEN: col = green; break;
+         case BLUE:  col = blue;  break;
+         case HEAD:  col = vec3(0.1); break;
+        }
+        col *= getLight(p,n);
+    }
 
-    #ifndef TOY
     col = mix(col, white, digit(0,   0,  iFrameRate, 2.0));
     col = mix(col, blue,  digit(0,  40,  iTime,      4.1));
     col = mix(col, green, digit(150, 0,  iMouse.y,   5.0));
     col = mix(col, red,   digit(150, 40, iMouse.x,   5.0));
     col = mix(col, green, digit(250, 0,  my,         3.2));
     col = mix(col, red,   digit(250, 40, mx,         3.2));
-    if (frag.x >= 350. && frag.x < 550. && frag.y < 25.)
+    
+    if (frag.x >= 350. && frag.x < 500. && frag.y < 160.)
     {
         uv = (iMouse.xy-.5*iResolution.xy)/iResolution.y;
         rd = normalize(uv.x*uu + uv.y*vv + ww);
         d  = rayMarch(camPos, rd);
         if (d < MAX_DIST)
-            col = mix(col, blue, digit(350, 0,  d,      3.2));
+        {
+            p = camPos + d * rd;
+            col = mix(col, white, digit(350,   0, d,   3.2));
+            col = mix(col, red,   digit(350, 120, p.x, 3.2));
+            col = mix(col, green, digit(350,  80, p.y, 3.2));
+            col = mix(col, blue,  digit(350,  40, p.z, 3.2));
+        }
     }
-    #endif
     
     col = pow(col, vec3(1.0/2.2));
     fragColor = vec4(col, 1.0);
