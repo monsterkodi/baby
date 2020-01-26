@@ -1,8 +1,8 @@
 // #define TOY  1
 
 #define MAX_STEPS 128
-#define MIN_DIST  0.005
-#define MAX_DIST  50.0
+#define MIN_DIST  0.01
+#define MAX_DIST  30.0
 
 #define PI 3.1415926535897
 #define ZERO min(iFrame,0)
@@ -45,6 +45,27 @@ vec3 white = vec3(1.0,1.0,1.0);
 float rad2deg(float r) { return 180.0 * r / PI; }
 float deg2rad(float d) { return PI * d / 180.0; }
 
+vec3 hash33(vec3 p3)
+{
+    p3 = fract(p3 * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yxz+33.33);
+    return fract((p3.xxy + p3.yxx)*p3.zyx);
+}
+
+vec3 hash31(float p)
+{
+   vec3 p3 = fract(vec3(p) * vec3(.1031, .1030, .0973));
+   p3 += dot(p3, p3.yzx+33.33);
+   return fract((p3.xxy+p3.yzz)*p3.zyx); 
+}
+
+float clamp01(float v) { return clamp(v, 0.0, 1.0); }
+
+float gradientNoise(vec2 uv)
+{
+    return fract(52.9829189 * fract(dot(uv, vec2(0.06711056, 0.00583715))));
+}
+
 vec3 posOnPlane(vec3 p, vec3 a, vec3 n)
 {
     return p-dot(p-a,n)*n;
@@ -54,6 +75,9 @@ vec3 posOnPlane(vec3 p, vec3 n)
 {
     return p-dot(p,n)*n;
 }
+
+float iRange(float l, float h, float f) { return l+(h-l)*(sin(iTime)*0.5+0.5); }
+float iRange(float l, float h) { return iRange(l,h,1.0); }
 
 // 0000000    000   0000000   000  000000000  
 // 000   000  000  000        000     000     
@@ -210,6 +234,12 @@ float opDiff(float d1, float k, float d2)
     return mix(d1, -d2, h) + k*h*(1.0-h); 
 }
 
+float opInter(float d1, float d2, float k) 
+{
+    float h = clamp(0.5 - 0.5*(d2-d1)/k, 0.0, 1.0);
+    return mix(d2, d1, h) + k*h*(1.0-h);
+}
+
 //  0000000  0000000    
 // 000       000   000  
 // 0000000   000   000  
@@ -224,6 +254,11 @@ float sdSphere(vec3 p, vec3 a, float r)
 float sdPlane(vec3 p, vec3 a, vec3 n)
 {   
     return dot(n, p-a);
+}
+
+float sdPlane(vec3 p, vec3 n)
+{   
+    return dot(n, p);
 }
 
 float sdCone(vec3 p, vec3 a, vec3 b, float r1, float r2)
@@ -242,7 +277,7 @@ float sdTorus(vec3 p, vec3 a, vec3 n, vec2 r)
     return length(vec2(length(posOnPlane(q, n))-r.x,abs(dot(n, q))))-r.y;
 }
 
-float sdEllipsoid( in vec3 p, in vec3 r )
+float sdEllipsoid(vec3 p, vec3 r)
 {
     float k0 = length(p/r);
     float k1 = length(p/(r*r));
@@ -275,28 +310,6 @@ void coords()
     d = sdCapsule(s.pos, v0, vz*MAX_DIST, r);
     if (s.pos.z > 0.5) d = min(d, sdSphere(vec3(s.pos.x, s.pos.y, -0.5+fract(s.pos.z-0.5)), v0, r*2.0));
     if (d < s.dist) { s.mat = BLUE; s.dist = d; }
-}
-
-// 000      00000000   0000000   00000000  
-// 000      000       000   000  000       
-// 000      0000000   000000000  000000    
-// 000      000       000   000  000       
-// 0000000  00000000  000   000  000       
-
-void leaf()
-{    
-    vec3 pos = s.pos;
-    pos.y -= cos(0.4*pos.z)+0.3*cos(pos.x);
-    
-    pos.x = abs(pos.x);
-    float d = sdEllipsoid(pos, vec3(2.2, 0.3, 4.3)*1.0);
-    
-    vec2 cd = vec2(cos(abs(pos.z/2.43)*PI/5.0)*(2.8)-pos.x, fract(pos.z));
-    float co = 0.65 - length(cd - vec2(0.5, 0.5));
-    
-    d = opDiff(d, 0.2, -co);
-    
-    if (d < s.dist) { s.mat = HEAD; s.dist = d; }
 }
 
 // 000000000  000   000  000   0000000  000000000  
@@ -333,30 +346,73 @@ void twist()
     if (d < s.dist) { s.mat = HEAD; s.dist = d; }
 }
 
-//  0000000  000   000  00000000   000      
-// 000       000   000  000   000  000      
-// 000       000   000  0000000    000      
-// 000       000   000  000   000  000      
-//  0000000   0000000   000   000  0000000  
+//  0000000   00000000    0000000  
+// 000   000  000   000  000       
+// 000000000  0000000    000       
+// 000   000  000   000  000       
+// 000   000  000   000   0000000  
 
-void curl()
+struct Arc {
+  vec2 p0;
+  vec2 p1;
+  float d; // (-1.0, 1.0) 0.0 = straight line, 1.0 = semi-circle
+};
+
+vec2 perpendicular (const vec2 v) {
+  return vec2 (-v.y, v.x);
+}
+
+float tan2atan (float d) {
+  return 2. * d / (1. - d * d);
+}
+
+vec2 computeArcCenter (const Arc a) {
+  return mix (a.p0, a.p1, .5) +
+	 perpendicular (a.p1 - a.p0) / (2. * tan2atan(a.d));
+}
+
+float sdArcWedge (Arc a, const vec2 p) {
+  vec2 c = computeArcCenter (a);
+  return abs(distance(a.p0, c) - distance(p, c));
+}
+
+bool isPointInsideArcWedge (const Arc a, const vec2 p) {
+  float d2 = tan2atan(a.d);
+  return dot (p - a.p0, (a.p1 - a.p0) * mat2(1,  d2, -d2, 1)) >= 0. &&
+	     dot (p - a.p1, (a.p1 - a.p0) * mat2(1, -d2,  d2, 1)) <= 0.;
+}
+
+float sdSegment( vec3 a, vec3 b, vec3 p )
 {
-    vec3 p = s.pos;
-    // p.x = abs(p.x);
-    // vec3 cntr = vec3(2.0+sin(iTime),2.0+sin(iTime),0);
-    // vec3 cntr = vec3(2.0+2.0*sin(iTime),-2.0+2.0*sin(iTime),0);
-    vec3 cntr = vec3(0.0,0.0,0);
-    float d = sdSphere(s.pos, cntr, 0.1);
-    if (d < s.dist) { s.mat = RED; s.dist = d; }
-    
-    // if (p.x > 0.0)
-    {
-        p -= cntr;
-        p = rotAxisAngle(p, vz, length(p)*10.0);
-        p += cntr;
-    }
+	vec3 pa = p - a;
+	vec3 ba = b - a;
+	float t = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+    return length( pa - ba*t );
+}
 
-    d = sdCapsule(p, 5.0*vx, -5.0*vx, 1.1);
+float sdArc(Arc arc, vec2 p) 
+{
+ 	if (abs(arc.d) < 0.01)
+       	return sdSegment(vec3(arc.p0,0.0), vec3(arc.p1,0.0), vec3(p,0.0));
+  
+  	if (isPointInsideArcWedge(arc, p))
+ 		return sdArcWedge(arc, p);
+  
+  	return min(distance (p, arc.p0), distance (p, arc.p1));
+}
+
+void arc()
+{
+    Arc a;
+    a.p0 = vec2(-4.0, 0.0);
+    a.p1 = vec2( 4.0, 0.0);
+    a.d = cos( iTime*0.6 );
+    
+    s.pos.z = abs(s.pos.z);
+    float pd = sdPlane(s.pos, vz);
+    float ad = sdArc(a, s.pos.xy);
+    float d = opInter(pd-1.0, ad, 0.5)-0.5;
+    
     if (d < s.dist) { s.mat = HEAD; s.dist = d; }
 }
 
@@ -372,9 +428,8 @@ float map(vec3 p)
     
     coords();
      
-    //leaf();
-    //twist();
-    curl();
+    twist();
+    arc();
 
     return s.dist;
 }
@@ -496,6 +551,7 @@ const int KEY_SPACE = 32;
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {    
     frag = fragCoord;
+    bool dither = true;
     bool camrot = texelFetch(iChannel0, ivec2(KEY_RIGHT, 2), 0).x > 0.5;
     bool scroll = texelFetch(iChannel0, ivec2(KEY_DOWN,  2), 0).x > 0.5;
     bool space  = texelFetch(iChannel0, ivec2(KEY_SPACE, 2), 0).x < 0.5;
@@ -565,13 +621,19 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         col *= getLight(p,n);
     }
 
+    if (dither)
+    {
+        float dit = gradientNoise(fragCoord.xy);
+        col += vec3(dit/1024.0);
+    }
+    
     col = mix(col, white, digit(0,   0,  iFrameRate, 2.0));
     col = mix(col, blue,  digit(0,  40,  iTime,      4.1));
     col = mix(col, green, digit(150, 0,  iMouse.y,   5.0));
     col = mix(col, red,   digit(150, 40, iMouse.x,   5.0));
     col = mix(col, green, digit(250, 0,  my,         3.2));
     col = mix(col, red,   digit(250, 40, mx,         3.2));
-    
+        
     if (frag.x >= 350. && frag.x < 500. && frag.y < 160.)
     {
         uv = (iMouse.xy-.5*iResolution.xy)/iResolution.y;

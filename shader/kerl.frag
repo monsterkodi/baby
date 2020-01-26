@@ -20,6 +20,7 @@
 #define BODY  2
 #define BONE  3
 #define BULB  4
+#define PUPL  5
 
 struct ray {
     vec3 pos;
@@ -38,7 +39,7 @@ vec3 vec0 = vec3(0,0,0);
 
 vec3 pHip;      vec3 pHipT;     vec3 pHipL;     vec3 pHipR;     vec3 pHipUp;    vec3 pHipRotL;      vec3 pHipRotR;
 vec3 pTorsoT;   vec3 pTorsoB;   vec3 pTorsoL;   vec3 pTorsoR;   vec3 pTorsoUp;  vec3 pTorsoRotL;    vec3 pTorsoRotR;
-vec3 pEyeL;     vec3 pEyeR;     vec3 pEyeHoleL; vec3 pEyeHoleR;
+vec3 pEyeL;     vec3 pEyeR;     vec3 pEyeHoleL; vec3 pEyeHoleR; vec3 pEyeLensL; vec3 pEyeLensR;
 vec3 pArmL;     vec3 pArmR;     vec3 pArmLup;   vec3 pArmLx;    vec3 pArmLz;    vec3 pArmRup;   vec3 pArmRx; vec3 pArmRz;
 vec3 pLegL;     vec3 pLegR;     vec3 pLegLup;   vec3 pLegLx;    vec3 pLegLz;    vec3 pLegRup;   vec3 pLegRx; vec3 pLegRz; 
 vec3 pFootL;    vec3 pFootR;    vec3 pFootLup;  vec3 pFootLz;   vec3 pFootRup;  vec3 pFootRz;
@@ -258,8 +259,9 @@ float sdBend(vec3 p, vec3 a, vec3 n, vec3 d, float side, vec2 r)
     
     vec3 c = cross(d,n);
     vec3 pp = q - r.x*c + side*r.x*d;
+    if (dot(pp,c) > 0.0) return length(pp)-r.y;
 
-    return length((dot(pp,c) > 0.0) ? pp : vec2(length(posOnPlane(q, n)-r.x*c)-r.x,abs(dot(n, q))))-r.y;
+    return length(vec2(length(posOnPlane(q, n)-r.x*c)-r.x,abs(dot(n, q))))-r.y;
 }
 
 float sdSphere(vec3 p, vec3 a, float r)
@@ -427,6 +429,8 @@ void calcAnim()
     eyeCam = mix(nZ, eyeCam, dot(nZ, eyeCam));
     pEyeHoleL = pEyeL+eyeCam*0.25;
     pEyeHoleR = pEyeR+eyeCam*0.25;
+    pEyeLensL = pEyeL+eyeCam*0.2;
+    pEyeLensR = pEyeR+eyeCam*0.2;
         
     pArmLup = rotate(qArmL,   vec3(0,1,0));
     pArmLud = rotate(qElbowL, vec3(0,1,0));
@@ -545,7 +549,7 @@ void torso()
 // 000          000     000       
 // 00000000     000     00000000  
 
-void eye(vec3 pos, vec3 pupil)
+void eye(vec3 pos, vec3 pupil, vec3 lens)
 {
     float d = sdSphere(s.pos, pos, 0.25);
     if (d > s.dist) return;
@@ -553,6 +557,10 @@ void eye(vec3 pos, vec3 pupil)
     d = opDiff(d, 0.01, sdSphere(s.pos, pupil, 0.125));
 
     if (d < s.dist) { s.mat = BULB; s.dist = d; }
+    
+    d = min(d, sdSphere(s.pos, lens, 0.1));
+    
+    if (d < s.dist) { s.mat = PUPL; s.dist = d; }
 }
 
 // 000   000  00000000   0000000   0000000    
@@ -573,8 +581,8 @@ void head()
 
     if (d < s.dist) { s.mat = BODY; s.dist = d; }
     
-    eye(pEyeL, pEyeHoleL);
-    eye(pEyeR, pEyeHoleR);
+    eye(pEyeL, pEyeHoleL, pEyeLensL);
+    eye(pEyeR, pEyeHoleR, pEyeLensR);
 }
 
 //  0000000   00000000   00     00  
@@ -766,11 +774,28 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     vec3 ct;
     
     #ifdef TOY
-        ct = vec0;
-        camPos = rotY(rotX(vec3(0,0,-15), -20.0+10.0*sin(iTime*0.1)), 50.0*sin(iTime*0.2));
+    	ct = vec0;
+    	float my = -2.0*(iMouse.y/iResolution.y-0.5);
+    	float mx = -2.0*(iMouse.x/iResolution.x-0.5);
+    	float md = -12.5-my*2.5;
+    	if (iMouse.z <= 0.0)
+    	{
+        	mx = sin(iTime*0.2)*0.5;
+    		my = sin(iTime*0.1)*0.5;
+            md = -12.5-2.5*sin(iTime*0.05);
+            ct.y = 0.4-sin(iTime*0.05)*0.4;
+    	}
+    	else
+        {
+            ct.y = 0.35-my*0.35;
+        }
+    
+    	camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vec3(1,0,0), 20.0+30.0*my), vec3(0,1,0), 90.0*mx);
     #else
-        ct = iCenter; camPos = iCamera;
-        camPos.x *= -1.0; ct.x *= -1.0;
+        ct = iCenter; 
+    	camPos = iCamera;
+        camPos.x *= -1.0; 
+    	ct.x *= -1.0;
     #endif
 
     if (true) poseDancing();
@@ -796,6 +821,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     else if (mat == PLANE) col = vec3(0.2,0.2,0.2); 
     else if (mat == BODY)  col = vec3(1.0,0.0,0.0); 
     else if (mat == BONE)  col = vec3(1.0,1.0,0.0);
+    else if (mat == PUPL)  col = vec3(0.5,0.5,1.0);
     else col = vec3(1,1,1);
 
     #ifndef TOY    
