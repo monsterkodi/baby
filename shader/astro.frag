@@ -1,4 +1,4 @@
-// #define TOY  1
+#define TOY  1
 
 #define MAX_STEPS 128
 #define MIN_DIST   0.0001
@@ -6,8 +6,6 @@
 #define SHADOW     0.001
 #define PI 3.1415926535897
 #define ZERO min(iFrame,0)
-
-#define FLOOR -3.5
 
 #define NONE  0
 #define BODY  1
@@ -635,25 +633,10 @@ float rayMarch(vec3 ro, vec3 rd)
 //      000  000   000  000   000  000   000  000   000  000   000  
 // 0000000   000   000  000   000  0000000     0000000   00     00  
 
-float hardShadow(vec3 ro, vec3 rd, float mint, float maxt, const float w)
-{
-    for (float t=mint+float(ZERO); t<maxt;)
-    {
-        float h = map(ro+rd*t);
-        if (h < 0.001)
-        {
-            return w;
-        }
-        t+=h;
-    }
-    return 1.0;
-}
-
-float softShadow(vec3 ro, vec3 lp, float k)
+float softShadow(vec3 ro, vec3 rd, float k)
 {
     float shade = 1.;
     float dist = MIN_DIST;    
-    vec3 rd = (lp-ro);
     float end = max(length(rd), MIN_DIST);
     float stepDist = end/25.0;
     rd /= end;
@@ -688,18 +671,19 @@ vec3 getLight(vec3 p, vec3 n, vec3 col, int mat)
 {
     if (mat == NONE) return col;
     
-    vec3 cr = cross(camDir, vec3(0,1,0));
+    vec3 cr = cross(camDir, vy);
     vec3 up = normalize(cross(cr,camDir));
-    vec3 lp = rotX(vec3(0, 10, -10), -10.0);
-    vec3 l = normalize(lp - p);
+    //vec3 lp = camPos + 5.0*up - 20.0*cr;
+    vec3 lp = rotAxisAngle(vec3(0,5.0,10.0), vy, iTime*10.0);
+    vec3 l = normalize(lp-p);
  
     float ambient = 0.0;
     float dif = clamp(dot(n,l), 0.0, 1.0);
     
     if (mat == BODY)
     {
-        float exp = 8.0;
-        float smx = 0.5;
+        float exp = soft ? 0.25 : 0.5;
+        float smx = soft ? 0.4 : 0.4;
         
         vec3  n2c = normalize(camPos-p);
         vec3  bcl = normalize(n2c + l);
@@ -709,10 +693,14 @@ vec3 getLight(vec3 p, vec3 n, vec3 col, int mat)
         dif = clamp01(mix(pow(dif, exp), shi, smx));
     }
         
-    float shadow = soft ? softShadow(p, lp, 8.0) : hardShadow(p, l, MIN_DIST, 100.0, 0.01);
+    float shadow = softShadow(p, l, 8.0);
     dif *= shadow;
     
-    vec3 hl = vec3(pow(clamp01(smoothstep(0.9,1.0,dot(n, l))), 20.0));
+    vec3 hl;
+    if (mat == VISOR)
+    {
+        hl = vec3(pow(clamp01(smoothstep(0.95,1.0,dot(n, l))), 1.0));
+    }
     
     return col * clamp(dif, ambient, 1.0) + hl * shadow;
 }
@@ -739,9 +727,11 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     bool animat = texelFetch(iChannel0, ivec2(KEY_UP,    2), 0).x < 0.5;
     bool space  = texelFetch(iChannel0, ivec2(KEY_SPACE, 2), 0).x < 0.5;
 
-    vec2 uv = (fragCoord-.5*iResolution.xy)/iResolution.y;
-    vec3 ct;
+    if (animat) poseFloating();
+    else        poseDancing(); // poseNeutral();
     
+    calcAnim();
+
     float aspect = iResolution.x/iResolution.y;
     
     float mx = 2.0*(iMouse.x/iResolution.x-0.5);
@@ -769,33 +759,62 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
             camTgt.x *= -1.0;
         }
     #endif
+    
+    camDir = normalize(camTgt-camPos);
+    
+    int AA = 2;
+    if (!soft) 
+    {
+        AA = 1;   
+    }
+    else
+    { 
+        if (iTimeDelta < 0.02) AA = 3;
+    }
+    
+    vec3 cols = v0;
+    vec3 col, p, n;
+    vec2 ao = vec2(0);
+    vec2 uv;
+    
+    vec3 ww;
+    vec3 uu;
+    vec3 vv;
+    vec3 rd;
+    float d;
+    
+    for( int am=ZERO; am<AA; am++ )
+    for( int an=ZERO; an<AA; an++ )
+    {
+        if (AA > 1) ao = vec2(float(am),float(an))/float(AA)-0.5;
+    
+        uv = (fragCoord+ao-.5*iResolution.xy)/iResolution.y;
+        // vec2 uv = (fragCoord-.5*iResolution.xy)/iResolution.y;
+                
+        ww = normalize(camTgt-camPos);
+        uu = normalize(cross(ww, vy));
+        vv = normalize(cross(uu, ww));
         
-    if (animat) poseFloating();
-    else        poseDancing(); // poseNeutral();
-    
-    calcAnim();
-    
-    vec3 ww = normalize(camTgt-camPos);
-    vec3 uu = normalize(cross(ww, vy));
-    vec3 vv = normalize(cross(uu, ww));
-    
-    vec3 rd = normalize(uv.x*uu + uv.y*vv + 1.0*ww);
-    
-    float d = rayMarch(camPos, rd);
-    int mat = s.mat;
-    
-    vec3  p = camPos + d * rd;
-    vec3  n = getNormal(p);
+        rd = normalize(uv.x*uu + uv.y*vv + 1.0*ww);
         
-    vec3 col;
-    
-    if      (mat == NONE)  col = vec3(0,0,0); 
-    else if (mat == BODY)  col = vec3(1.0,1.0,1.0); 
-    else if (mat == VISOR) col = vec3(0.0,0.0,0.0);
-    else col = vec3(1,1,1);
-    
-    col = getLight(p, n, col, mat);
+        d = rayMarch(camPos, rd);
+        int mat = s.mat;
+        
+        p = camPos + d * rd;
+        n = getNormal(p);
+            
+        if      (mat == NONE)  col = vec3(0,0,0); 
+        else if (mat == BODY)  col = vec3(1.0,1.0,1.0); 
+        else if (mat == VISOR) col = vec3(0.0,0.0,0.0);
+        else col = vec3(1,1,1);
+        
+        col = getLight(p, n, col, mat);
 
+        cols += col;
+    }
+    
+    col = cols/float(AA*AA);
+    
     /*
     if (dither && mat != NONE)
     {
