@@ -9,7 +9,10 @@
 
 #define NONE  0
 #define BODY  1
-#define VISOR 2
+#define BONE  2
+#define HAND  3
+#define VISOR 4
+#define MOON  5
 
 vec3 v0 = vec3(0,0,0);
 vec3 vx = vec3(1,0,0);
@@ -33,12 +36,15 @@ struct sdf {
 };
 
 bool soft;
+bool camrot;
 
 sdf s;
 vec2 frag;
 vec3 camPos;
 vec3 camTgt;
 vec3 camDir;
+vec3 camUp;
+vec3 camR;
 
 vec3 pHip;      vec3 pHipT;     vec3 pHipL;     vec3 pHipR;     vec3 pHipUp;    
 vec3 pTorsoT;   vec3 pTorsoB;   vec3 pTorsoL;   vec3 pTorsoR;   vec3 pTorsoUp;  
@@ -68,6 +74,14 @@ vec4 qElbowL;   vec4 qElbowR;
 float rad2deg(float r) { return 180.0 * r / PI; }
 float deg2rad(float d) { return PI * d / 180.0; }
 
+float hash11(float p)
+{
+    p = fract(p * .1031);
+    p *= p + 33.33;
+    p *= p + p;
+    return fract(p);
+}
+
 vec3 hash33(vec3 p3)
 {
     p3 = fract(p3 * vec3(.1031, .1030, .0973));
@@ -80,6 +94,13 @@ vec3 hash31(float p)
    vec3 p3 = fract(vec3(p) * vec3(.1031, .1030, .0973));
    p3 += dot(p3, p3.yzx+33.33);
    return fract((p3.xxy+p3.yzz)*p3.zyx); 
+}
+
+float hash12(vec2 p)
+{
+	vec3 p3  = fract(vec3(p.xyx) * .1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
 
 float clamp01(float v) { return clamp(v, 0.0, 1.0); }
@@ -151,6 +172,14 @@ float digit(int x, int y, float value, float format)
 // 000 00 00  000   000  000000000     000     
 // 000 0000   000   000  000   000     000     
 //  00000 00   0000000   000   000     000     
+
+mat3 alignMatrix(vec3 dir) 
+{
+    vec3 f = normalize(dir);
+    vec3 s = normalize(cross(f, vec3(0.48, 0.6, 0.64)));
+    vec3 u = cross(s, f);
+    return mat3(u, s, f);
+}
 
 vec4 quatAxisAngle(vec3 axis, float angle)
 { 
@@ -418,6 +447,12 @@ void poseNeutral()
     qElbowL = q; qElbowR = q;    
 }
 
+// 00000000  000       0000000    0000000   000000000  
+// 000       000      000   000  000   000     000     
+// 000000    000      000   000  000000000     000     
+// 000       000      000   000  000   000     000     
+// 000       0000000   0000000   000   000     000     
+
 void poseFloating()
 {
     poseNeutral();
@@ -428,28 +463,28 @@ void poseFloating()
     float s3 = sin(iTime*1.0);
     float s4 = sin(iTime*4.0);
     
-    pHip = vec3(-sin(iTime/4.0)*0.3, -sin(iTime/4.0)*0.5 , 0);
+    if (camrot)
+        // qHip = quatMul(quatAxisAngle(vy,iTime*2.0), quatAxisAngle(vx,-iTime*20.0));
+        qHip = quatMul(quatAxisAngle(vz,iTime*10.0), quatAxisAngle(vx,-iTime*0.02));
     
-    qTorso = quatMul(quatAxisAngle(vx, s2*15.0), quatAxisAngle(vy, s1*15.0));
+    qTorso = quatMul(qHip, quatMul(quatAxisAngle(vx, s2*15.0), quatAxisAngle(vy, s1*35.0)));
     
     float ht = iTime*0.25;
     vec3 hsh1 = mix(hash31(floor(ht)), hash31(floor(ht)+1.0), smoothstep(0.0,1.0,fract(ht)));
     
-    // qHead  = quatMul(quatAxisAngle(vx, s3*15.0), quatAxisAngle(vy, s2*15.0));
-    // qHead  = quatMul(quatAxisAngle(hsh1, 10.0), quatAxisAngle(hsh2, 10.0));
-    qHead   = quatMul(quatAxisAngle(vy, 30.0-60.0*hsh1.y), quatAxisAngle(vx, 10.0-20.0*hsh1.x));
+    qHead   = quatMul(qTorso, quatMul(quatAxisAngle(vy, 20.0-40.0*hsh1.y), quatAxisAngle(vx, 10.0-20.0*hsh1.x)));
 
-    qArmL   = quatMul(quatAxisAngle(vy, -30.0-s3*20.0), quatAxisAngle(vz, 30.0-s1*20.0));
-    qElbowL = quatMul(qArmL, quatAxisAngle( vx, 60.0+s1*30.0)); 
+    qArmL   = quatMul(qTorso, quatMul(quatAxisAngle(vy, -30.0-s3*20.0), quatAxisAngle(vz, 30.0-s1*20.0)));
+    qElbowL = quatMul(qArmL,  quatAxisAngle( vx, 60.0+s1*30.0)); 
     
-    qArmR   = quatMul(quatAxisAngle(vy, 30.0-s3*20.0), quatAxisAngle(vz, -30.0-s1*20.0));
-    qElbowR = quatMul(qArmR, quatAxisAngle( vx, 60.0-s2*30.0)); 
+    qArmR   = quatMul(qTorso, quatMul(quatAxisAngle(vy, 30.0-s3*20.0), quatAxisAngle(vz, -30.0-s1*20.0)));
+    qElbowR = quatMul(qArmR,  quatAxisAngle( vx, 60.0-s2*30.0)); 
 
-    qLegL   = quatMul(quatAxisAngle(vy, -0.0-s0*20.0), quatAxisAngle(vz, 20.0-s1*20.0));
+    qLegL   = quatMul(qHip,  quatMul(quatAxisAngle(vy, -0.0-s0*20.0), quatAxisAngle(vz, 20.0-s1*20.0)));
     qKneeL  = quatMul(qLegL, quatAxisAngle( vx, -60.0+s1*30.0)); 
     
-    qLegR   = quatMul(quatAxisAngle(vy, 0.0-s2*20.0), quatAxisAngle(vz, -20.0-s1*20.0));
-    qKneeR  = quatMul(qKneeR, quatAxisAngle( vx, -60.0+s2*30.0)); 
+    qLegR   = quatMul(qHip,  quatMul(quatAxisAngle(vy, 0.0-s2*20.0), quatAxisAngle(vz, -20.0-s1*20.0)));
+    qKneeR  = quatMul(qLegR, quatAxisAngle( vx, -60.0+s2*30.0)); 
     
     qHandL  = qElbowL;
     qHandR  = qElbowR;
@@ -466,6 +501,8 @@ void poseFloating()
 
 void calcAnim()
 {
+    pHip     = rotate(qHip, -vy);
+
     pHipUp   = rotate(qHip, vy);
     pHipT    = pHip + pHipUp*0.6;
         
@@ -557,6 +594,31 @@ float foot(vec3 pos, vec3 heel, vec3 toe, vec3 up)
     return opDiff(d, sdPlane(s.pos, heel-0.3*up, up), 0.3);
 }
 
+// 00     00   0000000    0000000   000   000  
+// 000   000  000   000  000   000  0000  000  
+// 000000000  000   000  000   000  000 0 000  
+// 000 0 000  000   000  000   000  000  0000  
+// 000   000   0000000    0000000   000   000  
+
+void moon()
+{
+    vec3 p = camPos+camDir*MAX_DIST/2.0+camR*MAX_DIST/6.0+camUp*MAX_DIST/8.0;
+    
+    float r = MAX_DIST/20.0;
+    float d = sdSphere(s.pos, p, r);
+    
+    if (d > s.dist) return;
+    
+    d = opDiff(d, sdSphere(s.pos, p-normalize(camDir+camR/2.0)      *r*0.95, r/6.0), 0.3);
+    d = opDiff(d, sdSphere(s.pos, p-normalize(camDir+camR*2.0+camUp)*r*1.3, r/2.0), 0.5);
+    d = opDiff(d, sdSphere(s.pos, p-normalize(camDir-camR+camUp)    *r*1.1, r/3.0), 0.4);
+    d = opDiff(d, sdSphere(s.pos, p-normalize(camDir+camR-camUp)    *r*1.0, r/4.0), 0.4);
+    d = opDiff(d, sdSphere(s.pos, p-normalize(camDir+camR+4.0*camUp)*r*1.2, r/3.0), 0.4);
+    d = opDiff(d, sdSphere(s.pos, p-normalize(camDir-camR-1.0*camUp)*r*1.4, r/1.5), 0.5);
+    
+    if (d < s.dist) { s.mat = MOON; s.dist = d; }
+}
+
 // 00     00   0000000   00000000   
 // 000   000  000   000  000   000  
 // 000000000  000000000  00000000   
@@ -567,28 +629,35 @@ float map(vec3 p)
 {
     float d = 1000.0;
     s = sdf(d, p, NONE);
+    
+    moon();
+    
     d = opUnion(d, sdSphere(s.pos, pHip, 0.9));
     d = opUnion(d, sdSphere(s.pos, pTorsoB, 1.3));
     d = opUnion(d, sdCapsule(s.pos, pTorsoL-0.0*pTorsoUp, pTorsoR-0.0*pTorsoUp, 0.7));
-    
-    d = min(d, arm  (pTorsoR,  1.0, pElbowR, pArmRud, pArmRx));
-    d = min(d, sdSphere(s.pos, pPalmR, 0.65));
-    
-    d = min(d, arm  (pTorsoL, -1.0, pElbowL, pArmLud, pArmLx));
-    d = min(d, sdSphere(s.pos, pPalmL, 0.65));
-    
-    d = min(d, arm  (pHipR,    1.0, pKneeR,  pLegRud, pLegRx));
+        
     d = min(d, foot (pFootR, pHeelR,  pToeR,  pFootRup));
-    
-    d = min(d, arm  (pHipL,   -1.0, pKneeL,  pLegLud, pLegLx));
     d = min(d, foot (pFootL, pHeelL,  pToeL,  pFootLup));
     
     d = min(d, sdSphere(s.pos, pHead+pHeadUp, 1.6));
     d = opDiff(d, sdSphere(s.pos, pHead+pHeadUp-(pHeadZ-pHeadUp*0.5)*0.5, 1.2), 0.5);
     
     if (d < s.dist) { s.mat = BODY; s.dist = d; }
+
+    d = min(d, arm  (pTorsoR,  1.0, pElbowR, pArmRud, pArmRx));
+    d = min(d, arm  (pTorsoL, -1.0, pElbowL, pArmLud, pArmLx));
+    d = min(d, arm  (pHipR,    1.0, pKneeR,  pLegRud, pLegRx));
+    d = min(d, arm  (pHipL,   -1.0, pKneeL,  pLegLud, pLegLx));
+
+    if (d < s.dist) { s.mat = BONE; s.dist = d; }
     
-    d = min(d, sdSphere(s.pos, pHead+pHeadUp, 1.5));
+    d = min(d, sdSphere(s.pos, pPalmR, 0.65));
+    d = min(d, sdSphere(s.pos, pPalmL, 0.65));
+    
+    if (d < s.dist) { s.mat = HAND; s.dist = d; }
+        
+    d = min(d, sdSphere(s.pos, pHead+pHeadUp, 1.3));
+    
     if (d < s.dist) { s.mat = VISOR; s.dist = d; }
     
     return s.dist;
@@ -652,6 +721,25 @@ float softShadow(vec3 ro, vec3 rd, float k)
     return min(max(shade, 0.0) + SHADOW, 1.0); 
 }
 
+//  0000000    0000000   0000000  000      000   000   0000000  000   0000000   000   000  
+// 000   000  000       000       000      000   000  000       000  000   000  0000  000  
+// 000   000  000       000       000      000   000  0000000   000  000   000  000 0 000  
+// 000   000  000       000       000      000   000       000  000  000   000  000  0000  
+//  0000000    0000000   0000000  0000000   0000000   0000000   000   0000000   000   000  
+
+float getOcclusion(vec3 p, vec3 n)
+{
+    float a = 0.0;
+    float weight = .5;
+    for (int i=1; i<=6; i++)
+    {
+        float d = (float(i) / 6.0) * 0.3;
+        a += weight * (d - map(p + n*d));
+        weight *= 0.9;
+    }
+    return clamp01(1.0-a);
+}
+
 // 000      000   0000000   000   000  000000000  
 // 000      000  000        000   000     000     
 // 000      000  000  0000  000000000     000     
@@ -671,10 +759,7 @@ vec3 getLight(vec3 p, vec3 n, vec3 col, int mat)
 {
     if (mat == NONE) return col;
     
-    vec3 cr = cross(camDir, vy);
-    vec3 up = normalize(cross(cr,camDir));
-    //vec3 lp = camPos + 5.0*up - 20.0*cr;
-    vec3 lp = rotAxisAngle(vec3(0,5.0,10.0), vy, iTime*10.0);
+    vec3 lp = camPos + 5.0*camUp + 10.0*camR;
     vec3 l = normalize(lp-p);
  
     float ambient = 0.0;
@@ -682,8 +767,8 @@ vec3 getLight(vec3 p, vec3 n, vec3 col, int mat)
     
     if (mat == BODY)
     {
-        float exp = soft ? 0.25 : 0.5;
-        float smx = soft ? 0.4 : 0.4;
+        float exp = 0.5;
+        float smx = 0.4;
         
         vec3  n2c = normalize(camPos-p);
         vec3  bcl = normalize(n2c + l);
@@ -692,16 +777,32 @@ vec3 getLight(vec3 p, vec3 n, vec3 col, int mat)
         
         dif = clamp01(mix(pow(dif, exp), shi, smx));
     }
-        
-    float shadow = softShadow(p, l, 8.0);
+    else if (mat == BONE)
+    {
+        // dif = pow(dif, soft ? 0.6 : 0.2);
+    }
+    else if (mat == MOON)
+    {
+        dif = pow(dif, 2.0);
+    }
+    
+    float shadow = softShadow(p, l, 8.0) * (soft ? getOcclusion(p, n) : 1.0);
     dif *= shadow;
     
     vec3 hl;
     if (mat == VISOR)
     {
-        hl = vec3(pow(clamp01(smoothstep(0.95,1.0,dot(n, l))), 1.0));
+        hl = vec3(pow(clamp01(smoothstep(0.95,1.0,dot(n, l))), 10.0));
     }
-    
+    else if (mat == BONE)
+    {
+        hl = vec3(clamp01(smoothstep(0.5,1.0, dot(n, l)))*0.05);
+    }
+    else if (mat == HAND)
+    {
+        hl = vec3(clamp01(smoothstep(0.5,1.0, dot(n, l)))*0.2);
+    }
+
     return col * clamp(dif, ambient, 1.0) + hl * shadow;
 }
 
@@ -722,13 +823,14 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     frag = fragCoord;
     
     bool dither = texelFetch(iChannel0, ivec2(KEY_LEFT,  2), 0).x < 0.5;
-    bool camrot = texelFetch(iChannel0, ivec2(KEY_RIGHT, 2), 0).x < 0.5;
+         camrot = texelFetch(iChannel0, ivec2(KEY_RIGHT, 2), 0).x < 0.5;
          soft   = texelFetch(iChannel0, ivec2(KEY_DOWN,  2), 0).x < 0.5;
     bool animat = texelFetch(iChannel0, ivec2(KEY_UP,    2), 0).x < 0.5;
     bool space  = texelFetch(iChannel0, ivec2(KEY_SPACE, 2), 0).x < 0.5;
 
     if (animat) poseFloating();
-    else        poseDancing(); // poseNeutral();
+    else        poseNeutral();
+    // else        poseDancing();
     
     calcAnim();
 
@@ -736,19 +838,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     float mx = 2.0*(iMouse.x/iResolution.x-0.5);
     float my = 2.0*(iMouse.y/iResolution.y-0.5);
-    float md = -12.5-my*2.5;
+    float md = -12.5;
     
-    if (iMouse.z <= 0.0 && camrot)
-    {
-        float ts = 276.2;
-        mx = 0.3*sin(ts+iTime/2.0);
-        my = -0.20-0.10*cos(ts+iTime/1.0);
-    }
+    if (iMouse.z <= 0.0) { mx = 0.0; my = 0.0; }
     
-    camTgt = vec3(0,1.2,0); 
-
-    // camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,-md), vx, 89.0*my), vy, -180.0*mx);
-    camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, 20.0+30.0*my), vy, 90.0*mx);
+    camTgt = vec3(0.0,0.0,0.0);
+    camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, -180.0*my), vy, -180.0*mx);
+    camR   = rotAxisAngle(vx, vy, -180.0*mx);
 
     #ifndef TOY
         if (space)
@@ -757,63 +853,64 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
             camPos = iCamera;
             camPos.x *= -1.0;
             camTgt.x *= -1.0;
+            camR   = normalize(cross(vy, camTgt-camPos));
         }
     #endif
     
     camDir = normalize(camTgt-camPos);
+    camUp  = normalize(cross(camDir, camR));
     
-    int AA = 2;
-    if (!soft) 
-    {
-        AA = 1;   
-    }
-    else
-    { 
-        if (iTimeDelta < 0.02) AA = 3;
-    }
+    int AA = soft ? 2 : 1;
     
     vec3 cols = v0;
-    vec3 col, p, n;
-    vec2 ao = vec2(0);
-    vec2 uv;
+    vec3 col, p, n, uu, vv, rd;
+    vec2 uv, ao = vec2(0);
     
-    vec3 ww;
-    vec3 uu;
-    vec3 vv;
-    vec3 rd;
     float d;
+    int mat;
+    int mat0;
     
     for( int am=ZERO; am<AA; am++ )
     for( int an=ZERO; an<AA; an++ )
     {
         if (AA > 1) ao = vec2(float(am),float(an))/float(AA)-0.5;
     
-        uv = (fragCoord+ao-.5*iResolution.xy)/iResolution.y;
-        // vec2 uv = (fragCoord-.5*iResolution.xy)/iResolution.y;
+        uv = (fragCoord+ao-0.5*iResolution.xy)/iResolution.y;
                 
-        ww = normalize(camTgt-camPos);
-        uu = normalize(cross(ww, vy));
-        vv = normalize(cross(uu, ww));
+        uu = normalize(cross(camDir, camUp));
+        vv = normalize(cross(uu, camDir));
         
-        rd = normalize(uv.x*uu + uv.y*vv + 1.0*ww);
+        rd = normalize(uv.x*uu + uv.y*vv + camDir);
         
         d = rayMarch(camPos, rd);
-        int mat = s.mat;
+        mat = s.mat;
+        if (am == AA-1 && an == AA-1) mat0 = mat;
         
         p = camPos + d * rd;
         n = getNormal(p);
             
-        if      (mat == NONE)  col = vec3(0,0,0); 
-        else if (mat == BODY)  col = vec3(1.0,1.0,1.0); 
-        else if (mat == VISOR) col = vec3(0.0,0.0,0.0);
+        if      (mat == NONE)  col = v0; 
+        else if (mat == BODY)  col = vec3(1.0);
+        else if (mat == BONE)  col = vec3(0.002); 
+        else if (mat == HAND)  col = vec3(0.003); 
+        else if (mat == MOON)  col = vec3(0.02-hash12(frag)*0.01); 
+        else if (mat == VISOR) col = v0;
         else col = vec3(1,1,1);
         
         col = getLight(p, n, col, mat);
-
+        
         cols += col;
     }
     
     col = cols/float(AA*AA);
+
+    if (mat0 == NONE)
+    {
+        if (hash12(frag) > 0.999)
+        {
+           col = vec3(1.0-length(uv));
+        }
+    }
     
     /*
     if (dither && mat != NONE)
@@ -821,6 +918,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         col += vec3(gradientNoise(frag.xy)/1256.0);
     }*/
 
+    #ifndef TOY
     col = mix(col, white, digit(0,   0,  iFrameRate, 2.0));
     col = mix(col, blue,  digit(0,  40,  iTime,      4.1));
     col = mix(col, green, digit(150, 0,  iMouse.y,   5.0));
@@ -831,7 +929,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     if (frag.x >= 350. && frag.x < 500. && frag.y < 160.)
     {
         uv = (iMouse.xy-.5*iResolution.xy)/iResolution.y;
-        rd = normalize(uv.x*uu + uv.y*vv + ww);
+        rd = normalize(uv.x*uu + uv.y*vv + camDir);
         d  = rayMarch(camPos, rd);
         if (d < MAX_DIST)
         {
@@ -842,6 +940,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
             col = mix(col, blue,  digit(350,  40, p.z, 3.2));
         }
     }
+    #endif
     
     col = pow(col, vec3(1.0/2.2));
     fragColor = vec4(col, 1.0);
