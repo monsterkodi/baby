@@ -602,7 +602,7 @@ float foot(vec3 pos, vec3 heel, vec3 toe, vec3 up)
 
 void moon()
 {
-    vec3 p = camPos+camDir*MAX_DIST/2.0+camR*MAX_DIST/6.0+camUp*MAX_DIST/8.0;
+    vec3 p = camPos+camDir*MAX_DIST/2.0+camR*MAX_DIST/4.0+camUp*MAX_DIST/8.0;
     
     float r = MAX_DIST/20.0;
     float d = sdSphere(s.pos, p, r);
@@ -777,10 +777,6 @@ vec3 getLight(vec3 p, vec3 n, vec3 col, int mat)
         
         dif = clamp01(mix(pow(dif, exp), shi, smx));
     }
-    else if (mat == BONE)
-    {
-        // dif = pow(dif, soft ? 0.6 : 0.2);
-    }
     else if (mat == MOON)
     {
         dif = pow(dif, 2.0);
@@ -912,11 +908,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         }
     }
     
-    /*
-    if (dither && mat != NONE)
+    if (dither)
     {
-        col += vec3(gradientNoise(frag.xy)/1256.0);
-    }*/
+        if (mat == HAND || mat == BONE)
+            col -= vec3(hash12(frag)*0.01);
+        else if (mat == BODY || mat == VISOR)
+            col -= vec3(hash12(frag)*0.05);
+    }
 
     #ifndef TOY
     col = mix(col, white, digit(0,   0,  iFrameRate, 2.0));
