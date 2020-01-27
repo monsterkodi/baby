@@ -6,7 +6,7 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ elem, prefs } = require 'kxk'
+{ elem, klog, prefs } = require 'kxk'
 { Camera, Color3, DirectionalLight, Engine, HemisphericLight, MeshBuilder, Scene, Space, StandardMaterial, Vector3 } = require 'babylonjs'
 { vec } = require './poly/math'
 generate = require './poly/generate'
@@ -217,7 +217,7 @@ class World
     
     modKeyComboEventDown: (mod, key, combo, event) ->
         
-        # klog 'modKeyComboEventDown' mod, key, combo, event.which, key.charCodeAt(0)
+        klog 'modKeyComboEventDown' mod, key, combo, event.which, key.charCodeAt(0)
         if event.which < 256 and not event.repeat
             @keys[event.which]     = 1
             @keys[event.which+256] = 1

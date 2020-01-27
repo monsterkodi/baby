@@ -1,7 +1,7 @@
 // #define TOY  1
 
 #define MAX_STEPS 128
-#define MIN_DIST   0.0001
+#define MIN_DIST   0.001
 #define MAX_DIST  80.0
 #define SHADOW     0.001
 #define PI 3.1415926535897
@@ -37,9 +37,10 @@ struct sdf {
 
 bool soft;
 bool camrot;
+int  option;
 
 sdf s;
-vec2 frag;
+vec2 frag, uv;
 vec3 camPos;
 vec3 camTgt;
 vec3 camDir;
@@ -105,9 +106,9 @@ float hash12(vec2 p)
 
 float clamp01(float v) { return clamp(v, 0.0, 1.0); }
 
-float gradientNoise(vec2 uv)
+float gradientNoise(vec2 v)
 {
-    return fract(52.9829189 * fract(dot(uv, vec2(0.06711056, 0.00583715))));
+    return fract(52.9829189 * fract(dot(v, vec2(0.06711056, 0.00583715))));
 }
 
 float iRange(float l, float h, float f) { return l+(h-l)*(sin(iTime)*0.5+0.5); }
@@ -222,7 +223,7 @@ vec3 rotate(vec4 quat, vec3 o, vec3 p)
 // 000   000  000   000     000     
 // 000   000   0000000      000     
 
-vec3 rotAxisAngle(vec3 position, vec3 axis, float angle)
+vec3 rotAxisAngleOld(vec3 position, vec3 axis, float angle)
 { 
     vec4 qr = quatAxisAngle(axis, angle);
     vec4 qr_conj = quatConj(qr);
@@ -232,7 +233,26 @@ vec3 rotAxisAngle(vec3 position, vec3 axis, float angle)
     qr = quatMul(q_tmp, qr_conj);
     
     return vec3(qr.x, qr.y, qr.z);
-}
+}
+
+mat3 rotMat(vec3 u, float angle)
+{
+    float c = cos(deg2rad(angle));
+    float i = 1.0-c;
+    float s = sin(deg2rad(angle));
+    
+    return mat3(
+        c+u.x*u.x*i, u.x*u.y*i-u.z*s, u.x*u.z*i+u.y*s,
+        u.y*u.x*i+u.z*s, c+u.y*u.y*i, u.y*u.z*i-u.x*s,
+        u.z*u.x*i-u.y*s, u.z*u.y*i+u.x*s, c+u.z*u.z*i
+        );
+}
+
+vec3 rotAxisAngle(vec3 position, vec3 axis, float angle)
+{
+    mat3 m = rotMat(axis, angle);
+    return m * position;
+}
 
 vec3 rotRayAngle(vec3 position, vec3 ro, vec3 rd, float angle)
 { 
@@ -328,13 +348,10 @@ float opInter(float d1, float d2)
 //      000  000   000  
 // 0000000   0000000    
 
-float sdCapsule(vec3 p, vec3 a, vec3 b, float r)
+float sdCapsule(vec3 p, vec3 a, vec3 b, float r)
 {
     vec3 ab = b-a;
-    vec3 ap = p-a;
-    float t = dot(ab,ap) / dot(ab,ab);
-    t = clamp(t, 0.0, 1.0);
-    vec3 c = a + t*ab;
+    vec3 c = a+clamp01(dot(ab,p-a)/dot(ab,ab))*ab;
     return length(p-c)-r;        
 }
 
@@ -415,8 +432,10 @@ void poseFloating()
     float s4 = sin(iTime*4.0);
     
     if (camrot)
+    {
         // qHip = quatMul(quatAxisAngle(vy,iTime*2.0), quatAxisAngle(vx,-iTime*20.0));
         qHip = quatAxisAngle(vz,-iTime*16.0);
+    }
     
     qTorso = quatMul(qHip, quatMul(quatAxisAngle(vx, s2*15.0), quatAxisAngle(vy, s1*35.0)));
     
@@ -578,13 +597,23 @@ void moon()
 
 float map(vec3 p)
 {
-    float d = 1000.0;
-    s = sdf(d, p, NONE);
+    s = sdf(1000.0, p, NONE);
     
     moon();
     
+    float d = sdSphere(s.pos, pTorsoB, 1.3);
+    
+    if (option != 1 && d > s.dist-20.0)
+    {
+        return s.dist;
+    }
+    if (d > 4.0 && length(uv) > 0.4)
+    {
+        if (d < s.dist) s.dist = d;
+        return s.dist;
+    }
+    
     d = opUnion(d, sdSphere(s.pos, pHip, 0.9));
-    d = opUnion(d, sdSphere(s.pos, pTorsoB, 1.3));
     d = opUnion(d, sdCapsule(s.pos, pTorsoL-0.0*pTorsoUp, pTorsoR-0.0*pTorsoUp, 0.7));
         
     d = min(d, foot (pFootR, pHeelR,  pToeR,  pFootRup));
@@ -617,7 +646,7 @@ float map(vec3 p)
 vec3 getNormal(vec3 p)
 {
     vec3 n = v0;
-    for (int i=ZERO; i<4; i++)
+    for (int i = ZERO; i < 4; i++)
     {
         vec3 e = 0.5773*(2.0*vec3((((i+3)>>1)&1),((i>>1)&1),(i&1))-1.0);
         n += e*map(p+e*0.0001);
@@ -660,7 +689,7 @@ float softShadow(vec3 ro, vec3 rd, float k)
     float end = max(length(rd), MIN_DIST);
     float stepDist = end/25.0;
     rd /= end;
-    for (int i=0; i<25; i++)
+    for (int i = ZERO; i < 25; i++)
     {
         float h = map(ro+rd*dist);
         shade = min(shade, k*h/dist);
@@ -682,7 +711,7 @@ float getOcclusion(vec3 p, vec3 n)
 {
     float a = 0.0;
     float weight = .5;
-    for (int i=1; i<=6; i++)
+    for (int i = ZERO; i <= 6; i++)
     {
         float d = (float(i) / 6.0) * 0.3;
         a += weight * (d - map(p + n*d));
@@ -764,20 +793,29 @@ const int KEY_UP    = 38;
 const int KEY_RIGHT = 39;
 const int KEY_DOWN  = 40;
 const int KEY_SPACE = 32;
-
+const int KEY_1     = 49;
+const int KEY_9     = 57;
+
+bool keyState(int key) { return texelFetch(iChannel0, ivec2(key, 2), 0).x < 0.5; }
+bool keyDown(int key)  { return texelFetch(iChannel0, ivec2(key, 0), 0).x > 0.5; }
+
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
     frag = fragCoord;
     
-    bool dither = texelFetch(iChannel0, ivec2(KEY_LEFT,  2), 0).x < 0.5;
-         camrot = texelFetch(iChannel0, ivec2(KEY_RIGHT, 2), 0).x < 0.5;
-         soft   = texelFetch(iChannel0, ivec2(KEY_DOWN,  2), 0).x < 0.5;
-    bool animat = texelFetch(iChannel0, ivec2(KEY_UP,    2), 0).x < 0.5;
-    bool space  = texelFetch(iChannel0, ivec2(KEY_SPACE, 2), 0).x < 0.5;
+    bool dither =  keyState(KEY_LEFT);
+         camrot =  keyState(KEY_RIGHT);
+         soft   =  keyState(KEY_DOWN);
+    bool animat =  keyState(KEY_UP);
+    bool space  =  keyState(KEY_SPACE);
 
+    for (int i = KEY_1; i <= KEY_9; i++) 
+    { 
+        if (keyDown(i)) { option = i-KEY_1+1; break; }
+    }
+    
     if (animat) poseFloating();
     else        poseNeutral();
-    // else        poseDancing();
     
     calcAnim();
 
@@ -811,14 +849,14 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     vec3 cols = v0;
     vec3 col, p, n, uu, vv, rd;
-    vec2 uv, ao = vec2(0);
+    vec2 ao = vec2(0);
     
     float d;
     int mat;
     int mat0;
     
-    for( int am=ZERO; am<AA; am++ )
-    for( int an=ZERO; an<AA; an++ )
+    for(int am = ZERO; am < AA; am++)
+    for(int an = ZERO; an < AA; an++)
     {
         if (AA > 1) ao = vec2(float(am),float(an))/float(AA)-0.5;
     
@@ -840,7 +878,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         else if (mat == BODY)  col = vec3(1.0);
         else if (mat == BONE)  col = vec3(0.2); 
         else if (mat == HAND)  col = vec3(1.0); 
-        else if (mat == MOON)  col = vec3(0.02-hash12(frag)*0.01); 
+        else if (mat == MOON)  col = vec3(0.04);
         else if (mat == VISOR) col = v0;
         else col = vec3(1,1,1);
         
@@ -861,16 +899,14 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     if (dither)
     {
-        if (mat == HAND || mat == BONE)
-            col -= vec3(hash12(frag)*0.01);
-        else if (mat == BODY || mat == VISOR)
-            col -= vec3(hash12(frag)*0.05);
+        col -= vec3((hash12(frag)-0.25)*0.004);
         col = max(col, v0);
     }
 
     #ifndef TOY
     col = mix(col, white, digit(0,   0,  iFrameRate, 2.0));
     col = mix(col, blue,  digit(0,  40,  iTime,      4.1));
+    col = mix(col, red,   digit(0,  80,  float(option),1.0));
     col = mix(col, green, digit(150, 0,  iMouse.y,   5.0));
     col = mix(col, red,   digit(150, 40, iMouse.x,   5.0));
     col = mix(col, green, digit(250, 0,  my,         3.2));
