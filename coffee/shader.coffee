@@ -8,7 +8,7 @@
 
 { Mesh, MeshBuilder, RawTexture, ShaderMaterial, Vector2, Vector3, Vector4 } = require 'babylonjs'
 { performance } = require 'perf_hooks'
-{ slash } = require 'kxk'
+{ klog, slash } = require 'kxk'
         
 class Shader
     
@@ -42,6 +42,7 @@ class Shader
             uniform float iTimeDelta;
             uniform float iFrameRate;
             uniform float iMs;
+            uniform float iCompile;
             uniform float iDist;
             uniform float iMinDist;
             uniform float iMaxDist;
@@ -63,18 +64,23 @@ class Shader
             }
             """
             
+        @shaderStart = performance.now()
         @shaderMaterial = new ShaderMaterial "shader", @scene,  
                 fragmentSource:fragmentShader
                 vertexSource:  vertexShader
             ,
                 attributes: ['position' 'normal' 'uv']
                 uniforms:   ['worldViewProjection' 'iMs' 'iDist' 'iMaxDist' 'iMinDist' 'iCenter' 'iCamera' 'iFrameRate' 
-                             'iDelta' 'iTime' 'iTimeDelta' 'iMouse' 'iResolution' 'iRotate' 'iDegree' 'iFrame']
+                             'iDelta' 'iTime' 'iTimeDelta' 'iMouse' 'iResolution' 'iRotate' 'iDegree' 'iFrame' 'iCompile']
             
         @plane = MeshBuilder.CreatePlane "plane", { width: 10, height: 10 }, @scene
         @plane.material = @shaderMaterial
         @plane.billboardMode = Mesh.BILLBOARDMODE_ALL
            
+        @shaderMaterial.onCompiled = => 
+            @compileTime = parseInt performance.now()-@shaderStart
+            klog "compileTime #{@compileTime/1000}s" 
+        
     render: ->
         
         @plane.position.copyFrom @world.camera.position.add @world.camera.getDir().scale 2
@@ -94,6 +100,7 @@ class Shader
         @shaderMaterial.setInt     'iFrame'      @iFrame++
         @shaderMaterial.setFloat   'iFrameRate'  Math.round fps
         @shaderMaterial.setFloat   'iMs'         @world.engine.getDeltaTime()
+        @shaderMaterial.setFloat   'iCompile'    @compileTime/1000
         @shaderMaterial.setFloat   'iTime'       performance.now()/1000
         @shaderMaterial.setFloat   'iTimeDelta'  @world.engine.getDeltaTime()/1000
         @shaderMaterial.setFloat   'iDist'       @world.camera.dist

@@ -6,7 +6,7 @@
 00     00   0000000   000   000  0000000  0000000    
 ###
 
-{ elem, klog, prefs } = require 'kxk'
+{ elem, prefs } = require 'kxk'
 { Camera, Color3, DirectionalLight, Engine, HemisphericLight, MeshBuilder, Scene, Space, StandardMaterial, Vector3 } = require 'babylonjs'
 { vec } = require './poly/math'
 generate = require './poly/generate'
@@ -217,11 +217,12 @@ class World
     
     modKeyComboEventDown: (mod, key, combo, event) ->
         
-        klog 'modKeyComboEventDown' mod, key, combo, event.which, key.charCodeAt(0)
+        # klog 'modKeyComboEventDown' key, event.which
         if event.which < 256 and not event.repeat
             @keys[event.which]     = 1
             @keys[event.which+256] = 1
             @keys[event.which+512] = 1-@keys[event.which+512]
+            
         switch key
             when 'e' then @camera.moveUp()
             when 'q' then @camera.moveDown()
