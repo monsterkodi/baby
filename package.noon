@@ -5,15 +5,15 @@ main          js/main.js
 author        monsterkodi@gmx.net
 license       Unlicense
 dependencies
-              babylonjs       ^4.1.0-beta.6
-              babylonjs-gui   ^4.1.0-beta.6
-              babylonjs-materials  ^4.1.0-beta.6
-              babylonjs-post-process  ^4.1.0-beta.6
-              earcut          ^2.2.1
-              electron        ^7.1.3
-              electron-packager  ^14.1.1
-              electron-rebuild  ^1.8.8
+              babylonjs       ^4.1.0-beta.22
+              babylonjs-gui   ^4.1.0-beta.22
+              babylonjs-materials  ^4.1.0-beta.22
+              babylonjs-post-process  ^4.1.0-beta.22
+              earcut          ^2.2.2
+              electron        ^7.1.10
+              electron-packager  ^14.2.0
+              electron-rebuild  ^1.10.0
               koffee          ^1.6.0
-              kxk             ^0.374.0
+              kxk             ^0.375.0
               oimo            ^1.0.9
               pegjs           ^0.10.0

@@ -60,12 +60,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     col += spark(0.0, 0.9*sin(2.2*iTime), 0.02)*0.1;
     
     vec4 v = load1(1,0);
-    v += 0.01;
     col += spark(v.x, v.y, 0.02);
-    // save(1,0,v);
 
     v = load1(2,0);
-    col += spark(v.x, v.y, 0.03);
+    col += spark(v.x+0.1, v.y, 0.03);
     
     fragColor = vec4(col,1.0);
 }
