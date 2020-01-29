@@ -16,48 +16,23 @@ class Shader
 
         @scene = @world.scene
         @frameRates = []
-        @buffers = []
-        @textures = []
 
         klog "buffers #{@world.canvas.width}x#{@world.canvas.height}"
-        for i in [0...3]
-            # buffer = new Float32Array 4*@world.canvas.width*@world.canvas.height
-            buffer = new Uint8Array 4*@world.canvas.width*@world.canvas.height
-            @buffers.push buffer
-            l = buffer.length
-            for j in [0...2]
-                buffer[j*4]   = 1
-                buffer[j*4+1] = 2
-                buffer[j*4+2] = 3
-                buffer[j*4+3] = 255
-            # @textures.push RawTexture.CreateRGBATexture buffer, @world.canvas.width, @world.canvas.height, 
-                # @scene, false, false, Texture.NEAREST_SAMPLINGMODE, Engine.TEXTURETYPE_FLOAT
-            @textures.push new RawTexture buffer, @world.canvas.width, @world.canvas.height, Engine.TEXTUREFORMAT_RGBA,
-                @scene, false #, false, Texture.BILINEAR_SAMPLINGMODE, Engine.TEXTURETYPE_FLOAT
-                
-        @textures[1] = new Texture("#{__dirname}/../img/font.png", @scene)
-        @keytexture = RawTexture.CreateRTexture @world.keys, 256, 3, @scene, false
+        
+        buffer = new Uint8Array 4*@world.canvas.width*@world.canvas.height
+            
+        @textures = 
+            keys:   RawTexture.CreateRTexture @world.keys, 256, 3, @scene, false
+            buffer: new RawTexture buffer, @world.canvas.width, @world.canvas.height, Engine.TEXTUREFORMAT_RGBA, @scene, false
+            font:   new Texture("#{__dirname}/../img/font.png", @scene)
+        
         @iFrame = 0
         @vertexShader =  """
-            precision highp float;
-            attribute vec3 position;
-            attribute vec2 uv;
-            uniform mat4 worldViewProjection;
-            void main(void) {
-                gl_Position = worldViewProjection * vec4(position, 1.0);
-            }
+            precision highp float; attribute vec3 position; attribute vec2 uv; uniform mat4 worldViewProjection;
+            void main(void) { gl_Position = worldViewProjection * vec4(position, 1.0); }
             """
         
-        # fragSource = slash.readText "#{__dirname}/../shader/graph.frag"
-        # fragSource = slash.readText "#{__dirname}/../shader/kalamari.frag"
-        # fragSource = slash.readText "#{__dirname}/../shader/kalamari_blueprint.frag"
-        # fragSource = slash.readText "#{__dirname}/../shader/krap.frag"
-        # fragSource = slash.readText "#{__dirname}/../shader/twist.frag"
-        # fragSource = slash.readText "#{__dirname}/../shader/worm.frag"
-        # fragSource = slash.readText "#{__dirname}/../shader/kerl.frag"
-        # fragSource = slash.readText "#{__dirname}/../shader/astro.frag"
-        # fragSource = slash.readText "#{__dirname}/../shader/astro_noquat.frag"
-        fragSource = slash.readText "#{__dirname}/../shader/follow.frag"
+        fragSource   = slash.readText "#{__dirname}/../shader/follow.frag"
         bufferSource = slash.readText "#{__dirname}/../shader/buffer.frag"
         
         Effect.ShadersStore.mainVertexShader = @vertexShader
@@ -65,30 +40,18 @@ class Shader
         
         Effect.ShadersStore.bufferVertexShader = @vertexShader
         Effect.ShadersStore.bufferFragmentShader = @shaderCode bufferSource 
-        
-        @uniforms = [
-            'worldViewProjection' 'iMs' 'iDist' 'iMaxDist' 'iMinDist' 
-            'iCenter' 'iCamera' 'iFrameRate' 
-            'iDelta' 'iTime' 'iTimeDelta' 'iMouse' 'iResolution' 
-            'iRotate' 'iDegree' 'iFrame' 'iCompile'
-        ]
-            
+                    
         @shaderStart = performance.now()
         
-        @bufferMaterial = new ShaderMaterial "bufferShader", @scene,  
-                vertex:   'buffer'
-                fragment: 'buffer'
-            ,
-                attributes: ['position' 'normal' 'uv']
-                uniforms:   @uniforms
+        # 00     00   0000000   000000000  00000000  00000000   000   0000000   000      
+        # 000   000  000   000     000     000       000   000  000  000   000  000      
+        # 000000000  000000000     000     0000000   0000000    000  000000000  000      
+        # 000 0 000  000   000     000     000       000   000  000  000   000  000      
+        # 000   000  000   000     000     00000000  000   000  000  000   000  0000000  
         
-        @shaderMaterial = new ShaderMaterial "shader", @scene,  
-                vertex:   'main'
-                fragment: 'main'
-            ,
-                attributes: ['position' 'normal' 'uv']
-                uniforms:   @uniforms
-                
+        @bufferMaterial = @shaderMaterial 'buffer'
+        @shaderMaterial = @shaderMaterial 'main'
+
         @plane2 = MeshBuilder.CreatePlane "plane2", { width: 10, height: 10 }, @scene
         @plane2.material = @bufferMaterial
         @plane2.billboardMode = Mesh.BILLBOARDMODE_ALL
@@ -105,31 +68,153 @@ class Shader
             compileTime = parseInt performance.now()-@shaderStart
             klog "buffer compileTime #{compileTime/1000}s" 
             
-        @renderBuffers()
+        # 00000000           000000000   0000000   00000000    0000000   00000000  000000000  
+        # 000   000             000     000   000  000   000  000        000          000     
+        # 0000000    000000     000     000000000  0000000    000  0000  0000000      000     
+        # 000   000             000     000   000  000   000  000   000  000          000     
+        # 000   000             000     000   000  000   000   0000000   00000000     000     
+        
+        @renderTarget = new RenderTargetTexture "buf", { width:@world.canvas.width, height:@world.canvas.height }, @scene, false #, false, Texture.BILINEAR_SAMPLINGMODE, Engine.TEXTURETYPE_BYTE
+        @renderTarget.renderList.push @plane2
+        @scene.customRenderTargets.push @renderTarget
+                                                         
+        # 0000000    00000000  00000000   0000000   00000000   00000000  
+        # 000   000  000       000       000   000  000   000  000       
+        # 0000000    0000000   000000    000   000  0000000    0000000   
+        # 000   000  000       000       000   000  000   000  000       
+        # 0000000    00000000  000        0000000   000   000  00000000  
+
+        @renderTarget.onBeforeRender = () => 
+                        
+            @plane2.position.copyFrom @world.camera.position.add @world.camera.getDir().scale 2
+            @materialData @bufferMaterial
+        
+        @scene.onBeforeRenderObservable.add => 
+            
+            @textures.keys.update @world.keys
+            
+            @iResolution = new Vector2 @world.canvas.width, @world.canvas.height
+            
+            @iDelta = new Vector2(@world.camera.mouseDelta.x, @world.camera.mouseDelta.y) 
+            @iMouse = new Vector4(
+                @world.camera.mouseX * (window.devicePixelRatio ? 0)
+                @iResolution.y - (@world.camera.mouseY * (window.devicePixelRatio ? @iResolution.y))
+                @world.camera.downButtons 
+                0)
+                
+            @iCenter = new Vector3 @world.camera.center.x, @world.camera.center.y, @world.camera.center.z
+            @iCamera = new Vector3 @world.camera.position.x, @world.camera.position.y, @world.camera.position.z
+               
+            @iTime      = performance.now()/1000
+            @iTimeDelta = @world.engine.getDeltaTime()/1000
+            
+            @frameRates.push @world.engine.getFps()
+            if @frameRates.length > 30 then @frameRates.shift()
+            @fps = 0
+            for r in @frameRates then @fps += r
+            @fps /= @frameRates.length
+            
+        #  0000000   00000000  000000000  00000000  00000000   
+        # 000   000  000          000     000       000   000  
+        # 000000000  000000       000     0000000   0000000    
+        # 000   000  000          000     000       000   000  
+        # 000   000  000          000     00000000  000   000  
+        
+        @scene.onAfterRenderTargetsRenderObservable.add => 
+            
+            @textures.buffer.update @renderTarget.readPixels()
+            
+        @scene.onAfterRenderObservable.add =>
+            
+            @iFrame++
+            for i in [256...512] 
+                @world.keys[i] = 0
+           
+    # 00000000   00000000  000   000  0000000    00000000  00000000   
+    # 000   000  000       0000  000  000   000  000       000   000  
+    # 0000000    0000000   000 0 000  000   000  0000000   0000000    
+    # 000   000  000       000  0000  000   000  000       000   000  
+    # 000   000  00000000  000   000  0000000    00000000  000   000  
+    
+    render: ->
+
+        @plane.position.copyFrom @world.camera.position.add @world.camera.getDir().scale 1.5
+        
+        @materialData @shaderMaterial
+                
+    # 0000000     0000000   000000000   0000000   
+    # 000   000  000   000     000     000   000  
+    # 000   000  000000000     000     000000000  
+    # 000   000  000   000     000     000   000  
+    # 0000000    000   000     000     000   000  
+    
+    materialData: (m) => 
+        
+        m.setTexture 'iChannel0'   @textures.keys 
+        m.setTexture 'iChannel1'   @textures.buffer
+        m.setTexture 'iChannel2'   @textures.font
+        m.setInt     'iFrame'      @iFrame
+        m.setFloat   'iCompile'    @compileTime/1000
+        m.setFloat   'iTime'       @iTime
+        m.setFloat   'iTimeDelta'  @iTimeDelta
+        m.setVector2 'iDelta'      @iDelta
+        m.setVector4 'iMouse'      @iMouse
+        m.setVector2 'iResolution' @iResolution
+        m.setVector3 'iCenter'     @iCenter
+        m.setVector3 'iCamera'     @iCamera
+        m.setFloat   'iDist'       @world.camera.dist
+        m.setFloat   'iMinDist'    @world.camera.minDist
+        m.setFloat   'iMaxDist'    @world.camera.maxDist
+        m.setFloat   'iRotate'     @world.camera.rotate
+        m.setFloat   'iDegree'     @world.camera.degree
+        m.setFloat   'iFrameRate'  Math.round @fps
+        m.setFloat   'iMs'         @world.engine.getDeltaTime()
+                
+    #  0000000  000   000   0000000   0000000    00000000  00000000   
+    # 000       000   000  000   000  000   000  000       000   000  
+    # 0000000   000000000  000000000  000   000  0000000   0000000    
+    #      000  000   000  000   000  000   000  000       000   000  
+    # 0000000   000   000  000   000  0000000    00000000  000   000  
+    
+    shaderMaterial: (key) ->
+        
+        new ShaderMaterial "#{key}Shader", @scene,  
+                vertex:   key
+                fragment: key
+            ,
+                attributes: ['position' 'normal' 'uv']
+                uniforms:   [
+                    'worldViewProjection'
+                    'iCamera' 'iCenter' 'iDist' 'iMaxDist' 'iMinDist'
+                    'iFrameRate' 'iMs' 'iFrame' 
+                    'iDelta' 'iTime' 'iTimeDelta' 
+                    'iMouse' 'iResolution' 
+                    'iRotate' 'iDegree' 
+                    'iCompile'
+                ]
         
     shaderCode: (fragSource) ->
         """
             precision highp float;
-            uniform float iTime;
-            uniform float iTimeDelta;
-            uniform float iFrameRate;
-            uniform float iMs;
-            uniform float iCompile;
-            uniform float iDist;
-            uniform float iMinDist;
-            uniform float iMaxDist;
-            uniform float iRotate;
-            uniform float iDegree;
-            uniform vec2  iDelta;
-            uniform vec4  iMouse;
-            uniform vec2  iResolution;
-            uniform vec3  iCenter;
-            uniform vec3  iCamera;
-            uniform int   iFrame;
+            uniform float     iTime;
+            uniform float     iTimeDelta;
+            uniform float     iFrameRate;
+            uniform float     iMs;
+            uniform float     iCompile;
+            uniform float     iDist;
+            uniform float     iMinDist;
+            uniform float     iMaxDist;
+            uniform float     iRotate;
+            uniform float     iDegree;
+            uniform vec2      iDelta;
+            uniform vec4      iMouse;
+            uniform vec2      iResolution;
+            uniform vec3      iCenter;
+            uniform vec3      iCamera;
+            uniform int       iFrame;
             uniform sampler2D iChannel0;
             uniform sampler2D iChannel1;
             uniform sampler2D iChannel2;
-            uniform sampler2D iChannel3;
             
             #{fragSource}
                                     
@@ -138,85 +223,5 @@ class Shader
                 mainImage(gl_FragColor, gl_FragCoord.xy);
             }
             """
-        
-    renderBuffers: ->
-                
-        @renderTarget = new RenderTargetTexture "buf", { width:@world.canvas.width, height:@world.canvas.height }, @scene, false #, false, Texture.BILINEAR_SAMPLINGMODE, Engine.TEXTURETYPE_BYTE
-        @renderTarget.renderList.push @plane2
-        @scene.customRenderTargets.push @renderTarget
-    
-        @renderTarget.onBeforeRender = () => 
-            
-            @keytexture.update @world.keys
-            @plane2.isVisible = true
-            @plane2.position.copyFrom @world.camera.position.add @world.camera.getDir().scale 2
                     
-            mouseX = @world.camera.mouseX * window.devicePixelRatio ? 0;
-            mouseY = @world.camera.mouseY * window.devicePixelRatio ? @world.canvas.height;
-             
-            @bufferMaterial.setTexture 'iChannel0'   @keytexture
-            @bufferMaterial.setTexture 'iChannel1'   @textures[0]
-            @bufferMaterial.setTexture 'iChannel2'   @textures[1]
-            @bufferMaterial.setTexture 'iChannel3'   @textures[2]
-            @bufferMaterial.setInt     'iFrame'      @iFrame
-            @bufferMaterial.setFloat   'iFrameRate'  Math.round @fps
-            @bufferMaterial.setFloat   'iMs'         @world.engine.getDeltaTime()
-            @bufferMaterial.setFloat   'iCompile'    @compileTime/1000
-            @bufferMaterial.setFloat   'iTime'       performance.now()/1000
-            @bufferMaterial.setFloat   'iTimeDelta'  @world.engine.getDeltaTime()/1000
-            @bufferMaterial.setFloat   'iDist'       @world.camera.dist
-            @bufferMaterial.setFloat   'iMinDist'    @world.camera.minDist
-            @bufferMaterial.setFloat   'iMaxDist'    @world.camera.maxDist
-            @bufferMaterial.setFloat   'iRotate'     @world.camera.rotate
-            @bufferMaterial.setFloat   'iDegree'     @world.camera.degree
-            @bufferMaterial.setVector2 'iDelta'      new Vector2(@world.camera.mouseDelta.x, @world.camera.mouseDelta.y) 
-            @bufferMaterial.setVector4 'iMouse'      new Vector4(mouseX, @world.canvas.height-mouseY, @world.camera.downButtons, 0)
-            @bufferMaterial.setVector2 'iResolution' new Vector2(@world.canvas.width, @world.canvas.height)
-            @bufferMaterial.setVector3 'iCenter'     new Vector3(@world.camera.center.x, @world.camera.center.y, @world.camera.center.z)
-            @bufferMaterial.setVector3 'iCamera'     new Vector3(@world.camera.position.x, @world.camera.position.y, @world.camera.position.z)
-            
-        @renderTarget.onAfterRender = () => 
-            
-        @scene.onAfterRenderTargetsRenderObservable.add => 
-            
-            @textures[0].update @renderTarget.readPixels()
-            
-    render: ->
-
-        @plane2.isVisible = false
-        @plane.position.copyFrom @world.camera.position.add @world.camera.getDir().scale 1.5
-        
-        mouseX = @world.camera.mouseX*window.devicePixelRatio ? 0;
-        mouseY = @world.camera.mouseY*window.devicePixelRatio ? @world.canvas.height;
-        
-        @frameRates.push @world.engine.getFps()
-        if @frameRates.length > 30 then @frameRates.shift()
-        @fps = 0
-        for r in @frameRates then @fps += r
-        @fps /= @frameRates.length
-
-        @shaderMaterial.setTexture 'iChannel0'   @keytexture
-        @shaderMaterial.setTexture 'iChannel1'   @textures[0]
-        @shaderMaterial.setTexture 'iChannel2'   @textures[1]
-        @shaderMaterial.setTexture 'iChannel3'   @textures[2]
-        @shaderMaterial.setInt     'iFrame'      @iFrame++
-        @shaderMaterial.setFloat   'iFrameRate'  Math.round @fps
-        @shaderMaterial.setFloat   'iMs'         @world.engine.getDeltaTime()
-        @shaderMaterial.setFloat   'iCompile'    @compileTime/1000
-        @shaderMaterial.setFloat   'iTime'       performance.now()/1000
-        @shaderMaterial.setFloat   'iTimeDelta'  @world.engine.getDeltaTime()/1000
-        @shaderMaterial.setFloat   'iDist'       @world.camera.dist
-        @shaderMaterial.setFloat   'iMinDist'    @world.camera.minDist
-        @shaderMaterial.setFloat   'iMaxDist'    @world.camera.maxDist
-        @shaderMaterial.setFloat   'iRotate'     @world.camera.rotate
-        @shaderMaterial.setFloat   'iDegree'     @world.camera.degree
-        @shaderMaterial.setVector2 'iDelta'      new Vector2(@world.camera.mouseDelta.x, @world.camera.mouseDelta.y) 
-        @shaderMaterial.setVector4 'iMouse'      new Vector4(mouseX, @world.canvas.height-mouseY, @world.camera.downButtons, 0)
-        @shaderMaterial.setVector2 'iResolution' new Vector2(@world.canvas.width, @world.canvas.height)
-        @shaderMaterial.setVector3 'iCenter'     new Vector3(@world.camera.center.x, @world.camera.center.y, @world.camera.center.z)
-        @shaderMaterial.setVector3 'iCamera'     new Vector3(@world.camera.position.x, @world.camera.position.y, @world.camera.position.z)
-            
-        for i in [256...512] 
-            @world.keys[i] = 0
-        
 module.exports = Shader
