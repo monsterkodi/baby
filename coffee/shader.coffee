@@ -32,8 +32,9 @@ class Shader
             void main(void) { gl_Position = worldViewProjection * vec4(position, 1.0); }
             """
         
-        fragSource   = slash.readText "#{__dirname}/../shader/follow.frag"
-        bufferSource = slash.readText "#{__dirname}/../shader/buffer.frag"
+        fragSource    = slash.readText "#{__dirname}/../shader/follow.frag"
+        bufferSource  = slash.readText "#{__dirname}/../shader/buffer.frag"
+        @commonSource = slash.readText "#{__dirname}/../shader/common.frag"
         
         Effect.ShadersStore.mainVertexShader = @vertexShader
         Effect.ShadersStore.mainFragmentShader = @shaderCode fragSource 
@@ -216,6 +217,7 @@ class Shader
             uniform sampler2D iChannel1;
             uniform sampler2D iChannel2;
             
+            #{@commonSource}
             #{fragSource}
                                     
             void main(void) 

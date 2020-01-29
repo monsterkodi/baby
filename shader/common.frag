@@ -1,3 +1,15 @@
+#define PI 3.1415926535897
+#define EPSILON 0.0000001
+
+#define inside(a) (fragCoord.x == a.x+0.5 && fragCoord.y == a.y+0.5)
+#define save(a,b,c) if(inside(vec2(a,b))){fragColor=c;}
+#define load0(x,y) texelFetch(iChannel0, ivec2(x,y), 0)
+#define load1(x,y) texelFetch(iChannel1, ivec2(x,y), 0)
+#define load2(x,y) texelFetch(iChannel2, ivec2(x,y), 0)
+#define load3(x,y) texelFetch(iChannel3, ivec2(x,y), 0)
+
+float rad2deg(float r) { return 180.0 * r / PI; }
+float deg2rad(float d) { return PI * d / 180.0; }
 
 float hash11(float p)
 {
@@ -22,6 +34,31 @@ float gradientNoise(vec2 v)
     return fract(52.9829189 * fract(dot(v, vec2(0.06711056, 0.00583715))));
 }
 
+// 000   000   0000000  000      
+// 000   000  000       000      
+// 000000000  0000000   000      
+// 000   000       000  000      
+// 000   000  0000000   0000000  
+
+vec3 hsl2rgb( in vec3 c )
+{
+    vec3 rgb = clamp( abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0 );
+    return c.z + c.y * (rgb-0.5)*(1.0-abs(2.0*c.z-1.0));
+}
+
+vec3 hsl(float h, float s, float l) { return hsl2rgb(vec3(h,s,l)); }
+
+vec3 rgb2hsl( vec3 col )
+{
+    float minc = min( col.r, min(col.g, col.b) );
+    float maxc = max( col.r, max(col.g, col.b) );
+    vec3  mask = step(col.grr,col.rgb) * step(col.bbg,col.rgb);
+    vec3 h = mask * (vec3(0.0,2.0,4.0) + (col.gbr-col.brg)/(maxc-minc + EPSILON)) / 6.0;
+    return vec3( fract( 1.0 + h.x + h.y + h.z ),              
+                 (maxc-minc)/(1.0-abs(minc+maxc-1.0) + EPSILON),  
+                 (minc+maxc)*0.5 );                           
+}
+
 // 00     00   0000000   000000000  00000000   000  000   000  
 // 000   000  000   000     000     000   000  000   000 000   
 // 000000000  000000000     000     0000000    000    00000    
@@ -34,6 +71,32 @@ mat3 alignMatrix(vec3 dir)
     vec3 s = normalize(cross(f, vec3(0.48, 0.6, 0.64)));
     vec3 u = cross(s, f);
     return mat3(u, s, f);
+}
+
+
+// 00000000    0000000   000000000  
+// 000   000  000   000     000     
+// 0000000    000   000     000     
+// 000   000  000   000     000     
+// 000   000   0000000      000     
+
+mat3 rotMat(vec3 u, float angle)
+{
+    float s = sin(deg2rad(angle));
+    float c = cos(deg2rad(angle));
+    float i = 1.0-c;
+    
+    return mat3(
+        c+u.x*u.x*i, u.x*u.y*i-u.z*s, u.x*u.z*i+u.y*s,
+        u.y*u.x*i+u.z*s, c+u.y*u.y*i, u.y*u.z*i-u.x*s,
+        u.z*u.x*i-u.y*s, u.z*u.y*i+u.x*s, c+u.z*u.z*i
+        );
+}
+
+vec3 rotAxisAngle(vec3 position, vec3 axis, float angle)
+{
+    mat3 m = rotMat(axis, angle);
+    return m * position;
 }
 
 //  0000000   000   000   0000000   000000000  

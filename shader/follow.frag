@@ -1,32 +1,6 @@
-#define load0(x,y) texelFetch(iChannel0, ivec2(x,y), 0)
-#define load1(x,y) texelFetch(iChannel1, ivec2(x,y), 0)
-#define load2(x,y) texelFetch(iChannel2, ivec2(x,y), 0)
-#define load3(x,y) texelFetch(iChannel3, ivec2(x,y), 0)
-
-const float eps = 0.0000001;
-
-vec3 hsl2rgb( in vec3 c )
-{
-    vec3 rgb = clamp( abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0 );
-    return c.z + c.y * (rgb-0.5)*(1.0-abs(2.0*c.z-1.0));
-}
-
-vec3 hsl(float h, float s, float l) { return hsl2rgb(vec3(h,s,l)); }
-
-vec3 rgb2hsl( vec3 col )
-{
-    float minc = min( col.r, min(col.g, col.b) );
-    float maxc = max( col.r, max(col.g, col.b) );
-    vec3  mask = step(col.grr,col.rgb) * step(col.bbg,col.rgb);
-    vec3 h = mask * (vec3(0.0,2.0,4.0) + (col.gbr-col.brg)/(maxc-minc + eps)) / 6.0;
-    return vec3( fract( 1.0 + h.x + h.y + h.z ),              
-                 (maxc-minc)/(1.0-abs(minc+maxc-1.0) + eps),  
-                 (minc+maxc)*0.5 );                           
-}
  
 vec2 uv; 
 float aspect;
-#define PI 3.1415926535897
 
 float spark(float x, float y, float r)
 {
