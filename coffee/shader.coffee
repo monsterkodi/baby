@@ -6,7 +6,7 @@
 0000000   000   000  000   000  0000000    00000000  000   000  
 ###
 
-{ Mesh, MeshBuilder, RawTexture, ShaderMaterial, Vector2, Vector3, Vector4 } = require 'babylonjs'
+{ Engine, Mesh, MeshBuilder, RawTexture, RenderTargetTexture, Scene, ShaderMaterial, Texture, Vector2, Vector3, Vector4 } = require 'babylonjs'
 { performance } = require 'perf_hooks'
 { klog, slash } = require 'kxk'
         
@@ -16,8 +16,28 @@ class Shader
 
         @scene = @world.scene
         @frameRates = []
+        @buffers = []
+        @textures = []
+
+        klog "buffers #{@world.canvas.width}x#{@world.canvas.height}"
+        for i in [0...3]
+            buffer = new Int8Array 4*@world.canvas.width*@world.canvas.height
+            @buffers.push buffer
+            l = buffer.length
+            for j in [0...2]
+                buffer[j*4]   = 255
+                buffer[j*4+1] = 255
+                buffer[j*4+2] = 255
+                buffer[j*4+3] = 255
+            # @textures.push RawTexture.CreateRGBATexture buffer, @world.canvas.width, @world.canvas.height, 
+                # @scene, false, false, Texture.NEAREST_SAMPLINGMODE, Engine.TEXTURETYPE_FLOAT
+            @textures.push new RawTexture buffer, @world.canvas.width, @world.canvas.height, Engine.TEXTUREFORMAT_RGBA,
+                @scene, false, false, Texture.NEAREST_SAMPLINGMODE, Engine.TEXTURETYPE_BYTE
+                
+        @textures[1] = new Texture("#{__dirname}/../img/font.png", @scene)
+        
         @iFrame = 0
-        vertexShader =  """
+        @vertexShader =  """
             precision highp float;
             attribute vec3 position;
             attribute vec2 uv;
@@ -35,9 +55,39 @@ class Shader
         # fragSource = slash.readText "#{__dirname}/../shader/worm.frag"
         # fragSource = slash.readText "#{__dirname}/../shader/kerl.frag"
         # fragSource = slash.readText "#{__dirname}/../shader/astro.frag"
-        fragSource = slash.readText "#{__dirname}/../shader/astro_noquat.frag"
+        # fragSource = slash.readText "#{__dirname}/../shader/astro_noquat.frag"
+        fragSource = slash.readText "#{__dirname}/../shader/follow.frag"
                     
-        fragmentShader = """
+        @uniforms = [
+            'worldViewProjection' 'iMs' 'iDist' 'iMaxDist' 'iMinDist' 
+            'iCenter' 'iCamera' 'iFrameRate' 
+            'iDelta' 'iTime' 'iTimeDelta' 'iMouse' 'iResolution' 
+            'iRotate' 'iDegree' 'iFrame' 'iCompile'
+        ]
+            
+        @shaderStart = performance.now()
+        @shaderMaterial = new ShaderMaterial "shader", @scene,  
+                vertexSource:  @vertexShader
+                fragmentSource:@shaderCode fragSource 
+            ,
+                attributes: ['position' 'normal' 'uv']
+                uniforms:   @uniforms
+            
+        @plane = MeshBuilder.CreatePlane "plane", { width: 10, height: 10 }, @scene
+        @plane.material = @shaderMaterial
+        @plane.billboardMode = Mesh.BILLBOARDMODE_ALL
+        
+        @planeFake = MeshBuilder.CreatePlane "planeFake", { width: 1, height: 1 }, @scene
+        @planeFake.billboardMode = Mesh.BILLBOARDMODE_ALL
+        
+        @shaderMaterial.onCompiled = => 
+            @compileTime = parseInt performance.now()-@shaderStart
+            klog "compileTime #{@compileTime/1000}s" 
+            
+        @renderBuffers()
+        
+    shaderCode: (fragSource) ->
+        """
             precision highp float;
             uniform float iTime;
             uniform float iTimeDelta;
@@ -56,6 +106,9 @@ class Shader
             uniform vec3  iCamera;
             uniform int   iFrame;
             uniform sampler2D iChannel0;
+            uniform sampler2D iChannel1;
+            uniform sampler2D iChannel2;
+            uniform sampler2D iChannel3;
             
             #{fragSource}
                                     
@@ -64,28 +117,55 @@ class Shader
                 mainImage(gl_FragColor, gl_FragCoord.xy);
             }
             """
-            
-        @shaderStart = performance.now()
-        @shaderMaterial = new ShaderMaterial "shader", @scene,  
-                fragmentSource:fragmentShader
-                vertexSource:  vertexShader
+        
+    renderBuffers: ->
+        
+        bufferSource = slash.readText "#{__dirname}/../shader/buffer.frag"
+        
+        @sceneFake  = new Scene @
+        @bufferMaterial = new ShaderMaterial "bufferShader", @scene,  
+                vertexSource:  @vertexShader
+                fragmentSource:@shaderCode bufferSource
             ,
                 attributes: ['position' 'normal' 'uv']
-                uniforms:   ['worldViewProjection' 'iMs' 'iDist' 'iMaxDist' 'iMinDist' 'iCenter' 'iCamera' 'iFrameRate' 
-                             'iDelta' 'iTime' 'iTimeDelta' 'iMouse' 'iResolution' 'iRotate' 'iDegree' 'iFrame' 'iCompile']
+                uniforms:   @uniforms
+        
+        @plane2 = MeshBuilder.CreatePlane "plane2", { width: 1, height: 1 }, @scene
+        @plane2.material = @bufferMaterial
+        @plane2.billboardMode = Mesh.BILLBOARDMODE_ALL
+                
+        @renderTarget = new RenderTargetTexture "buf",  {width:@world.canvas.width, height:@world.canvas.height}, @scene, false
+        @renderTarget.renderList.push @plane2
+        @scene.customRenderTargets.push @renderTarget
+    
+        @rttMaterial = new BABYLON.StandardMaterial "RTT material", @scene
+        @rttMaterial.emissiveTexture = @renderTarget
+        @rttMaterial.disableLighting = true
+        @planeFake.material = @rttMaterial
+        
+        # @renderTarget.onBeforeRender = () => 
+            # @plane2.position.copyFrom @world.camera.position.add @world.camera.getDir().scale 2
+            # @plane.material = @bufferMaterial
+        # @renderTarget.onAfterRender = () => 
+            # @plane.material = @shaderMaterial
             
-        @plane = MeshBuilder.CreatePlane "plane", { width: 10, height: 10 }, @scene
-        @plane.material = @shaderMaterial
-        @plane.billboardMode = Mesh.BILLBOARDMODE_ALL
-           
-        @shaderMaterial.onCompiled = => 
-            @compileTime = parseInt performance.now()-@shaderStart
-            klog "compileTime #{@compileTime/1000}s" 
-        
+        # @scene.onAfterRenderTargetsRenderObservable.add => 
+            
+        # @finalPass = new PostProcess(
+            # 'Final compose shader', 
+            # 'final',
+            # null,
+            # [], # [ 'causticTexture' ],
+            # 1.0, 
+            # null,
+            # BABYLON.Texture.BILINEAR_SAMPLINGMODE,
+            # @engine)
+            
     render: ->
-        
+    # renderMain: ->
+
         @plane.position.copyFrom @world.camera.position.add @world.camera.getDir().scale 2
-        
+                
         dpr = window.devicePixelRatio
         
         mouseX = @world.camera.mouseX ? 0;
@@ -98,6 +178,9 @@ class Shader
         fps /= @frameRates.length
 
         @shaderMaterial.setTexture 'iChannel0'   RawTexture.CreateRTexture @world.keys, 256, 3, @scene, false
+        @shaderMaterial.setTexture 'iChannel1'   @textures[0]
+        @shaderMaterial.setTexture 'iChannel2'   @textures[1]
+        @shaderMaterial.setTexture 'iChannel3'   @textures[2]
         @shaderMaterial.setInt     'iFrame'      @iFrame++
         @shaderMaterial.setFloat   'iFrameRate'  Math.round fps
         @shaderMaterial.setFloat   'iMs'         @world.engine.getDeltaTime()
