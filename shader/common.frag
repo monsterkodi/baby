@@ -1,9 +1,20 @@
 #define PI 3.1415926535897
 #define EPSILON 0.0000001
 
-#define inside(a) (fragCoord.x == a.x+0.5 && fragCoord.y == a.y+0.5)
-#define save(a,b,c) if (inside(vec2(a,b))) { fragColor = c; }
+#define inside(a) (gl.frag.x == a.x+0.5 && gl.frag.y == a.y+0.5)
+#define save(a,b,c) if (inside(vec2(a,b))) { gl.color = c; }
 #define load(x,y) texelFetch(iChannel1, ivec2(x,y), 0)
+
+struct globals
+{
+    vec2  uv;
+    vec2  frag;
+    ivec2 ifrag;
+    float aspect;
+    vec4  color;
+};
+
+globals gl;
 
 float rad2deg(float r) { return 180.0 * r / PI; }
 float deg2rad(float d) { return PI * d / 180.0; }

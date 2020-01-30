@@ -13,4 +13,5 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     vec4 v = vec4(val.rgb+vec3(0.01), 1.0);
     if (mem.x == 1) v.x = sin(iTime)*0.5+0.5;
     save(id,0,v);
+    fragColor = gl.color;
 }
