@@ -1,6 +1,3 @@
-#define inside(a) (fragCoord.x == a.x+0.5 && fragCoord.y == a.y+0.5)
-#define save(a,b,c) if(inside(vec2(a,b))){fragColor=c;}
-#define load(x,y) texelFetch(iChannel1, ivec2(x,y), 0)
 
 int  id = -1;
 int  num = 0;

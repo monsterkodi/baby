@@ -2,11 +2,8 @@
 #define EPSILON 0.0000001
 
 #define inside(a) (fragCoord.x == a.x+0.5 && fragCoord.y == a.y+0.5)
-#define save(a,b,c) if(inside(vec2(a,b))){fragColor=c;}
-#define load0(x,y) texelFetch(iChannel0, ivec2(x,y), 0)
-#define load1(x,y) texelFetch(iChannel1, ivec2(x,y), 0)
-#define load2(x,y) texelFetch(iChannel2, ivec2(x,y), 0)
-#define load3(x,y) texelFetch(iChannel3, ivec2(x,y), 0)
+#define save(a,b,c) if (inside(vec2(a,b))) { fragColor = c; }
+#define load(x,y) texelFetch(iChannel1, ivec2(x,y), 0)
 
 float rad2deg(float r) { return 180.0 * r / PI; }
 float deg2rad(float d) { return PI * d / 180.0; }
@@ -73,7 +70,6 @@ mat3 alignMatrix(vec3 dir)
     return mat3(u, s, f);
 }
 
-
 // 00000000    0000000   000000000  
 // 000   000  000   000     000     
 // 0000000    000   000     000     
@@ -126,17 +122,17 @@ vec4 quatMul(vec4 q1, vec4 q2)
     return qr;
 }
 
-vec3 rotate(vec4 quat, vec3 p)
+vec3 rotate(vec4 q, vec3 p)
 {
-    vec4 conj = quatConj(quat);
-    vec4 q_tmp = quatMul(quat, vec4(p, 0));
+    vec4 conj = quatConj(q);
+    vec4 q_tmp = quatMul(q, vec4(p, 0));
     return quatMul(q_tmp, conj).xyz;
 }
 
-vec3 rotate(vec4 quat, vec3 o, vec3 p)
+vec3 rotate(vec4 q, vec3 o, vec3 p)
 {
-    vec4 conj = quatConj(quat);
-    vec4 q_tmp = quatMul(quat, vec4(p-o, 0));
+    vec4 conj = quatConj(q);
+    vec4 q_tmp = quatMul(q, vec4(p-o, 0));
     return o + quatMul(q_tmp, conj).xyz;
 }
 
@@ -146,30 +142,30 @@ vec3 rotAxisAngleQuat(vec3 p, vec3 axis, float angle)
     return quatMul(quatMul(qr, vec4(p, 0)), quatConj(qr)).xyz;
 }
 
-vec3 rotRayAngle(vec3 position, vec3 ro, vec3 rd, float angle)
+vec3 rotRayAngle(vec3 p, vec3 ro, vec3 rd, float angle)
 { 
-    return rotAxisAngle(position-ro, rd-ro, angle)+ro;
+    return rotAxisAngle(p-ro, rd-ro, angle)+ro;
 }
 
-vec3 rotY(vec3 v, float deg)
+vec3 rotY(vec3 v, float d)
 {
-    float rad = deg2rad(deg);
-    float c = cos(rad);
-    float s = sin(rad);
+    float r = deg2rad(d);
+    float c = cos(r);
+    float s = sin(r);
     return vec3(v.x*c+v.z*s, v.y, v.z*c+v.x*s);
 }
 
-vec3 rotX(vec3 v, float deg)
+vec3 rotX(vec3 v, float d)
 {
-    float rad = deg2rad(deg);
-    float c = cos(rad);
-    float s = sin(rad);
+    float r = deg2rad(d);
+    float c = cos(r);
+    float s = sin(r);
     return vec3(v.x, v.y*c+v.z*s, v.z*c+v.y*s);
 }
 
-vec3 rotZ(vec3 v, float deg)
+vec3 rotZ(vec3 v, float d)
 {
-    float r = deg2rad(deg);
+    float r = deg2rad(d);
     float c = cos(r);
     float s = sin(r);
     return vec3(v.x*c+v.y*s, v.y*c+v.x*s, v.z);
