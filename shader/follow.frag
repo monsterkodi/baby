@@ -10,7 +10,7 @@ float print(ivec2 pos, int ch)
     if (gl.ifrag.x >= pos.x && gl.ifrag.x <= pos.x + cw && 
         gl.ifrag.y >= pos.y && gl.ifrag.y <= pos.y + cw)
         {
-            ivec2 cuv = ivec2((ch%16)*cw, 1024-cw-cw*ch/16);
+            ivec2 cuv = ivec2((ch%16)*cw, (1024-cw-cw*(ch/16)));
             return texelFetch(iChannel2, cuv + gl.ifrag - pos, 0).r;
         }
     return 0.0;
