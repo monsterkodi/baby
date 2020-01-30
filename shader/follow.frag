@@ -7,21 +7,18 @@ float spark(float x, float y, float r)
 float print(ivec2 pos, int ch)
 {
     int cw = 64;
-    if (gl.ifrag.x >= pos.x && gl.ifrag.x <= pos.x + cw && 
-        gl.ifrag.y >= pos.y && gl.ifrag.y <= pos.y + cw)
-        {
-            ivec2 cuv = ivec2((ch%16)*cw, (1024-cw-cw*(ch/16)));
-            return texelFetch(iChannel2, cuv + gl.ifrag - pos, 0).r;
-        }
+    ivec2 rel = gl.ifrag - pos;
+    if (rel.x >= 0 && rel.x <= font.size.y && rel.y >= 0 && rel.y <= font.size.y)
+    {
+        ivec2 cuv = ivec2((ch%16)*cw, (1024-cw-cw*(ch/16)));
+        return texelFetch(iChannel2, cuv + rel*64/font.size.y, 0).r;
+    }
     return 0.0;
 }
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
-    gl.aspect = iResolution.x / iResolution.y;
-    gl.frag   = fragCoord;
-    gl.ifrag  = ivec2(fragCoord);
-    gl.uv     = (fragCoord+fragCoord-iResolution.xy)/iResolution.y;
+    initGlobal(fragCoord);
     
     vec2 uvc = fragCoord.xy / iResolution.xy;
     vec3 hsv = vec3( uvc.x, 0.5+0.5*sin(iTime*2.0), uvc.y);
@@ -31,7 +28,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     // col *= texelFetch(iChannel2, ivec2((fragCoord-iResolution.xy/2.0+vec2(iResolution.x/2.0,0.0))*2048.0/iResolution.y), 0).rrr;
     col *= texelFetch(iChannel2, ivec2(fragCoord), 0).rrr;
     for (int i = 0; i < 10; i++)
-        col += print(ivec2(i*64,128), 48+i);
+    {
+        col += print(ivec2(i*font.size.x,font.size.y*1), 48+i);
+        col += hsl(0.6, 1.0, 0.8*print(ivec2(i*font.size.x,font.size.y*0), 65+i));
+    }
        
     if (false) {
         float i = gl.uv.x;

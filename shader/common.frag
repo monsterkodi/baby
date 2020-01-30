@@ -1,9 +1,15 @@
 #define PI 3.1415926535897
 #define EPSILON 0.0000001
 
-#define inside(a) (gl.frag.x == a.x+0.5 && gl.frag.y == a.y+0.5)
-#define save(a,b,c) if (inside(vec2(a,b))) { gl.color = c; }
-#define load(x,y) texelFetch(iChannel1, ivec2(x,y), 0)
+#define save(a,b,c) if(gl.ifrag.x==(a)&&gl.ifrag.y==(b)){gl.color=(c);}
+#define load(x,y)   texelFetch(iChannel1, ivec2(x,y), 0)
+
+struct _font 
+{
+    ivec2 size;
+};
+
+_font font;
 
 struct globals
 {
@@ -15,6 +21,15 @@ struct globals
 };
 
 globals gl;
+
+void initGlobal(vec2 fragCoord)
+{
+    font.size = ivec2(16,32);
+    gl.aspect = iResolution.x / iResolution.y;
+    gl.frag   = fragCoord;
+    gl.ifrag  = ivec2(fragCoord);
+    gl.uv     = (fragCoord+fragCoord-iResolution.xy)/iResolution.y;
+}
 
 float rad2deg(float r) { return 180.0 * r / PI; }
 float deg2rad(float d) { return PI * d / 180.0; }
