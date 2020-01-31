@@ -15,6 +15,7 @@ class Shader
     @: (@world) ->
 
         @scene = @world.scene
+        @bufferSize = width:256, height:256
         @frameRates = []
 
         klog "buffers #{@world.canvas.width}x#{@world.canvas.height}"
@@ -23,7 +24,7 @@ class Shader
             
         @textures = 
             keys:   RawTexture.CreateRTexture @world.keys, 256, 3, @scene, false
-            buffer: new RawTexture buffer, @world.canvas.width, @world.canvas.height, Engine.TEXTUREFORMAT_RGBA, @scene, false
+            buffer: new RawTexture buffer, @bufferSize.width, @bufferSize.height, Engine.TEXTUREFORMAT_RGBA, @scene, false
             font:   new Texture("#{__dirname}/../img/font.png", @scene)
         
         @iFrame = 0
@@ -75,7 +76,8 @@ class Shader
         # 000   000             000     000   000  000   000  000   000  000          000     
         # 000   000             000     000   000  000   000   0000000   00000000     000     
         
-        @renderTarget = new RenderTargetTexture "buf", { width:@world.canvas.width, height:@world.canvas.height }, @scene, false #, false, Texture.BILINEAR_SAMPLINGMODE, Engine.TEXTURETYPE_BYTE
+        # @renderTarget = new RenderTargetTexture "buf", { width:@world.canvas.width, height:@world.canvas.height }, @scene, false #, false, Texture.BILINEAR_SAMPLINGMODE, Engine.TEXTURETYPE_BYTE
+        @renderTarget = new RenderTargetTexture "buf", @bufferSize, @scene, false #, false, Texture.BILINEAR_SAMPLINGMODE, Engine.TEXTURETYPE_BYTE
         @renderTarget.renderList.push @plane2
         @scene.customRenderTargets.push @renderTarget
                                                          
@@ -94,14 +96,14 @@ class Shader
             
             @textures.keys.update @world.keys
             
-            @iResolution = new Vector2 @world.canvas.width, @world.canvas.height
+            @iResolution = new Vector3 @world.canvas.width, @world.canvas.height, 1
             
             @iDelta = new Vector2(@world.camera.mouseDelta.x, @world.camera.mouseDelta.y) 
             @iMouse = new Vector4(
                 @world.camera.mouseX * (window.devicePixelRatio ? 0)
                 @iResolution.y - (@world.camera.mouseY * (window.devicePixelRatio ? @iResolution.y))
-                @world.camera.downButtons 
-                0)
+                (@world.camera.downButtons and 1 or -1) * @world.camera.downPos?.x * (window.devicePixelRatio ? 0)
+                (@world.camera.downButtons and 1 or -1) * (@iResolution.y - (@world.camera.downPos?.y * (window.devicePixelRatio ? @iResolution.y))))
                 
             @iCenter = new Vector3 @world.camera.center.x, @world.camera.center.y, @world.camera.center.z
             @iCamera = new Vector3 @world.camera.position.x, @world.camera.position.y, @world.camera.position.z
@@ -160,7 +162,7 @@ class Shader
         m.setFloat   'iTimeDelta'  @iTimeDelta
         m.setVector2 'iDelta'      @iDelta
         m.setVector4 'iMouse'      @iMouse
-        m.setVector2 'iResolution' @iResolution
+        m.setVector3 'iResolution' @iResolution
         m.setVector3 'iCenter'     @iCenter
         m.setVector3 'iCamera'     @iCamera
         m.setFloat   'iDist'       @world.camera.dist
@@ -209,7 +211,7 @@ class Shader
             uniform float     iDegree;
             uniform vec2      iDelta;
             uniform vec4      iMouse;
-            uniform vec2      iResolution;
+            uniform vec3      iResolution;
             uniform vec3      iCenter;
             uniform vec3      iCamera;
             uniform int       iFrame;

@@ -1,5 +1,27 @@
-#define PI 3.1415926535897
+#define PI 3.141592653589
+#define E  2.718281828459
 #define EPSILON 0.0000001
+
+#define KEY_LEFT  37
+#define KEY_UP    38
+#define KEY_RIGHT 39
+#define KEY_DOWN  40
+#define KEY_SPACE 32
+#define KEY_1     49
+#define KEY_9     57
+
+const vec3 v0 = vec3(0,0,0);
+const vec3 vx = vec3(1,0,0);
+const vec3 vy = vec3(0,1,0);
+const vec3 vz = vec3(0,0,1);
+
+const vec3 red   = vec3(0.8,0.0,0.0);
+const vec3 green = vec3(0.0,0.5,0.0);
+const vec3 blue  = vec3(0.2,0.2,1.0);
+const vec3 white = vec3(1.0,1.0,1.0);
+
+bool keyState(int key) { return texelFetch(iChannel0, ivec2(key, 2), 0).x < 0.5; }
+bool keyDown(int key)  { return texelFetch(iChannel0, ivec2(key, 0), 0).x > 0.5; }
 
 #define save(a,b,c) if(gl.ifrag.x==(a)&&gl.ifrag.y==(b)){gl.color=(c);}
 #define load(x,y)   texelFetch(iChannel1, ivec2(x,y), 0)
@@ -7,6 +29,7 @@
 struct _font 
 {
     ivec2 size;
+    ivec2 adv;
 };
 
 _font font;
@@ -18,17 +41,22 @@ struct globals
     ivec2 ifrag;
     float aspect;
     vec4  color;
+    int   option;
 };
 
 globals gl;
+globals mg;
 
-void initGlobal(vec2 fragCoord)
+void initGlobal(vec2 fragCoord, vec3 iResolution)
 {
     font.size = ivec2(16,32);
+    //font.size = ivec2(32,64);
+    font.adv  = ivec2(font.size.x,0);
     gl.aspect = iResolution.x / iResolution.y;
     gl.frag   = fragCoord;
     gl.ifrag  = ivec2(fragCoord);
     gl.uv     = (fragCoord+fragCoord-iResolution.xy)/iResolution.y;
+    for (int i = KEY_1; i <= KEY_9; i++) { if (keyDown(i)) { gl.option = i-KEY_1+1; break; } }
 }
 
 float rad2deg(float r) { return 180.0 * r / PI; }
@@ -49,8 +77,19 @@ vec3 hash33(vec3 p3)
     return fract((p3.xxy + p3.yxx)*p3.zyx);
 }
 
-float iRange(float l, float h, float f) { return l+(h-l)*(sin(iTime)*0.5+0.5); }
-float iRange(float l, float h) { return iRange(l,h,1.0); }
+vec3 hash31(float p)
+{
+   vec3 p3 = fract(vec3(p) * vec3(.1031, .1030, .0973));
+   p3 += dot(p3, p3.yzx+33.33);
+   return fract((p3.xxy+p3.yzz)*p3.zyx); 
+}
+
+float hash12(vec2 p)
+{
+    vec3 p3  = fract(vec3(p.xyx) * .1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
 
 float gradientNoise(vec2 v)
 {
@@ -96,29 +135,29 @@ mat3 alignMatrix(vec3 dir)
     return mat3(u, s, f);
 }
 
-// 00000000    0000000   000000000  
-// 000   000  000   000     000     
-// 0000000    000   000     000     
-// 000   000  000   000     000     
-// 000   000   0000000      000     
-
-mat3 rotMat(vec3 u, float angle)
-{
-    float s = sin(deg2rad(angle));
-    float c = cos(deg2rad(angle));
-    float i = 1.0-c;
-    
-    return mat3(
-        c+u.x*u.x*i, u.x*u.y*i-u.z*s, u.x*u.z*i+u.y*s,
-        u.y*u.x*i+u.z*s, c+u.y*u.y*i, u.y*u.z*i-u.x*s,
-        u.z*u.x*i-u.y*s, u.z*u.y*i+u.x*s, c+u.z*u.z*i
-        );
-}
-
-vec3 rotAxisAngle(vec3 position, vec3 axis, float angle)
-{
-    mat3 m = rotMat(axis, angle);
-    return m * position;
+// 00000000    0000000   000000000  
+// 000   000  000   000     000     
+// 0000000    000   000     000     
+// 000   000  000   000     000     
+// 000   000   0000000      000     
+
+mat3 rotMat(vec3 u, float angle)
+{
+    float s = sin(deg2rad(angle));
+    float c = cos(deg2rad(angle));
+    float i = 1.0-c;
+    
+    return mat3(
+        c+u.x*u.x*i, u.x*u.y*i-u.z*s, u.x*u.z*i+u.y*s,
+        u.y*u.x*i+u.z*s, c+u.y*u.y*i, u.y*u.z*i-u.x*s,
+        u.z*u.x*i-u.y*s, u.z*u.y*i+u.x*s, c+u.z*u.z*i
+        );
+}
+
+vec3 rotAxisAngle(vec3 position, vec3 axis, float angle)
+{
+    mat3 m = rotMat(axis, angle);
+    return m * position;
 }
 
 //  0000000   000   000   0000000   000000000  
@@ -267,4 +306,4 @@ float sdCylinder(vec3 p, vec3 a, vec3 b, float r)
   float y2 = y*y*baba;
   float d = (max(x,y)<0.0)?-min(x2,y2):(((x>0.0)?x2:0.0)+((y>0.0)?y2:0.0));
   return sign(d)*sqrt(abs(d))/baba;
-}
+}

@@ -161,7 +161,7 @@ class Camera extends UniversalCamera
         
         @mouseX = event.clientX
         @mouseY = event.clientY
-        
+                
         @downPos = vec @mouseX, @mouseY
         
     onMouseUp: (event) => 
