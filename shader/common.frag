@@ -2,23 +2,23 @@
 #define E  2.718281828459
 #define EPSILON 0.0000001
 
-#define KEY_LEFT  37
-#define KEY_UP    38
-#define KEY_RIGHT 39
-#define KEY_DOWN  40
-#define KEY_SPACE 32
+#define KEY_LEFT  37
+#define KEY_UP    38
+#define KEY_RIGHT 39
+#define KEY_DOWN  40
+#define KEY_SPACE 32
 #define KEY_1     49
 #define KEY_9     57
 
-const vec3 v0 = vec3(0,0,0);
-const vec3 vx = vec3(1,0,0);
-const vec3 vy = vec3(0,1,0);
-const vec3 vz = vec3(0,0,1);
-
-const vec3 red   = vec3(0.8,0.0,0.0);
-const vec3 green = vec3(0.0,0.5,0.0);
-const vec3 blue  = vec3(0.2,0.2,1.0);
-const vec3 white = vec3(1.0,1.0,1.0);
+const vec3 v0 = vec3(0,0,0);
+const vec3 vx = vec3(1,0,0);
+const vec3 vy = vec3(0,1,0);
+const vec3 vz = vec3(0,0,1);
+
+const vec3 red   = vec3(0.8,0.0,0.0);
+const vec3 green = vec3(0.0,0.5,0.0);
+const vec3 blue  = vec3(0.2,0.2,1.0);
+const vec3 white = vec3(1.0,1.0,1.0);
 
 bool keyState(int key) { return texelFetch(iChannel0, ivec2(key, 2), 0).x < 0.5; }
 bool keyDown(int key)  { return texelFetch(iChannel0, ivec2(key, 0), 0).x > 0.5; }
@@ -47,7 +47,7 @@ struct globals
 globals gl;
 globals mg;
 
-void initGlobal(vec2 fragCoord, vec3 iResolution)
+void initGlobal(vec2 fragCoord)
 {
     font.size = ivec2(16,32);
     //font.size = ivec2(32,64);
@@ -77,19 +77,19 @@ vec3 hash33(vec3 p3)
     return fract((p3.xxy + p3.yxx)*p3.zyx);
 }
 
-vec3 hash31(float p)
-{
-   vec3 p3 = fract(vec3(p) * vec3(.1031, .1030, .0973));
-   p3 += dot(p3, p3.yzx+33.33);
-   return fract((p3.xxy+p3.yzz)*p3.zyx); 
-}
-
-float hash12(vec2 p)
-{
-    vec3 p3  = fract(vec3(p.xyx) * .1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
-}
+vec3 hash31(float p)
+{
+   vec3 p3 = fract(vec3(p) * vec3(.1031, .1030, .0973));
+   p3 += dot(p3, p3.yzx+33.33);
+   return fract((p3.xxy+p3.yzz)*p3.zyx); 
+}
+
+float hash12(vec2 p)
+{
+    vec3 p3  = fract(vec3(p.xyx) * .1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
 
 float gradientNoise(vec2 v)
 {

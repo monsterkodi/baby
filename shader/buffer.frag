@@ -5,7 +5,7 @@ vec4 val;
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
-    initGlobal(fragCoord, iResolution);
+    initGlobal(fragCoord);
     
     ivec2 mem = ivec2(fragCoord);
     if (mem.y > 0) return;

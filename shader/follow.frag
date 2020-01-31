@@ -59,7 +59,7 @@ float print(ivec2 pos, vec2 v)
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
-    initGlobal(fragCoord, iResolution);
+    initGlobal(fragCoord);
     
     bool dither = keyState(KEY_LEFT);
     
