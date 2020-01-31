@@ -1,28 +1,23 @@
-// #define TOY  1
+#define TOY  1
 
-#define MAX_STEPS 128
-#define MIN_DIST   0.001
-#define MAX_DIST  80.0
-#define SHADOW     0.001
+#define MAX_STEPS 96
+#define MIN_DIST   0.005
+#define MAX_DIST  40.0
+#define SHADOW     0.04
 #define PI 3.1415926535897
 #define ZERO min(iFrame,0)
 
 #define NONE  0
 #define BODY  1
 #define BONE  2
-#define HAND  3
-#define VISOR 4
-#define MOON  5
+#define VISOR 3
+#define MOON  4
 
 vec3 v0 = vec3(0,0,0);
 vec3 vx = vec3(1,0,0);
 vec3 vy = vec3(0,1,0);
 vec3 vz = vec3(0,0,1);
 
-vec3 red   = vec3(0.8,0.0,0.0);
-vec3 green = vec3(0.0,0.5,0.0);
-vec3 blue  = vec3(0.2,0.2,1.0);
-vec3 white = vec3(1.0,1.0,1.0);
 
 struct ray {
     vec3 pos;
@@ -35,84 +30,98 @@ struct sdf {
     int   mat;
 };
 
+struct pivot {
+    vec3 p;
+    vec3 x;
+    vec3 y;
+    vec3 z;
+    mat3 m;
+};
+
+
+#define pivot0  pivot(v0,vx,vy,vz,mat3(1,0,0,0,1,0,0,0,1))
+
+pivot pHip;
+pivot pTorso;
+pivot pHead;
+pivot pArmL;
+pivot pArmR;
+pivot pElbowL;
+pivot pElbowR;
+pivot pHandL;
+pivot pHandR;
+pivot pLegL;
+pivot pLegR;
+pivot pKneeL;
+pivot pKneeR;
+pivot pFootL;
+pivot pFootR;
+
+pivot pCam;
+
+vec3 pTorsoT;   
+vec3 pTorsoB;
+vec3 pHeelL;    
+vec3 pHeelR;
+vec3 pToeL;     
+vec3 pToeR;
+
+vec3 camTgt;
+vec3 pLight;
+
 bool soft;
 bool camrot;
-int  option;
+int  option;
 
-sdf s;
+sdf  s;
 vec2 frag, uv;
-vec3 camPos;
-vec3 camTgt;
-vec3 camDir;
-vec3 camUp;
-vec3 camR;
-
-vec3 pHip;      vec3 pHipT;     vec3 pHipL;     vec3 pHipR;     vec3 pHipUp;    
-vec3 pTorsoT;   vec3 pTorsoB;   vec3 pTorsoL;   vec3 pTorsoR;   vec3 pTorsoUp;  
-vec3 pArmL;     vec3 pArmR;     vec3 pArmLup;   vec3 pArmLx;    vec3 pArmLz;    vec3 pArmRup;   vec3 pArmRx; vec3 pArmRz;
-vec3 pLegL;     vec3 pLegR;     vec3 pLegLup;   vec3 pLegLx;    vec3 pLegLz;    vec3 pLegRup;   vec3 pLegRx; vec3 pLegRz; 
-vec3 pFootL;    vec3 pFootR;    vec3 pFootLup;  vec3 pFootLz;   vec3 pFootRup;  vec3 pFootRz;
-vec3 pHandL;    vec3 pHandR;    vec3 pHandLz;   vec3 pHandRz;   vec3 pHandLup;  vec3 pHandRup;
-vec3 pHead;     vec3 pHeadUp;   vec3 pHeadZ; 
-vec3 pArmLud;   vec3 pArmRud;
-vec3 pLegLud;   vec3 pLegRud;
-vec3 pElbowL;   vec3 pElbowR;
-vec3 pPalmL;    vec3 pPalmR;
-vec3 pKneeR;    vec3 pKneeL;
-vec3 pHeelL;    vec3 pHeelR;
-vec3 pToeL;     vec3 pToeR;
-vec3 pSpine;
-vec3 pNeck;
-
-vec4 qHip;      
-vec4 qTorso; 
-vec4 qArmL;     vec4 qArmR; vec4 qHandL; vec4 qHandR;
-vec4 qLegL;     vec4 qLegR; vec4 qFootL; vec4 qFootR;
-vec4 qHead;     
-vec4 qKneeL;    vec4 qKneeR;
-vec4 qElbowL;   vec4 qElbowR;
 
 float rad2deg(float r) { return 180.0 * r / PI; }
 float deg2rad(float d) { return PI * d / 180.0; }
 
-float hash11(float p)
-{
-    p = fract(p * .1031);
-    p *= p + 33.33;
-    p *= p + p;
-    return fract(p);
-}
-
-vec3 hash33(vec3 p3)
-{
-    p3 = fract(p3 * vec3(.1031, .1030, .0973));
-    p3 += dot(p3, p3.yxz+33.33);
-    return fract((p3.xxy + p3.yxx)*p3.zyx);
+vec3 hash33(vec3 p)
+{ 
+    float n = sin(dot(p, vec3(7, 157, 113)));    
+    return fract(vec3(2097152, 262144, 32768)*n); 
 }
 
 vec3 hash31(float p)
 {
-   vec3 p3 = fract(vec3(p) * vec3(.1031, .1030, .0973));
+   vec3 p3 = fract(vec3(p) * vec3(0.1031, 0.1030, 0.0973));
    p3 += dot(p3, p3.yzx+33.33);
    return fract((p3.xxy+p3.yzz)*p3.zyx); 
 }
 
 float hash12(vec2 p)
 {
-    vec3 p3  = fract(vec3(p.xyx) * .1031);
+    vec3 p3  = fract(vec3(p.xyx) * 0.1031);
     p3 += dot(p3, p3.yzx + 33.33);
     return fract((p3.x + p3.y) * p3.z);
 }
 
 float clamp01(float v) { return clamp(v, 0.0, 1.0); }
 
-float gradientNoise(vec2 v)
+float voronoi(vec3 p)
 {
-    return fract(52.9829189 * fract(dot(v, vec2(0.06711056, 0.00583715))));
+	vec3 b, r, g = floor(p);
+	p = fract(p);
+	float d = p.z; 
+	for(int j = -1; j <= 1; j++) {
+	    for(int i = -1; i <= 1; i++) {
+		    b = vec3(i, j, -1);
+		    r = b - p + hash33(g+b);
+		    d = min(d, dot(r,r));
+		    b.z = 0.0;
+		    r = b - p + hash33(g+b);
+		    d = min(d, dot(r,r));
+		    b.z = 1.;
+		    r = b - p + hash33(g+b);
+		    d = min(d, dot(r,r));
+	    }
+	}
+	
+	return 1.-d*1.0/p.z;
 }
-
-float iRange(float l, float h, float f) { return l+(h-l)*(sin(iTime)*0.5+0.5); }
-float iRange(float l, float h) { return iRange(l,h,1.0); }
 
 // 0000000    000   0000000   000  000000000  
 // 000   000  000  000        000     000     
@@ -168,139 +177,96 @@ float digit(int x, int y, float value, float format)
     return floor(mod((float(bin) / pow(2.0, floor(fract(pos.x)*4.0) + (floor(pos.y*5.0)*4.0))), 2.0));
 }
 
-//  0000000   000   000   0000000   000000000  
-// 000   000  000   000  000   000     000     
-// 000 00 00  000   000  000000000     000     
-// 000 0000   000   000  000   000     000     
-//  00000 00   0000000   000   000     000     
-
-mat3 alignMatrix(vec3 dir) 
-{
-    vec3 f = normalize(dir);
-    vec3 s = normalize(cross(f, vec3(0.48, 0.6, 0.64)));
-    vec3 u = cross(s, f);
-    return mat3(u, s, f);
-}
-
-vec4 quatAxisAngle(vec3 axis, float angle)
-{ 
-    float half_angle = deg2rad(angle*0.5);
-    return vec4(axis*sin(half_angle), cos(half_angle));
-}
-
-vec4 quatConj(vec4 q)
-{ 
-    return vec4(-q.x, -q.y, -q.z, q.w); 
-}
-  
-vec4 quatMul(vec4 q1, vec4 q2)
-{ 
-    vec4 qr;
-    qr.x = (q1.w * q2.x) + (q1.x * q2.w) + (q1.y * q2.z) - (q1.z * q2.y);
-    qr.y = (q1.w * q2.y) - (q1.x * q2.z) + (q1.y * q2.w) + (q1.z * q2.x);
-    qr.z = (q1.w * q2.z) + (q1.x * q2.y) - (q1.y * q2.x) + (q1.z * q2.w);
-    qr.w = (q1.w * q2.w) - (q1.x * q2.x) - (q1.y * q2.y) - (q1.z * q2.z);
-    return qr;
-}
-
-vec3 rotate(vec4 quat, vec3 p)
-{
-    vec4 conj = quatConj(quat);
-    vec4 q_tmp = quatMul(quat, vec4(p, 0));
-    return quatMul(q_tmp, conj).xyz;
-}
-
-vec3 rotate(vec4 quat, vec3 o, vec3 p)
-{
-    vec4 conj = quatConj(quat);
-    vec4 q_tmp = quatMul(quat, vec4(p-o, 0));
-    return o + quatMul(q_tmp, conj).xyz;
-}
-
 // 00000000    0000000   000000000  
 // 000   000  000   000     000     
 // 0000000    000   000     000     
 // 000   000  000   000     000     
 // 000   000   0000000      000     
 
-vec3 rotAxisAngleOld(vec3 position, vec3 axis, float angle)
-{ 
-    vec4 qr = quatAxisAngle(axis, angle);
-    vec4 qr_conj = quatConj(qr);
-    vec4 q_pos = vec4(position.x, position.y, position.z, 0);
+mat3 rotMat(vec3 u, float angle)
+{
+    float s = sin(deg2rad(angle));
+    float c = cos(deg2rad(angle));
+    float i = 1.0-c;
     
-    vec4 q_tmp = quatMul(qr, q_pos);
-    qr = quatMul(q_tmp, qr_conj);
-    
-    return vec3(qr.x, qr.y, qr.z);
-}
-
-mat3 rotMat(vec3 u, float angle)
-{
-    float c = cos(deg2rad(angle));
-    float i = 1.0-c;
-    float s = sin(deg2rad(angle));
-    
-    return mat3(
-        c+u.x*u.x*i, u.x*u.y*i-u.z*s, u.x*u.z*i+u.y*s,
-        u.y*u.x*i+u.z*s, c+u.y*u.y*i, u.y*u.z*i-u.x*s,
-        u.z*u.x*i-u.y*s, u.z*u.y*i+u.x*s, c+u.z*u.z*i
-        );
-}
-
-vec3 rotAxisAngle(vec3 position, vec3 axis, float angle)
-{
-    mat3 m = rotMat(axis, angle);
-    return m * position;
-}
-
-vec3 rotRayAngle(vec3 position, vec3 ro, vec3 rd, float angle)
-{ 
-    return rotAxisAngle(position-ro, rd-ro, angle)+ro;
+    return mat3(
+        c+u.x*u.x*i, u.x*u.y*i-u.z*s, u.x*u.z*i+u.y*s,
+        u.y*u.x*i+u.z*s, c+u.y*u.y*i, u.y*u.z*i-u.x*s,
+        u.z*u.x*i-u.y*s, u.z*u.y*i+u.x*s, c+u.z*u.z*i
+        );
 }
 
-vec3 rotY(vec3 v, float deg)
+vec3 rotAxisAngle(vec3 position, vec3 axis, float angle)
 {
-    float rad = deg2rad(deg);
-    float c = cos(rad);
-    float s = sin(rad);
-    return vec3(v.x*c+v.z*s, v.y, v.z*c+v.x*s);
+    mat3 m = rotMat(axis, angle);
+    return m * position;
 }
 
-vec3 rotX(vec3 v, float deg)
+// 00     00   0000000   000000000  
+// 000   000  000   000     000     
+// 000000000  000000000     000     
+// 000 0 000  000   000     000     
+// 000   000  000   000     000     
+
+mat3 rMatX(float x)
 {
-    float rad = deg2rad(deg);
-    float c = cos(rad);
-    float s = sin(rad);
-    return vec3(v.x, v.y*c+v.z*s, v.z*c+v.y*s);
+     float r = deg2rad(x);
+     float c = cos(r), s = sin(r);
+     return mat3(1,0,0,0,c,-s,0,s,c);
 }
 
-vec3 rotZ(vec3 v, float deg)
+mat3 rMatY(float y)
 {
-    float rad = deg2rad(deg);
-    float c = cos(rad);
-    float s = sin(rad);
-    return vec3(v.x*c+v.y*s, v.y*c+v.x*s, v.z);
+     float r = deg2rad(y);
+     float c = cos(r), s = sin(r);
+     return mat3(c,0,s,0,1,0,-s,0,c);
 }
 
-vec3 posOnPlane(vec3 p, vec3 a, vec3 n)
+mat3 rMatZ(float z)
 {
-    return p-dot(p-a,n)*n;
+     float r = deg2rad(z);
+     float c = cos(r), s = sin(r);
+     return mat3(c,-s,0,s,c,0,0,0,1);
+}
+
+// 00000000  000   000  000      00000000  00000000   
+// 000       000   000  000      000       000   000  
+// 0000000   000   000  000      0000000   0000000    
+// 000       000   000  000      000       000   000  
+// 00000000   0000000   0000000  00000000  000   000  
+
+mat3 euler(float x, float y, float z)
+{
+    return rMatY(y) * rMatX(x) * rMatZ(z);
+}
+
+void eulerPivot(inout pivot p, float x, float y, float z)
+{
+    p.m = euler(x,y,z);
+    p.x = p.m * vx;
+    p.y = p.m * vy;
+    p.z = p.m * vz;
+}
+
+void concatPivotXY(inout pivot p, pivot o, float x, float y)
+{
+    p.m = o.m * euler(x,y,0.0);
+    p.x = p.m * vx;
+    p.y = p.m * vy;
+    p.z = p.m * vz;
+}
+
+void concatPivotYZ(inout pivot p, pivot o, float y, float z)
+{
+    p.m = o.m * euler(0.0,y,z);
+    p.x = p.m * vx;
+    p.y = p.m * vy;
+    p.z = p.m * vz;
 }
 
 vec3 posOnPlane(vec3 p, vec3 n)
 {
     return p-dot(p,n)*n;
-}
-
-vec3 posOnRay(vec3 ro, vec3 rd, vec3 p)
-{
-    return ro + max(0.0, dot(p - ro, rd) / dot(rd, rd)) * rd;
-}
-
-bool rayIntersectsSphere(vec3 ro, vec3 rd, vec3 ctr, float r)
-{
-    return length(posOnRay(ro, rd, ctr) - ctr) < r;
 }
 
 //  0000000   00000000   
@@ -309,24 +275,10 @@ bool rayIntersectsSphere(vec3 ro, vec3 rd, vec3 ctr, float r)
 // 000   000  000        
 //  0000000   000        
 
-float opUnion(float d1, float d2) 
-{
-    float k = 0.15;
-    float h = clamp(0.5 + 0.5*(d2-d1)/k, 0.0, 1.0);
-    return mix(d2, d1, h) - k*h*(1.0-h);
-}
-
 float opUnion(float d1, float d2, float k) 
 {
     float h = clamp(0.5 + 0.5*(d2-d1)/k, 0.0, 1.0);
     return mix(d2, d1, h) - k*h*(1.0-h);
-}
-
-float opDiff(float d1, float d2) 
-{
-    float k = 0.05;
-    float h = clamp(0.5 - 0.5*(d2+d1)/k, 0.0, 1.0);
-    return mix(d1, -d2, h) + k*h*(1.0-h); 
 }
 
 float opDiff(float d1, float d2, float k) 
@@ -348,21 +300,11 @@ float opInter(float d1, float d2)
 //      000  000   000  
 // 0000000   0000000    
 
-float sdCapsule(vec3 p, vec3 a, vec3 b, float r)
+float sdCapsule(vec3 p, vec3 a, vec3 b, float r)
 {
     vec3 ab = b-a;
     vec3 c = a+clamp01(dot(ab,p-a)/dot(ab,ab))*ab;
     return length(p-c)-r;        
-}
-
-float sdCone(vec3 p, vec3 a, vec3 b, float r1, float r2)
-{
-    vec3 ab = b-a;
-    vec3 ap = p-a;
-    float t = dot(ab,ap) / dot(ab,ab);
-    t = clamp(t, 0.0, 1.0);
-    vec3 c = a + t*ab;
-    return length(p-c)-(t*r2+(1.0-t)*r1);      
 }
 
 float sdTorus(vec3 p, vec3 a, vec3 n, vec2 r)
@@ -381,20 +323,6 @@ float sdPlane(vec3 p, vec3 a, vec3 n)
     return dot(n, p-a);
 }
 
-float sdCylinder(vec3 p, vec3 a, vec3 b, float r)
-{
-  vec3  ba = b - a;
-  vec3  pa = p - a;
-  float baba = dot(ba,ba);
-  float paba = dot(pa,ba);
-  float x = length(pa*baba-ba*paba) - r*baba;
-  float y = abs(paba-baba*0.5)-baba*0.5;
-  float x2 = x*x;
-  float y2 = y*y*baba;
-  float d = (max(x,y)<0.0)?-min(x2,y2):(((x>0.0)?x2:0.0)+((y>0.0)?y2:0.0));
-  return sign(d)*sqrt(abs(d))/baba;
-}
-
 // 00000000    0000000    0000000  00000000  
 // 000   000  000   000  000       000       
 // 00000000   000   000  0000000   0000000   
@@ -403,16 +331,22 @@ float sdCylinder(vec3 p, vec3 a, vec3 b, float r)
 
 void poseNeutral()
 {
-    pHip = v0;
-    
-    vec4 q = vec4(0,0,0,1);
-    qHip  = q; 
-    qTorso = q; 
-    qArmL = q; qArmR = q; qHandL = q; qHandR = q;
-    qLegL = q; qLegR = q; qFootL = q; qFootR = q;
-    qHead = q; 
-    qKneeL = q; qKneeR = q;
-    qElbowL = q; qElbowR = q;    
+    pivot p0 = pivot0;
+    pHip    = p0;
+    pTorso  = p0;
+    pHead   = p0;
+    pArmL   = p0;
+    pArmR   = p0;
+    pElbowL = p0;
+    pElbowR = p0;
+    pHandL  = p0;
+    pHandR  = p0;
+    pLegL   = p0;
+    pLegR   = p0;
+    pKneeL  = p0;
+    pKneeR  = p0;
+    pFootL  = p0;
+    pFootR  = p0;
 }
 
 // 00000000  000       0000000    0000000   000000000  
@@ -422,9 +356,7 @@ void poseNeutral()
 // 000       0000000   0000000   000   000     000     
 
 void poseFloating()
-{
-    poseNeutral();
-    
+{    
     float s0 = sin(iTime*0.125);
     float s1 = sin(iTime*0.25);
     float s2 = sin(iTime*0.5);
@@ -432,35 +364,33 @@ void poseFloating()
     float s4 = sin(iTime*4.0);
     
     if (camrot)
-    {
-        // qHip = quatMul(quatAxisAngle(vy,iTime*2.0), quatAxisAngle(vx,-iTime*20.0));
-        qHip = quatAxisAngle(vz,-iTime*16.0);
-    }
+    	eulerPivot(pHip, sin(iTime*0.1)*15.0, 0.0, sin(iTime*0.2)*25.0);
+   	else
+        pHip = pivot0;
     
-    qTorso = quatMul(qHip, quatMul(quatAxisAngle(vx, s2*15.0), quatAxisAngle(vy, s1*35.0)));
+    concatPivotXY(pTorso, pHip, s2*15.0, s1*35.0);
     
-    float ht = iTime*0.25;
-    vec3 hsh1 = mix(hash31(floor(ht)), hash31(floor(ht)+1.0), smoothstep(0.0,1.0,fract(ht)));
+    float ht = iTime*0.6;
+    vec3 hsh = mix(hash31(floor(ht)), hash31(floor(ht)+1.0), smoothstep(0.0,1.0,fract(ht)));
     
-    qHead   = quatMul(qTorso, quatMul(quatAxisAngle(vy, 20.0-40.0*hsh1.y), quatAxisAngle(vx, 10.0-20.0*hsh1.x)));
+    concatPivotXY(pHead,   pTorso, 10.0-20.0*hsh.x, 20.0-40.0*hsh.y);
+    concatPivotYZ(pArmL,   pTorso,  30.0-s3*20.0, -30.0-s1*20.0);
+    concatPivotYZ(pArmR,   pTorso, -30.0-s3*20.0,  30.0-s1*20.0);
+    
+    concatPivotXY(pElbowL, pArmL,  -60.0+s1*30.0,  0.0);
+    concatPivotXY(pElbowR, pArmR,  -60.0-s2*30.0,  0.0);
+    
+    concatPivotYZ(pHandL, pElbowL,  0.0, 0.0);
+    concatPivotYZ(pHandR, pElbowR,  0.0, 0.0);
 
-    qArmL   = quatMul(qTorso, quatMul(quatAxisAngle(vy, -30.0-s3*20.0), quatAxisAngle(vz, 30.0-s1*20.0)));
-    qElbowL = quatMul(qArmL,  quatAxisAngle( vx, 60.0+s1*30.0)); 
+    concatPivotYZ(pLegL,   pHip,    s0*20.0, -20.0+s1*20.0);
+    concatPivotYZ(pLegR,   pHip,    s2*20.0,  20.0+s1*20.0);
     
-    qArmR   = quatMul(qTorso, quatMul(quatAxisAngle(vy, 30.0-s3*20.0), quatAxisAngle(vz, -30.0-s1*20.0)));
-    qElbowR = quatMul(qArmR,  quatAxisAngle( vx, 60.0-s2*30.0)); 
-
-    qLegL   = quatMul(qHip,  quatMul(quatAxisAngle(vy, -0.0-s0*20.0), quatAxisAngle(vz, 20.0-s1*20.0)));
-    qKneeL  = quatMul(qLegL, quatAxisAngle( vx, -60.0+s1*30.0)); 
+    concatPivotXY(pKneeL, pLegL,    60.0-s1*30.0,  0.0);
+    concatPivotXY(pKneeR, pLegR,    60.0+s2*30.0,  0.0);
     
-    qLegR   = quatMul(qHip,  quatMul(quatAxisAngle(vy, 0.0-s2*20.0), quatAxisAngle(vz, -20.0-s1*20.0)));
-    qKneeR  = quatMul(qLegR, quatAxisAngle( vx, -60.0+s2*30.0)); 
-    
-    qHandL  = qElbowL;
-    qHandR  = qElbowR;
-    
-    qFootL = qKneeL; 
-    qFootR = qKneeR;
+    concatPivotXY(pFootL, pKneeL,   0.0,  0.0);
+    concatPivotXY(pFootR, pKneeR,   0.0,  0.0);
 }
 
 //  0000000   000   000  000  00     00  
@@ -471,73 +401,38 @@ void poseFloating()
 
 void calcAnim()
 {
-    pHip     = rotate(qHip, -vy);
+    pHip.p   -= pHip.y;
 
-    pHipUp   = rotate(qHip, vy);
-    pHipT    = pHip + pHipUp*0.6;
-        
-    pHipL    = pHip + rotate(qHip, rotZ(vec3(0,0.3,0),  120.0));
-    pHipR    = pHip + rotate(qHip, rotZ(vec3(0,0.3,0), -120.0));
-        
-    pTorsoUp = pHipUp;
-    pTorsoB  = pHip+1.5*pHipUp;
-    pTorsoT  = pTorsoB + pTorsoUp*0.3;
-    pTorsoR  = pTorsoT + rotate(qTorso, rotZ(vec3(-1.2,0,0), 0.0));
-    pTorsoL  = pTorsoT + rotate(qTorso, rotZ(vec3( 1.2,0,0), 0.0));
+    pLegL.p   = pHip.p + 0.3*pHip.x -0.1*pHip.y; 
+    pLegR.p   = pHip.p - 0.3*pHip.x -0.1*pHip.y; 
     
-    pHeadUp  = rotate(qHead, vy);
-    pHeadZ   = rotate(qHead, vz);
-    pHead    = pTorsoT + rotate(qTorso, vy);
+    pTorsoB   = pHip.p+1.5*pHip.y;
+    pTorsoT   = pTorsoB + pTorso.y *0.3;
+    pArmR.p   = pTorsoT - pTorso.x *1.2; 
+    pArmL.p   = pTorsoT + pTorso.x *1.2; 
     
-    pArmLup = rotate(qArmL,   vy);
-    pArmLud = rotate(qElbowL, vy);
-    pArmLx  = rotate(qArmL,   vx);
-    pArmLz  = rotate(qArmL,   vz);
+    pHead.p   = pTorsoT + pTorso.y;
     
-    pElbowL = pTorsoL +0.45*pArmLx -1.20*pArmLup;
-    pHandL  = pElbowL -1.15*pArmLud;    
+    pElbowL.p = pArmL.p   +0.45*pArmL.x -1.20*pArmL.y;
+    pHandL.p  = pElbowL.p -1.15*pElbowL.y;    
     
-    pArmRup = rotate(qArmR,   vy);
-    pArmRud = rotate(qElbowR, vy);
-    pArmRx  = rotate(qArmR,   vx);
-    pArmRz  = rotate(qArmR,   vz);
-    
-    pElbowR = pTorsoR -0.45*pArmRx -1.20*pArmRup;
-    pHandR  = pElbowR -1.15*pArmRud;    
+    pElbowR.p = pArmR.p   -0.45*pArmR.x -1.20*pArmR.y;
+    pHandR.p  = pElbowR.p -1.15*pElbowR.y;    
 
-    pHandLz = rotate(qHandL, -vx);
-    pHandRz = rotate(qHandR, vx);
+    pHandL.p -= 0.6 * pHandL.y;
+    pHandR.p -= 0.6 * pHandR.y;
 
-    pHandLup = rotate(qHandL, vy);
-    pHandRup = rotate(qHandR, vy);
-    pPalmL  = pHandL - 0.6 * pHandLup;
-    pPalmR  = pHandR - 0.6 * pHandRup;
+    pKneeL.p  = pLegL.p  +0.45*pLegL.x -1.20*pLegL.y;
+    pFootL.p  = pKneeL.p -1.15*pKneeL.y;
 
-    pLegLup = rotate(qLegL, vy);
-    pLegLud = rotate(qKneeL, vy);
-    pLegLx  = rotate(qLegL, vx);
-    pLegLz  = rotate(qLegL, vz);
+    pKneeR.p  = pLegR.p  -0.45*pLegR.x -1.20*pLegR.y;
+    pFootR.p  = pKneeR.p -1.15*pKneeR.y;    
+
+    pHeelL    = pFootL.p -0.75 * pFootL.y;
+    pToeL     = pHeelL -0.75 * pFootL.z;
     
-    pKneeL  = pHipL +0.45*pLegLx -1.20*pLegLup;
-    pFootL  = pKneeL -1.15*pLegLud;
-
-    pLegRup = rotate(qLegR, vy);
-    pLegRud = rotate(qKneeR, vy);
-    pLegRx  = rotate(qLegR, vx);
-    pLegRz  = rotate(qLegR, vz);
-    
-    pKneeR  = pHipR -0.45*pLegRx -1.20*pLegRup;
-    pFootR  = pKneeR -1.15*pLegRud;    
-
-    pFootLup = rotate(qFootL, vy);
-    pFootLz  = rotate(qFootL, vz);
-    pHeelL   = pFootL -0.75 * pFootLup;
-    pToeL    = pHeelL -0.75 * pFootLz;
-    
-    pFootRup = rotate(qFootR, vy);
-    pFootRz  = rotate(qFootR, vz);
-    pHeelR   = pFootR -0.75 * pFootRup;
-    pToeR    = pHeelR -0.75 * pFootRz;    
+    pHeelR    = pFootR.p -0.75 * pFootR.y;
+    pToeR     = pHeelR -0.75 * pFootR.z;    
 }
 
 //  0000000   00000000   00     00  
@@ -558,7 +453,7 @@ float arm(vec3 pos, float side, vec3 elbow, vec3 ud, vec3 x)
 // 000       000   000  000   000     000     
 // 000        0000000    0000000      000     
 
-float foot(vec3 pos, vec3 heel, vec3 toe, vec3 up)
+float foot(vec3 heel, vec3 toe, vec3 up)
 {
     float d = sdCapsule(s.pos, heel, toe, 0.7);
     return opDiff(d, sdPlane(s.pos, heel-0.3*up, up), 0.3);
@@ -572,19 +467,21 @@ float foot(vec3 pos, vec3 heel, vec3 toe, vec3 up)
 
 void moon()
 {
-    vec3 p = camPos+camDir*MAX_DIST/2.0+camR*MAX_DIST/4.0+camUp*MAX_DIST/8.0;
+    if (length(uv+vec2(0.5,-0.25)) > 0.12) return;
+    
+    vec3 p = pCam.p+pCam.z*MAX_DIST/2.0+pCam.x*MAX_DIST/4.0+pCam.y*MAX_DIST/8.0;
     
     float r = MAX_DIST/20.0;
     float d = sdSphere(s.pos, p, r);
     
     if (d > s.dist) return;
     
-    d = opDiff(d, sdSphere(s.pos, p-normalize(camDir+camR/2.0)      *r*0.95, r/6.0), 0.3);
-    d = opDiff(d, sdSphere(s.pos, p-normalize(camDir+camR*2.0+camUp)*r*1.3, r/2.0), 0.5);
-    d = opDiff(d, sdSphere(s.pos, p-normalize(camDir-camR+camUp)    *r*1.1, r/3.0), 0.4);
-    d = opDiff(d, sdSphere(s.pos, p-normalize(camDir+camR-camUp)    *r*1.0, r/4.0), 0.4);
-    d = opDiff(d, sdSphere(s.pos, p-normalize(camDir+camR+4.0*camUp)*r*1.2, r/3.0), 0.4);
-    d = opDiff(d, sdSphere(s.pos, p-normalize(camDir-camR-1.0*camUp)*r*1.4, r/1.5), 0.5);
+    d = opDiff(d, sdSphere(s.pos, p-normalize(pCam.z+pCam.x/2.0)      *r*0.95, r/6.0), 0.3);
+    d = opDiff(d, sdSphere(s.pos, p-normalize(pCam.z+pCam.x*2.0+pCam.y)*r*1.3,  r/2.0), 0.5);
+    d = opDiff(d, sdSphere(s.pos, p-normalize(pCam.z-pCam.x+pCam.y)    *r*1.1,  r/3.0), 0.4);
+    d = opDiff(d, sdSphere(s.pos, p-normalize(pCam.z+pCam.x-pCam.y)    *r*1.0,  r/4.0), 0.4);
+    d = opDiff(d, sdSphere(s.pos, p-normalize(pCam.z+pCam.x+4.0*pCam.y)*r*1.2,  r/3.0), 0.4);
+    d = opDiff(d, sdSphere(s.pos, p-normalize(pCam.z-0.75*pCam.x-0.75*pCam.y)*r*1.4,  r/1.5), 0.5);
     
     if (d < s.dist) { s.mat = MOON; s.dist = d; }
 }
@@ -601,42 +498,47 @@ float map(vec3 p)
     
     moon();
     
-    float d = sdSphere(s.pos, pTorsoB, 1.3);
-    
-    if (option != 1 && d > s.dist-20.0)
-    {
-        return s.dist;
-    }
-    if (d > 4.0 && length(uv) > 0.4)
-    {
-        if (d < s.dist) s.dist = d;
-        return s.dist;
-    }
-    
-    d = opUnion(d, sdSphere(s.pos, pHip, 0.9));
-    d = opUnion(d, sdCapsule(s.pos, pTorsoL-0.0*pTorsoUp, pTorsoR-0.0*pTorsoUp, 0.7));
-        
-    d = min(d, foot (pFootR, pHeelR,  pToeR,  pFootRup));
-    d = min(d, foot (pFootL, pHeelL,  pToeL,  pFootLup));
+    if (length(uv) > 0.44) return s.dist;
     
-    d = min(d, sdSphere(s.pos, pHead+pHeadUp, 1.6));
-    d = opDiff(d, sdSphere(s.pos, pHead+pHeadUp-(pHeadZ-pHeadUp*0.5)*0.5, 1.2), 0.5);
+    float d = sdSphere(s.pos, pTorsoB, 1.3);
+    
+    if (option != 1 && d > s.dist-20.0)
+    {
+        return s.dist;
+    }
+    //if (d > 4.1 && p.z > 0.0)
+    //{
+    //    return s.dist;
+    //}
+    
+    d = opDiff (d, sdTorus(s.pos, pTorsoB-1.27*pTorso.z, pTorso.z, vec2(0.45,0.07)), 0.15);
+    d = opUnion(d, sdSphere(s.pos, pHip.p, 0.9), 0.15);
+    d = opUnion(d, sdCapsule(s.pos, pArmL.p-0.0*pTorso.y, pArmR.p-0.0*pTorso.y, 0.7), 0.15);
+        
+    d = min(d, foot (pHeelR,  pToeR,  pFootR.y));
+    d = min(d, foot (pHeelL,  pToeL,  pFootL.y));
+    
+    d =    min(d, sdSphere(s.pos, pHead.p+pHead.y, 1.6));
+    d = opDiff(d, sdSphere(s.pos, pHead.p+pHead.y-(pHead.z-pHead.y*0.5)*0.5, 1.2), 0.5);
+    
+    d = min(d, sdSphere(s.pos, pHandR.p, 0.65));
+    d = min(d, sdSphere(s.pos, pHandL.p, 0.65));
+
+    d = opDiff(d, sdCapsule(s.pos, pHandR.p-pHandR.z-pHandR.y*0.2+pHandR.x*0.2, pHandR.p+pHandR.z-pHandR.y*0.2+pHandR.x*0.2, 0.37), 0.2);
+    d = opDiff(d, sdCapsule(s.pos, pHandL.p-pHandL.z-pHandL.y*0.2-pHandL.x*0.2, pHandL.p+pHandL.z-pHandL.y*0.2-pHandL.x*0.2, 0.37), 0.2);
     
     if (d < s.dist) { s.mat = BODY; s.dist = d; }
 
-    d = min(d, arm  (pTorsoR,  1.0, pElbowR, pArmRud, pArmRx));
-    d = min(d, arm  (pTorsoL, -1.0, pElbowL, pArmLud, pArmLx));
-    d = min(d, arm  (pHipR,    1.0, pKneeR,  pLegRud, pLegRx));
-    d = min(d, arm  (pHipL,   -1.0, pKneeL,  pLegLud, pLegLx));
+    d = min(d, arm  (pArmR.p,  1.0, pElbowR.p, pElbowR.y, pArmR.x));
+    d = min(d, arm  (pArmL.p, -1.0, pElbowL.p, pElbowL.y, pArmL.x));
+    d = min(d, arm  (pLegR.p,  1.0, pKneeR.p,  pKneeR.y,  pLegR.x));
+    d = min(d, arm  (pLegL.p, -1.0, pKneeL.p,  pKneeL.y,  pLegL.x));
 
     if (d < s.dist) { s.mat = BONE; s.dist = d; }
     
-    d = min(d, sdSphere(s.pos, pPalmR, 0.65));
-    d = min(d, sdSphere(s.pos, pPalmL, 0.65));
     
-    if (d < s.dist) { s.mat = HAND; s.dist = d; }
         
-    d = min(d, sdSphere(s.pos, pHead+pHeadUp, 1.3));
+    d = min(d, sdSphere(s.pos, pHead.p+pHead.y, 1.3));
     
     if (d < s.dist) { s.mat = VISOR; s.dist = d; }
     
@@ -739,47 +641,41 @@ vec3 getLight(vec3 p, vec3 n, vec3 col, int mat)
 {
     if (mat == NONE) return col;
     
-    vec3 lp = camPos + 5.0*camUp + 10.0*camR;
-    vec3 l = normalize(lp-p);
+    vec3 vLight = normalize(pLight-p);
+    
  
-    float ambient = 0.0;
-    float dif = clamp(dot(n,l), 0.0, 1.0);
+    float dif = clamp01(dot(n,vLight));
     
     if (mat == BODY)
     {
-        float exp = 0.5;
-        float smx = 0.4;
+        float exp = 0.6;
+        float smx = 0.0;
         
-        vec3  n2c = normalize(camPos-p);
-        vec3  bcl = normalize(n2c + l);
+        vec3  n2c = normalize(pCam.p-p);
+        vec3  bcl = normalize(n2c + vLight);
         float dnh = clamp01(dot(n, bcl));
-        float shi = shiny(0.45, dnh, bcl);
+        float shi = shiny(0.25, dnh, bcl);
         
-        dif = clamp01(mix(pow(dif, exp), shi, smx));
+        dif = clamp01(pow(dif, exp) + shi);
     }
     else if (mat == MOON)
     {
         dif = pow(dif, 2.0);
     }
     
-    float shadow = softShadow(p, l, 8.0) * (soft ? getOcclusion(p, n) : 1.0);
-    dif *= shadow;
-    
     vec3 hl;
     if (mat == VISOR)
     {
-        hl = vec3(pow(clamp01(smoothstep(0.95,1.0,dot(n, l))), 10.0));
+        hl = vec3(pow(clamp01(smoothstep(0.95,1.0,dot(n, vLight))), 10.0));
     }
     else if (mat == BONE)
     {
-        hl = vec3(clamp01(smoothstep(0.5,1.0, dot(n, l)))*0.05);
-    }
-    else if (mat == HAND)
-    {
-        hl = vec3(clamp01(smoothstep(0.5,1.0, dot(n, l)))*0.2);
+        hl = vec3(clamp01(smoothstep(0.5,1.0, dot(n, vLight)))*0.05);
     }
 
-    return col * clamp(dif, ambient, 1.0) + hl * shadow;
+    float shadow = softShadow(p, vLight, 8.0) * (soft ? getOcclusion(p, n) : 1.0);
+
+    return (col * clamp01(dif) + hl) * shadow;
 }
 
 // 00     00   0000000   000  000   000  
@@ -793,12 +689,12 @@ const int KEY_UP    = 38;
 const int KEY_RIGHT = 39;
 const int KEY_DOWN  = 40;
 const int KEY_SPACE = 32;
-const int KEY_1     = 49;
-const int KEY_9     = 57;
-
-bool keyState(int key) { return texelFetch(iChannel0, ivec2(key, 2), 0).x < 0.5; }
-bool keyDown(int key)  { return texelFetch(iChannel0, ivec2(key, 0), 0).x > 0.5; }
-
+const int KEY_1     = 49;
+const int KEY_9     = 57;
+
+bool keyState(int key) { return texelFetch(iChannel0, ivec2(key, 2), 0).x < 0.5; }
+bool keyDown(int key)  { return texelFetch(iChannel0, ivec2(key, 0), 0).x > 0.5; }
+
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
     frag = fragCoord;
@@ -807,13 +703,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
          camrot =  keyState(KEY_RIGHT);
          soft   =  keyState(KEY_DOWN);
     bool animat =  keyState(KEY_UP);
-    bool space  =  keyState(KEY_SPACE);
+    bool space  =  !keyState(KEY_SPACE);
 
-    for (int i = KEY_1; i <= KEY_9; i++) 
-    { 
-        if (keyDown(i)) { option = i-KEY_1+1; break; }
-    }
-    
+    for (int i = KEY_1; i <= KEY_9; i++) 
+    { 
+        if (keyDown(i)) { option = i-KEY_1+1; break; }
+    }
+    
     if (animat) poseFloating();
     else        poseNeutral();
     
@@ -827,106 +723,117 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     if (iMouse.z <= 0.0) { mx = 0.0; my = 0.0; }
     
-    camTgt = vec3(0.0,0.0,0.0);
-    camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, -180.0*my), vy, -180.0*mx);
-    camR   = rotAxisAngle(vx, vy, -180.0*mx);
+    camTgt = v0;
+    
+    eulerPivot(pCam, -180.0*my, -180.0*mx, 0.0);
+    
+    pCam.p = pCam.z*md;
 
     #ifndef TOY
         if (space)
         {
             camTgt = iCenter;
-            camPos = iCamera;
-            camPos.x *= -1.0;
+            pCam.p = iCamera;
+            pCam.p.x *= -1.0;
             camTgt.x *= -1.0;
-            camR   = normalize(cross(vy, camTgt-camPos));
+            pCam.z = camTgt-pCam.p;
+            pCam.x = normalize(cross(vy, pCam.z));
+            pCam.y = normalize(cross(pCam.x, pCam.z));
         }
     #endif
     
-    camDir = normalize(camTgt-camPos);
-    camUp  = normalize(cross(camDir, camR));
-    
-    int AA = soft ? 2 : 1;
+    pLight = pCam.p + 5.0*pCam.y + 10.0*pCam.x;
+        
+    // float AA = soft ? 2.0 : 1.0;
+    float AA = 1.0;
     
     vec3 cols = v0;
     vec3 col, p, n, uu, vv, rd;
     vec2 ao = vec2(0);
     
-    float d;
-    int mat;
-    int mat0;
-    
-    for(int am = ZERO; am < AA; am++)
-    for(int an = ZERO; an < AA; an++)
+    float d, am, an;
+    int mat, mat0;
+    /*
+     for (am = float(ZERO); am < AA; am+=1.0)
+     for (an = float(ZERO); an < AA; an+=1.0)
+    */
     {
-        if (AA > 1) ao = vec2(float(am),float(an))/float(AA)-0.5;
+        if (AA > 1.0) ao = vec2(am,an)/AA-0.5;
     
         uv = (fragCoord+ao-0.5*iResolution.xy)/iResolution.y;
                 
-        uu = normalize(cross(camDir, camUp));
-        vv = normalize(cross(uu, camDir));
+        uu = normalize(cross(pCam.z, pCam.y));
+        vv = normalize(cross(uu, pCam.z));
+        rd = normalize(uv.x*uu + uv.y*vv + pCam.z);
         
-        rd = normalize(uv.x*uu + uv.y*vv + camDir);
-        
-        d = rayMarch(camPos, rd);
+        d = rayMarch(pCam.p, rd);
         mat = s.mat;
-        if (am == AA-1 && an == AA-1) mat0 = mat;
         
-        p = camPos + d * rd;
-        n = getNormal(p);
-            
-        if      (mat == NONE)  col = v0; 
-        else if (mat == BODY)  col = vec3(1.0);
-        else if (mat == BONE)  col = vec3(0.2); 
-        else if (mat == HAND)  col = vec3(1.0); 
-        else if (mat == MOON)  col = vec3(0.04);
-        else if (mat == VISOR) col = v0;
-        else col = vec3(1,1,1);
+        if (am == AA-1.0 && an == AA-1.0) mat0 = mat;
         
-        col = getLight(p, n, col, mat);
+        p = pCam.p + d * rd;
         
-        cols += col;
+        switch (mat)
+        {
+        case BODY: col = vec3(1.0);  break;
+        case BONE: col = vec3(0.2);  break;
+        case MOON: col = vec3(0.04); break;
+        default:   col = v0;         break;
+        }
+        
+        cols += getLight(p, getNormal(p), col, mat);
     }
     
-    col = cols/float(AA*AA);
+    col = cols/(AA*AA);
 
-    if (mat0 == NONE)
+    float hsh = hash12(frag);
+    
+    if (mat0 == NONE) // stars
     {
-        if (hash12(frag) > 0.999)
-        {
-           col = vec3(1.0-length(uv));
-        }
+        col = vec3(pow(voronoi(vec3(uv*50.0,iResolution.y*0.0002)), iResolution.y/90.0) - length(uv)*0.7);
     }
     
     if (dither)
     {
-        col -= vec3((hash12(frag)-0.25)*0.004);
+        
+        col -= vec3((hsh-0.25)*0.004);
+        col *= 1.0-hsh*0.1;
         col = max(col, v0);
     }
 
     #ifndef TOY
-    col = mix(col, white, digit(0,   0,  iFrameRate, 2.0));
-    col = mix(col, blue,  digit(0,  40,  iTime,      4.1));
-    col = mix(col, red,   digit(0,  80,  float(option),1.0));
-    col = mix(col, green, digit(150, 0,  iMouse.y,   5.0));
-    col = mix(col, red,   digit(150, 40, iMouse.x,   5.0));
-    col = mix(col, green, digit(250, 0,  my,         3.2));
-    col = mix(col, red,   digit(250, 40, mx,         3.2));
+    vec3 red    = vec3(0.8,0.0,0.0);
+    vec3 green  = vec3(0.0,0.5,0.0);
+    vec3 blue   = vec3(0.2,0.2,1.0);
+    vec3 white  = vec3(1.0,1.0,1.0);
+    vec3 yellow = vec3(1.0,1.0,0.0);
+    
+    vec2 muv = (iMouse.xy-0.5*iResolution.xy)/iResolution.y;
+    
+    col = mix(col, white,  digit(0,    0, iFrameRate,    2.0));
+    col = mix(col, blue,   digit(0,   40, iTime,         4.1));
+    col = mix(col, yellow, digit(0,   80, iCompile,      2.2));
+    col = mix(col, red,    digit(0,  120, float(option), 1.0));
+    col = mix(col, green,  digit(150,  0, iMouse.y,      5.0));
+    col = mix(col, red,    digit(150, 40, iMouse.x,      5.0));
+    col = mix(col, green,  digit(250,  0, muv.x,         2.2));
+    col = mix(col, red,    digit(250, 40, muv.y,         2.2));
         
     if (frag.x >= 350. && frag.x < 500. && frag.y < 160.)
     {
-        uv = (iMouse.xy-.5*iResolution.xy)/iResolution.y;
-        rd = normalize(uv.x*uu + uv.y*vv + camDir);
-        d  = rayMarch(camPos, rd);
+        uv = (iMouse.xy-0.5*iResolution.xy)/iResolution.y;
+        rd = normalize(uv.x*uu + uv.y*vv + pCam.z);
+        d  = rayMarch(pCam.p, rd);
         if (d < MAX_DIST)
         {
-            p = camPos + d * rd;
+            p = pCam.p + d * rd;
             col = mix(col, white, digit(350,   0, d,   3.2));
             col = mix(col, red,   digit(350, 120, p.x, 3.2));
             col = mix(col, green, digit(350,  80, p.y, 3.2));
             col = mix(col, blue,  digit(350,  40, p.z, 3.2));
         }
     }
-    #endif
+   	#endif
     
     col = pow(col, vec3(1.0/2.2));
     fragColor = vec4(col, 1.0);

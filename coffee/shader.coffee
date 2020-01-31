@@ -18,13 +18,11 @@ class Shader
         @bufferSize = width:256, height:256
         @frameRates = []
 
-        klog "buffers #{@world.canvas.width}x#{@world.canvas.height}"
-        
-        buffer = new Uint8Array 4*@world.canvas.width*@world.canvas.height
+        buffer = new Float32Array 4*@bufferSize.width*@bufferSize.height
             
         @textures = 
             keys:   RawTexture.CreateRTexture @world.keys, 256, 3, @scene, false
-            buffer: new RawTexture buffer, @bufferSize.width, @bufferSize.height, Engine.TEXTUREFORMAT_RGBA, @scene, false
+            buffer: new RawTexture buffer, @bufferSize.width, @bufferSize.height, Engine.TEXTUREFORMAT_RGBA, @scene, false, false, Texture.BILINEAR_SAMPLINGMODE, Engine.TEXTURETYPE_FLOAT
             font:   new Texture("#{__dirname}/../img/font.png", @scene)
         
         @iFrame = 0
@@ -76,8 +74,7 @@ class Shader
         # 000   000             000     000   000  000   000  000   000  000          000     
         # 000   000             000     000   000  000   000   0000000   00000000     000     
         
-        # @renderTarget = new RenderTargetTexture "buf", { width:@world.canvas.width, height:@world.canvas.height }, @scene, false #, false, Texture.BILINEAR_SAMPLINGMODE, Engine.TEXTURETYPE_BYTE
-        @renderTarget = new RenderTargetTexture "buf", @bufferSize, @scene, false #, false, Texture.BILINEAR_SAMPLINGMODE, Engine.TEXTURETYPE_BYTE
+        @renderTarget = new RenderTargetTexture "buf", @bufferSize, @scene, false, false, Texture.BILINEAR_SAMPLINGMODE, Engine.TEXTURETYPE_FLOAT
         @renderTarget.renderList.push @plane2
         @scene.customRenderTargets.push @renderTarget
                                                          
@@ -98,13 +95,14 @@ class Shader
             
             @iResolution = new Vector3 @world.canvas.width, @world.canvas.height, 1
             
-            @iDelta = new Vector2(@world.camera.mouseDelta.x, @world.camera.mouseDelta.y) 
+            @iDelta = new Vector2(@world.camera.mouse.delta.x, @world.camera.mouse.delta.y) 
+            
             @iMouse = new Vector4(
-                @world.camera.mouseX * (window.devicePixelRatio ? 0)
-                @iResolution.y - (@world.camera.mouseY * (window.devicePixelRatio ? @iResolution.y))
-                (@world.camera.downButtons and 1 or -1) * @world.camera.downPos?.x * (window.devicePixelRatio ? 0)
-                (@world.camera.downButtons and 1 or -1) * (@iResolution.y - (@world.camera.downPos?.y * (window.devicePixelRatio ? @iResolution.y))))
-                
+                @world.camera.mouse.pos.x * (window.devicePixelRatio ? 0)
+                @iResolution.y - (@world.camera.mouse.pos.y * (window.devicePixelRatio ? @iResolution.y))
+                (@world.camera.mouse.buttons and 1 or -1) * @world.camera.mouse.down.x * (window.devicePixelRatio ? 0)
+                (@world.camera.mouse.buttons and 1 or -1) * (@iResolution.y - (@world.camera.mouse.down.y * (window.devicePixelRatio ? @iResolution.y))))
+               
             @iCenter = new Vector3 @world.camera.center.x, @world.camera.center.y, @world.camera.center.z
             @iCamera = new Vector3 @world.camera.position.x, @world.camera.position.y, @world.camera.position.z
                

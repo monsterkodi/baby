@@ -50,8 +50,11 @@ class Camera extends UniversalCamera
         @moveZ      = 0
         @quat       = quat()
         
-        @downButtons = 0
-        @mouseDelta = x:0, y:0
+        @mouse = 
+            buttons: 0
+            delta: vec 0 0
+            down:  vec 0 0
+            pos:   vec 0 0
             
         super 'Camera' new Vector3(0 0 0), @scene
 
@@ -156,41 +159,34 @@ class Camera extends UniversalCamera
     
     onMouseDown: (event) => 
         
-        @downButtons = event.buttons
-        @mouseMoved  = false
+        br = @canvas.getBoundingClientRect()
         
-        @mouseX = event.clientX
-        @mouseY = event.clientY
-                
-        @downPos = vec @mouseX, @mouseY
+        @mouse.moved   = false
+        @mouse.buttons = event.buttons
+        @mouse.pos     = vec event.clientX-br.left, event.clientY-br.top 
+        @mouse.down    = @mouse.pos 
         
     onMouseUp: (event) => 
     
-        @downButtons = 0
-        #klog 'up'
+        @mouse.buttons = 0
 
     onMouseDrag: (event) =>
 
         br = @canvas.getBoundingClientRect()
         
-        x = event.clientX-br.left-@mouseX
-        y = event.clientY-br.top-@mouseY
-
-        @mouseX = event.clientX-br.left
-        @mouseY = event.clientY-br.top
-        
-        @mouseDelta = x:x, y:y
+        @mouse.delta = vec(event.clientX, event.clientY).minus @mouse.pos
+        @mouse.pos   = vec event.clientX-br.left, event.clientY-br.top
         
         if @downPos?.dist(vec @mouseX, @mouseY) > 60
             @mouseMoved = true
         
         if event.buttons & 4
             s = @speedFactor * 4
-            @pan x*2*s/@size.x, y*s/@size.y
+            @pan @mouse.delta.x*2*s/@size.x, @mouse.delta.y*s/@size.y
             
         if event.buttons & 3
             s = @dist == @moveDist and 500 or 2000
-            @pivot s*x/@size.x, s*y/@size.y            
+            @pivot s*@mouse.delta.x/@size.x, s*@mouse.delta.y/@size.y            
             
     # 00000000   000  000   000   0000000   000000000  
     # 000   000  000  000   000  000   000     000     

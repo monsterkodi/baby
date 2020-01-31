@@ -65,8 +65,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     vec3 col = vec3(0.0);
 
-    col += print(ivec2(0,text.size.y*7),  load(1,0));
-    // col += print(ivec2(0,text.size.y*6),  load(2,0));
+    col += print(ivec2(0,text.size.y*9),  load(0,0));
+    col += print(ivec2(0,text.size.y*8),  load(1,0));
+    col += print(ivec2(0,text.size.y*7),  load(2,0));
     col += print(ivec2(0,text.size.y*5),  vec3(iTime, iFrameRate, 1000.0*iTimeDelta));
     col += print(ivec2(0,text.size.y*4),  vec2(iCompile, gl.option));
     col += print(ivec2(0,text.size.y*3),  vec3(iResolution.xy, gl.aspect));
@@ -91,16 +92,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     }
     
     if (true) {
-        vec2 mv = (iMouse.xy+iMouse.xy-iResolution.xy)/iResolution.y;
-        col += spark(mv.x, mv.y, 0.02)*0.5;
+        vec2 mv = (2.0*iMouse.xy-iResolution.xy)/iResolution.yy;
+        col += spark(mv.x, mv.y, 0.02);
+        col += spark(0.9*sin(2.2*iTime), 0.9, 0.01)*0.01;
         
-        col += spark(0.0, 0.9*sin(2.2*iTime), 0.02)*0.1;
-        
-        vec4 v = 0.9*load(1,0);
-        col += spark(v.x, v.y, 0.02);
-    
-        v = 0.9*load(2,0);
-        col += spark(v.x+0.1, v.y, 0.03);
+        vec4 v; 
+        v = 0.9*load(1,0); col += spark(v.x, v.y, 0.01)*0.01;
+        v = 0.9*load(2,0); col += spark(v.x+0.1, v.y, 0.01)*0.01;
     }
     
     if (dither)
