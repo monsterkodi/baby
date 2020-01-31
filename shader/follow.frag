@@ -11,13 +11,13 @@ float log10(float a) { return log(a)/log(10.0); }
 
 float print(ivec2 pos, int ch)
 {
-    ivec2 r = gl.ifrag-pos; bool i = r.y>0 && r.x>0 && r.x<=font.size.y && r.y<=font.size.y;
-    return i ? texelFetch(iChannel2,ivec2((ch%16)*64,(1024-64-64*(ch/16)))+r*64/font.size.y,0).r : 0.0;
+    ivec2 r = gl.ifrag-pos; bool i = r.y>0 && r.x>0 && r.x<=text.size.y && r.y<=text.size.y;
+    return i ? texelFetch(iChannel2,ivec2((ch%16)*64,(1024-64-64*(ch/16)))+r*64/text.size.y,0).r : 0.0;
 }
 
 float print(ivec2 pos, float v)
 {
-    float c = 0.0; ivec2 a = font.adv; float f = abs(v);
+    float c = 0.0; ivec2 a = text.adv; float f = abs(v);
     int i = fract(v) == 0.0 ? 1 : fract(v*10.0) == 0.0 ? -1 : -2;
     int ch, u = max(1,int(log10(f))+1);
     ivec2 p = pos+6*a;
@@ -35,7 +35,7 @@ float print(ivec2 pos, vec4 v)
     float c = 0.0;
     for (int i = 0; i < 4; i++) {
     	c = max(c, print(pos, v[i]));
-        pos += font.adv*8; }
+        pos += text.adv*8; }
     return c;
 }
 
@@ -44,7 +44,7 @@ float print(ivec2 pos, vec3 v)
     float c = 0.0;
     for (int i = 0; i < 3; i++) {
     	c = max(c, print(pos, v[i]));
-        pos += font.adv*8; }
+        pos += text.adv*8; }
     return c;
 }
 
@@ -53,7 +53,7 @@ float print(ivec2 pos, vec2 v)
     float c = 0.0;
     for (int i = 0; i < 2; i++) {
     	c = max(c, print(pos, v[i]));
-        pos += font.adv*8; }
+        pos += text.adv*8; }
     return c;
 }
 
@@ -65,13 +65,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     vec3 col = vec3(0.0);
 
-    col += print(ivec2(0,font.size.y*7),  load(1,0));
-    // col += print(ivec2(0,font.size.y*6),  load(2,0));
-    col += print(ivec2(0,font.size.y*5),  vec3(iTime, iFrameRate, 1000.0*iTimeDelta));
-    col += print(ivec2(0,font.size.y*4),  vec2(iCompile, gl.option));
-    col += print(ivec2(0,font.size.y*3),  vec3(iResolution.xy, gl.aspect));
-    col += print(ivec2(0,font.size.y*2),  iMouse);
-    col += print(ivec2(0,font.size.y*1),  (2.0*abs(iMouse)-vec4(iResolution.xyxy))/iResolution.y);
+    col += print(ivec2(0,text.size.y*7),  load(1,0));
+    // col += print(ivec2(0,text.size.y*6),  load(2,0));
+    col += print(ivec2(0,text.size.y*5),  vec3(iTime, iFrameRate, 1000.0*iTimeDelta));
+    col += print(ivec2(0,text.size.y*4),  vec2(iCompile, gl.option));
+    col += print(ivec2(0,text.size.y*3),  vec3(iResolution.xy, gl.aspect));
+    col += print(ivec2(0,text.size.y*2),  iMouse);
+    col += print(ivec2(0,text.size.y*1),  (2.0*abs(iMouse)-vec4(iResolution.xyxy))/iResolution.y);
        
     if (false) {
         float i = gl.uv.x;
@@ -85,8 +85,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         col *= texelFetch(iChannel2, ivec2(fragCoord), 0).rrr;
         for (int i = 0; i < 10; i++)
         {
-            col += print(ivec2(i*font.size.x,font.size.y*1), 48+i);
-            col += hsl(0.6, 1.0, 0.8*print(ivec2(i*font.size.x,font.size.y*0), 65+i));
+            col += print(ivec2(i*text.size.x,text.size.y*1), 48+i);
+            col += hsl(0.6, 1.0, 0.8*print(ivec2(i*text.size.x,text.size.y*0), 65+i));
         }
     }
     

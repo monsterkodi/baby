@@ -20,38 +20,39 @@ const vec3 green = vec3(0.0,0.5,0.0);
 const vec3 blue  = vec3(0.2,0.2,1.0);
 const vec3 white = vec3(1.0,1.0,1.0);
 
-bool keyState(int key) { return texelFetch(iChannel0, ivec2(key, 2), 0).x < 0.5; }
-bool keyDown(int key)  { return texelFetch(iChannel0, ivec2(key, 0), 0).x > 0.5; }
-
 #define save(a,b,c) if(gl.ifrag.x==(a)&&gl.ifrag.y==(b)){gl.color=(c);}
-#define load(x,y)   texelFetch(iChannel1, ivec2(x,y), 0)
+#define keys(x,y) texelFetch(iChannel0, ivec2(x,y), 0)
+#define load(x,y) texelFetch(iChannel1, ivec2(x,y), 0)
+#define font(x,y) texelFetch(iChannel2, ivec2(x,y), 0)
 
-struct _font 
-{
+bool keyState(int key) { return keys(key, 2).x < 0.5; }
+bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
+
+//  0000000   000       0000000   0000000     0000000   000      
+// 000        000      000   000  000   000  000   000  000      
+// 000  0000  000      000   000  0000000    000000000  000      
+// 000   000  000      000   000  000   000  000   000  000      
+//  0000000   0000000   0000000   0000000    000   000  0000000  
+
+struct {
     ivec2 size;
     ivec2 adv;
-};
+} text;
 
-_font font;
-
-struct globals
-{
+struct {
     vec2  uv;
     vec2  frag;
     ivec2 ifrag;
     float aspect;
     vec4  color;
     int   option;
-};
-
-globals gl;
-globals mg;
+} gl;
 
 void initGlobal(vec2 fragCoord)
 {
-    font.size = ivec2(16,32);
-    //font.size = ivec2(32,64);
-    font.adv  = ivec2(font.size.x,0);
+    text.size = ivec2(16,32);
+    //text.size = ivec2(32,64);
+    text.adv  = ivec2(text.size.x,0);
     gl.aspect = iResolution.x / iResolution.y;
     gl.frag   = fragCoord;
     gl.ifrag  = ivec2(fragCoord);
@@ -59,8 +60,11 @@ void initGlobal(vec2 fragCoord)
     for (int i = KEY_1; i <= KEY_9; i++) { if (keyDown(i)) { gl.option = i-KEY_1+1; break; } }
 }
 
-float rad2deg(float r) { return 180.0 * r / PI; }
-float deg2rad(float d) { return PI * d / 180.0; }
+// 000   000   0000000    0000000  000   000  
+// 000   000  000   000  000       000   000  
+// 000000000  000000000  0000000   000000000  
+// 000   000  000   000       000  000   000  
+// 000   000  000   000  0000000   000   000  
 
 float hash11(float p)
 {
@@ -140,6 +144,9 @@ mat3 alignMatrix(vec3 dir)
 // 0000000    000   000     000     
 // 000   000  000   000     000     
 // 000   000   0000000      000     
+
+float rad2deg(float r) { return 180.0 * r / PI; }
+float deg2rad(float d) { return PI * d / 180.0; }
 
 mat3 rotMat(vec3 u, float angle)
 {
