@@ -18,13 +18,16 @@ class Shader
         @bufferSize = width:512, height:16
         @frameRates = []
 
-        buffer = new Float32Array 4*@bufferSize.width*@bufferSize.height
+        @buffer = false
             
         @textures = 
             keys:   RawTexture.CreateRTexture @world.keys, 256, 3, @scene, false
-            buffer: new RawTexture buffer, @bufferSize.width, @bufferSize.height, Engine.TEXTUREFORMAT_RGBA, @scene, false, false, Texture.BILINEAR_SAMPLINGMODE, Engine.TEXTURETYPE_FLOAT
             font:   new Texture("#{__dirname}/../img/font.png", @scene)
         
+        if @buffer
+            arr = new Float32Array 4*@bufferSize.width*@bufferSize.height
+            @textures.buffer = new RawTexture arr, @bufferSize.width, @bufferSize.height, Engine.TEXTUREFORMAT_RGBA, @scene, false, false, Texture.BILINEAR_SAMPLINGMODE, Engine.TEXTURETYPE_FLOAT
+            
         @iFrame = 0
         @vertexShader =  """
             precision highp float; attribute vec3 position; attribute vec2 uv; uniform mat4 worldViewProjection;
@@ -32,14 +35,15 @@ class Shader
             """
         
         fragSource    = slash.readText "#{__dirname}/../shader/tree.frag"
-        bufferSource  = "" #slash.readText "#{__dirname}/../shader/eye_buffer.frag"
+        if @buffer then bufferSource = slash.readText "#{__dirname}/../shader/eye_buffer.frag"
         @commonSource = slash.readText "#{__dirname}/../shader/tree_common.frag"
         
-        Effect.ShadersStore.mainVertexShader = @vertexShader
+        Effect.ShadersStore.mainVertexShader   = @vertexShader
         Effect.ShadersStore.mainFragmentShader = @shaderCode fragSource 
         
-        Effect.ShadersStore.bufferVertexShader = @vertexShader
-        Effect.ShadersStore.bufferFragmentShader = @shaderCode bufferSource 
+        if @buffer 
+            Effect.ShadersStore.bufferVertexShader = @vertexShader
+            Effect.ShadersStore.bufferFragmentShader = @shaderCode bufferSource 
                     
         @shaderStart = performance.now()
         
@@ -49,45 +53,41 @@ class Shader
         # 000 0 000  000   000     000     000       000   000  000  000   000  000      
         # 000   000  000   000     000     00000000  000   000  000  000   000  0000000  
         
-        @bufferMaterial = @shaderMaterial 'buffer'
         @shaderMaterial = @shaderMaterial 'main'
-
-        @plane2 = MeshBuilder.CreatePlane "plane2", { width: 10, height: 10 }, @scene
-        @plane2.material = @bufferMaterial
-        @plane2.billboardMode = Mesh.BILLBOARDMODE_ALL
-
-        @plane = MeshBuilder.CreatePlane "plane", { width: 10, height: 10 }, @scene
-        @plane.material = @shaderMaterial
-        @plane.billboardMode = Mesh.BILLBOARDMODE_ALL
-        
         @shaderMaterial.onCompiled = => 
             @compileTime = parseInt performance.now()-@shaderStart
             klog "shader compileTime #{@compileTime/1000}s" 
-            
-        @bufferMaterial.onCompiled = => 
-            compileTime = parseInt performance.now()-@shaderStart
-            klog "buffer compileTime #{compileTime/1000}s" 
-            
+
+        if @buffer
+            @bufferMaterial = @shaderMaterial 'buffer'
+            @bufferMaterial.onCompiled = => 
+                compileTime = parseInt performance.now()-@shaderStart
+                klog "buffer compileTime #{compileTime/1000}s" 
+
+            @plane2 = MeshBuilder.CreatePlane "plane2", { width: 10, height: 10 }, @scene
+            @plane2.material = @bufferMaterial
+            @plane2.billboardMode = Mesh.BILLBOARDMODE_ALL
+
+        @plane = MeshBuilder.CreatePlane "plane" { width: 10, height: 10 } @scene
+        @plane.material = @shaderMaterial
+        @plane.billboardMode = Mesh.BILLBOARDMODE_ALL
+        
         # 00000000           000000000   0000000   00000000    0000000   00000000  000000000  
         # 000   000             000     000   000  000   000  000        000          000     
         # 0000000    000000     000     000000000  0000000    000  0000  0000000      000     
         # 000   000             000     000   000  000   000  000   000  000          000     
         # 000   000             000     000   000  000   000   0000000   00000000     000     
         
-        @renderTarget = new RenderTargetTexture "buf", @bufferSize, @scene, false, false, Texture.BILINEAR_SAMPLINGMODE, Engine.TEXTURETYPE_FLOAT
-        @renderTarget.renderList.push @plane2
-        @scene.customRenderTargets.push @renderTarget
+        if @buffer
+            
+            @renderTarget = new RenderTargetTexture "buf", @bufferSize, @scene, false, false, Texture.BILINEAR_SAMPLINGMODE, Engine.TEXTURETYPE_FLOAT
+            @renderTarget.renderList.push @plane2
+            @scene.customRenderTargets.push @renderTarget
                                                          
-        # 0000000    00000000  00000000   0000000   00000000   00000000  
-        # 000   000  000       000       000   000  000   000  000       
-        # 0000000    0000000   000000    000   000  0000000    0000000   
-        # 000   000  000       000       000   000  000   000  000       
-        # 0000000    00000000  000        0000000   000   000  00000000  
-
-        @renderTarget.onBeforeRender = () => 
-                        
-            @plane2.position.copyFrom @world.camera.position.add @world.camera.getDir().scale 2
-            @materialData @bufferMaterial
+            @renderTarget.onBeforeRender = () => 
+                            
+                @plane2.position.copyFrom @world.camera.position.add @world.camera.getDir().scale 2
+                @materialData @bufferMaterial
         
         @scene.onBeforeRenderObservable.add => 
             
@@ -130,7 +130,7 @@ class Shader
         
         @scene.onAfterRenderTargetsRenderObservable.add => 
             
-            @textures.buffer.update @renderTarget.readPixels()
+            if @buffer then @textures.buffer.update @renderTarget.readPixels()
             
         @scene.onAfterRenderObservable.add =>
             
@@ -159,7 +159,7 @@ class Shader
     materialData: (m) => 
         
         m.setTexture 'iChannel0'   @textures.keys 
-        m.setTexture 'iChannel1'   @textures.buffer
+        m.setTexture 'iChannel1'   @textures.buffer if @buffer
         m.setTexture 'iChannel2'   @textures.font
         m.setInt     'iFrame'      @iFrame
         m.setFloat   'iCompile'    @compileTime/1000

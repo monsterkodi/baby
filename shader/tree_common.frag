@@ -26,10 +26,16 @@ const vec3 white = vec3(1.0,1.0,1.0);
 // 000   000  000      000   000  000   000  000   000  000      
 //  0000000   0000000   0000000   0000000    000   000  0000000  
 
-struct _text {
+struct Text {
     ivec2 size;
     ivec2 adv;
 } text;
+
+struct SDF {
+    float dist;
+    vec3  pos;
+    int   mat;
+};
 
 struct _gl {
     vec2  uv;
@@ -41,12 +47,15 @@ struct _gl {
     vec4  color;
     int   option;
     float time;
+    vec3  light;
+    SDF   sdf;
 } gl;
+
+uniform sampler2D fontChannel;
 
 void initGlobal(vec2 fragCoord, vec3 resolution, vec4 mouse, float time)
 {
-    //text.size = ivec2(8,16);
-    text.size = ivec2(16,32);
+    text.size = ivec2(16,32)*2;
     text.adv  = ivec2(text.size.x,0);
     
     mouse.xy = min(mouse.xy,resolution.xy);
@@ -56,9 +65,6 @@ void initGlobal(vec2 fragCoord, vec3 resolution, vec4 mouse, float time)
         	gl.mouse = resolution.xy*0.5;
        	else
             gl.mouse = mouse.xy;
-       
-        
-        //gl.mouse.x += sin(time*2.0)*resolution.y/32.0;
     }
     else gl.mouse = mouse.xy;
     
@@ -73,6 +79,67 @@ void initGlobal(vec2 fragCoord, vec3 resolution, vec4 mouse, float time)
 float powi(int a, int b) { return pow(float(a), float(b)); }
 float log10(float a) { return log(a)/log(10.0); }
 float clamp01(float v) { return clamp(v, 0.0, 1.0); }
+
+// 00000000   00000000   000  000   000  000000000  
+// 000   000  000   000  000  0000  000     000     
+// 00000000   0000000    000  000 0 000     000     
+// 000        000   000  000  000  0000     000     
+// 000        000   000  000  000   000     000     
+
+float print(ivec2 pos, int ch)
+{
+    ivec2 r = gl.ifrag-pos; bool i = r.y>0 && r.x>0 && r.x<=text.size.y && r.y<=text.size.y;
+    return i ? texelFetch(iChannel2,ivec2((ch%16)*64,(1024-64-64*(ch/16)))+r*64/text.size.y,0).r : 0.0;
+}
+
+float print(ivec2 pos, float v)
+{
+    float c = 0.0; ivec2 a = text.adv; 
+    float fv = fract(v);
+    v = (fv > 0.995 || fv < 0.005) ? floor(v) : v;
+    float f = abs(v);
+    int i = (fv == 0.0) ? 1 : fract(v*10.0) == 0.0 ? -1 : -2;
+    int ch, u = max(1,int(log10(f))+1);
+    ivec2 p = pos+6*a;
+    for (; i <= u; i++) {
+        if (i == 0)     ch = 46;
+        else if (i > 0) ch = 48+int(mod(f, powi(10,i))/powi(10,i-1));
+        else            ch = 48+int(mod(f+0.005, powi(10,i+1))/powi(10,i));
+        c = max(c, print(p-i*a, ch)*float(i+3)/30.0); }
+    if (v < 0.0) c = max(c, print(p-i*a, 45)*float(i)/30.0);
+    return c;
+}
+float print(ivec2 pos, vec4 v)
+{
+    float c = 0.0;
+    for (int i = 0; i < 4; i++) {
+        c = max(c, print(pos, v[i]));
+        pos += text.adv*8; }
+    return c;
+}
+
+float print(ivec2 pos, vec3 v)
+{
+    float c = 0.0;
+    for (int i = 0; i < 3; i++) {
+        c = max(c, print(pos, v[i]));
+        pos += text.adv*8; }
+    return c;
+}
+
+float print(ivec2 pos, vec2 v)
+{
+    float c = 0.0;
+    for (int i = 0; i < 2; i++) {
+        c = max(c, print(pos, v[i]));
+        pos += text.adv*8; }
+    return c;
+}
+
+float print(int x, int y, float v) { return print(ivec2(text.size.x*x,text.size.y*y), v); }
+float print(int x, int y, vec4 v)  { return print(ivec2(text.size.x*x,text.size.y*y), v); }
+float print(int x, int y, vec3 v)  { return print(ivec2(text.size.x*x,text.size.y*y), v); }
+float print(int x, int y, vec2 v)  { return print(ivec2(text.size.x*x,text.size.y*y), v); }
 
 // 000   000   0000000    0000000  000   000  
 // 000   000  000   000  000       000   000  
@@ -90,16 +157,14 @@ float hash11(float p)
 
 vec3 hash33(vec3 p3)
 {
-    p3 = fract(p3 * vec3(0.1031, 0.1030, 0.0973));
+    p3 = fract(p3 * vec3(12.3,456.7,8912.3));
     p3 += dot(p3, p3.yxz+33.33);
     return fract((p3.xxy + p3.yxx)*p3.zyx);
 }
 
 vec3 hash31(float p)
 {
-   vec3 p3 = fract(vec3(p) * vec3(.1031, .1030, .0973));
-   p3 += dot(p3, p3.yzx+33.33);
-   return fract((p3.xxy+p3.yzz)*p3.zyx); 
+   return hash33(vec3(p));
 }
 
 float hash12(vec2 p)
@@ -317,9 +382,15 @@ float opDiff(float d1, float d2, float k)
 //      000  000   000  
 // 0000000   0000000    
 
-float sdSphere(vec3 p, vec3 a, float r)
+float sdSphere(vec3 a, float r, int mat)
 {
-    return length(p-a)-r;
+    vec3 p = gl.sdf.pos;
+    float d = length(p-a)-r;
+
+    gl.sdf.mat = (d < gl.sdf.dist) ? mat : gl.sdf.mat;
+    gl.sdf.dist = min(d, gl.sdf.dist);
+        
+    return d;     
 }
 
 float sdPlane(vec3 p, vec3 a, vec3 n)
@@ -348,6 +419,23 @@ float sdCone(vec3 p, vec3 a, vec3 b, float r1, float r2)
     t = clamp(t, 0.0, 1.0);
     vec3 c = a + t*ab;
     return length(p-c)-(t*r2+(1.0-t)*r1);      
+}
+
+float sdCapsule(vec3 a, vec3 b, float r, int mat)
+{
+    vec3 p = gl.sdf.pos;
+    vec3 ab = b-a;
+    vec3 ap = p-a;
+    float t = dot(ab,ap) / dot(ab,ab);
+    t = clamp(t, 0.0, 1.0);
+    vec3 c = a + t*ab;
+    
+    float d = length(p-c)-r;
+
+    gl.sdf.mat = (d < gl.sdf.dist) ? mat : gl.sdf.mat;
+    gl.sdf.dist = min(d, gl.sdf.dist);
+        
+    return d;        
 }
 
 float sdCylinder(vec3 p, vec3 a, vec3 b, float r)

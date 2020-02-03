@@ -1,7 +1,7 @@
-#define keys(x,y) texelFetch(iChannel0, ivec2(x,y), 0)
-#define load(x) texelFetch(iChannel1, ivec2(x,0), 0)
+#define keys(x,y)  texelFetch(iChannel0, ivec2(x,y), 0)
+#define load(x)    texelFetch(iChannel1, ivec2(x,0), 0)
 #define load3(x,y) texelFetch(iChannel3, ivec2(x,y), 0)
-#define font(x,y) texelFetch(iChannel2, ivec2(x,y), 0)
+#define font(x,y)  texelFetch(iChannel2, ivec2(x,y), 0)
 
 bool keyState(int key) { return keys(key, 2).x < 0.5; }
 bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
@@ -9,7 +9,7 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 #define ZERO min(iFrame,0)
 #define MAX_STEPS  128
 #define MIN_DIST   0.002
-#define MAX_DIST   5.0
+#define MAX_DIST   15.0
 #define SHADOW     0.2
 #define FLOOR      0.0
 
@@ -24,65 +24,13 @@ vec3 camPos;
 vec3 camTgt;
 vec3 camDir;
 
-int  mat;
-int  num;
 int  AA = 2;
 
 float planeDist;
 
-struct sdf {
-    float dist;
-    vec3  pos;
-    int   mat;
-};
-
-sdf s;
-
-// 00000000  000   000  00000000  
-// 000        000 000   000       
-// 0000000     00000    0000000   
-// 000          000     000       
-// 00000000     000     00000000  
-
-void eye(int id, vec3 pos, vec3 n)
+void branch(vec3 p, vec3 n)
 {
-    float d, r = 0.1;
-        
-   	d = sdSphere(s.pos, pos, r);
-    
-    if (d > s.dist+r) return;
-    
-    float fid = float(id);
-    vec3 hsh1 = hash31(fid+floor(iTime*fid/(fid-0.5)*0.2));
-    vec3 hsh2 = hash31(fid+floor(iTime*fid/(fid-0.5)*0.3));
-    
-    n  = normalize(n+(hsh1 + hsh2 - 1.0)*(dot(n,vz)-0.5));
-    
-    vec3 pupil = pos+1.0*r*n;
-    vec3 lens  = pos+0.5*r*n;
-    
-    d = opDiff(d, sdSphere(s.pos, pupil, r*0.75), r*0.1);
-
-    if (d < s.dist) { s.mat = BULB; s.dist = d; }
-    
-    d = min(d, sdEllipsoid(s.pos, lens, r*vec3(0.7, 0.7, 0.35)));
-    
-    if (d < s.dist) { s.mat = PUPL; s.dist = d; }
-    
-    d = opUnion(planeDist, sdTorus(s.pos, pos+0.0*vz, vz, r*1.3, r*0.2), r*0.3);
-    
-    if (d < s.dist) { s.mat = PLANE; s.dist = d; }
-}
-
-void nose(vec3 pos)
-{
-    float r = 0.1;
-    float d = sdPlane(s.pos, v0, vz);
- 
-    d = opDiff (d, sdSphere(s.pos, pos, r*1.4), r*0.4);
-    
-    planeDist = d;
-    if (d < s.dist) { s.mat = PLANE; s.dist = d; }
+    sdSphere(p, length(p-camDir)*0.05, PLANE);    
 }
 
 // 00     00   0000000   00000000   
@@ -93,25 +41,12 @@ void nose(vec3 pos)
 
 float map(vec3 p)
 {
-    s = sdf(1000.0, p, NONE);
+    gl.sdf = SDF(1000.0, p, NONE);
     
-    nose(vec3(gl.mp,0));
-     
-    for (int i = 1; i <= num; i++)
-    {
-        vec4 fish = load(i);
-            
-        float fd = length(fish.xy-gl.uv); 
-        
-        if (fd < 0.5 || gl.option!=0)
-    	{
-            vec3 fp = vec3(fish.x,fish.y,0);
-            vec3 fdir = vec3(fish.zw,0);
-            eye(i, fp, normalize(normalize(camPos-fp) + 1.5*fdir));
-    	}
-    }
-
-    return s.dist;
+    for (float i = 1.0; i <= 50.0; i++)
+        branch(normalize(hash31(i)*2.0-1.0), v0);
+    
+    return gl.sdf.dist;
 }
 
 vec3 getNormal(vec3 p)
@@ -142,7 +77,7 @@ float rayMarch(vec3 ro, vec3 rd)
         if (d < MIN_DIST) return dz;
         if (dz > MAX_DIST) break;
     }
-    s.mat = NONE;
+    gl.sdf.mat = NONE;
     return dz;
 }
 
@@ -202,28 +137,25 @@ float getOcclusion(vec3 p, vec3 n)
 
 float shiny(float rough, float NoH, const vec3 h) 
 {
-    float oneMinusNoHSquared = 1.0 - NoH * NoH;
+    float o = 1.0 - NoH * NoH;
     float a = NoH * rough;
-    float k = rough / (oneMinusNoHSquared + a * a);
+    float k = rough / (o + a * a);
     float d = k * k / PI;
     return d;
 }
 
-vec3 getLight(vec3 p, vec3 n, vec3 col)
+vec3 getLight(vec3 p, vec3 n, vec3 col, int mat)
 {
     if (mat == NONE) return col;
     
-    vec3 cr = cross(camDir, vec3(0,1,0));
-    vec3 up = normalize(cross(cr,camDir));
-    vec3 lp = vec3(-0.5,1.0,4.0); 
-    vec3 l = normalize(lp-p);
+    vec3 l = normalize(gl.light-p);
  
-    float ambient = 0.005;
+    float ambient = 0.5;
     float dif = clamp(dot(n,l), 0.0, 1.0);
     
     if (mat == PUPL)
     {
-        dif = clamp(dot(n,normalize(mix(camPos,lp,0.1)-p)), 0.0, 1.0);
+        dif = clamp(dot(n,normalize(mix(camPos,gl.light,0.1)-p)), 0.0, 1.0);
         dif = mix(pow(dif, 16.0), dif, 0.2);
         dif += 1.0 - smoothstep(0.0, 0.2, dif);
         if (mat == PUPL) ambient = 0.1;
@@ -240,7 +172,7 @@ vec3 getLight(vec3 p, vec3 n, vec3 col)
     
     if (mat == PLANE || mat == BULB)
     {
-        dif *= softShadow(p, lp, 6.0);        
+        dif *= softShadow(p, gl.light, 6.0);        
     }
        
     col *= clamp(dif, ambient, 1.0);
@@ -262,33 +194,42 @@ vec3 getLight(vec3 p, vec3 n, vec3 col)
     return col;
 }
 
+// 00     00   0000000   000  000   000
+// 000   000  000   000  000  0000  000
+// 000000000  000000000  000  000 0 000
+// 000 0 000  000   000  000  000  0000
+// 000   000  000   000  000  000   000
+
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
     initGlobal(fragCoord, iResolution, iMouse, iTime);
     for (int i = KEY_1; i <= KEY_9; i++) { if (keyDown(i)) { gl.option = i-KEY_1+1; break; } }
     
-    soft  =  keyState(KEY_DOWN);
+    soft  = !keyState(KEY_DOWN);
     light = !keyState(KEY_LEFT);
     anim  =  keyState(KEY_RIGHT);
     occl  =  keyState(KEY_UP);
     
     vec3 cols = v0, col = v0;
-	num = int(load(0).x);
     
     if (!soft) AA = 1; 
     
    	vec2 ao = vec2(0);
     
-    float md = 4.0;
-    float my = 0.0;
-    float mx = 0.0;
+    float md = 5.5;
+    float mx = -gl.mp.x;
+    float my = -gl.mp.y;
         
     camTgt = v0; 
-  	camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, 89.0*my), vy, -180.0*mx);
+    camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, 89.0*my), vy, -90.0*mx);
+    camDir = normalize(camTgt-camPos);
         
-    vec3 ww = normalize(camTgt-camPos);
-    vec3 uu = normalize(cross(ww, vy));
-    vec3 vv = normalize(cross(uu, ww));
+    vec3 cr = cross(camDir, vec3(0,1,0));
+    vec3 up = normalize(cross(cr,camDir));
+    gl.light = -0.5*cr+ 1.0*up -4.0*camDir; 
+    
+    vec3 uu = normalize(cross(camDir, vy));
+    vec3 vv = normalize(cross(uu, camDir));
     float fov = 4.0 + float(gl.option);
     
     for( int am=ZERO; am<AA; am++ )
@@ -298,27 +239,41 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 
         gl.uv = (2.0*(fragCoord+ao)-iResolution.xy)/iResolution.y;
     
-        vec3 rd = normalize(gl.uv.x*uu + gl.uv.y*vv + fov*ww);
-        
+        vec3 rd = normalize(gl.uv.x*uu + gl.uv.y*vv + fov*camDir);
         float d = rayMarch(camPos, rd);
-        mat = s.mat;
         
-        vec3 p = camPos + d * rd;
-        vec3 n = getNormal(p);
-                
-        if      (mat == PLANE) col = vec3(0.15, 0.0, 0.0);
-        else if (mat == PUPL)  col = vec3(0.1, 0.1, 0.5);
-        else if (mat == BULB)  col = vec3(1.0, 1.0, 1.0);
-        else if (mat == NONE)  col = vec3(0.22, 0.0, 0.0);
-    
-        col = getLight(p, n, col);
+        if (true) {
+            if (gl.sdf.mat != NONE)
+                col = vx;
+            else
+                col = vec3(d)*0.01;
+        }
+        
+        if (false) {
             
+            int mat = gl.sdf.mat;
+            
+            vec3 p = camPos + d * rd;
+            vec3 n = getNormal(p);
+                    
+            if      (mat == PLANE) col = vec3(0.15, 0.0, 0.0);
+            else if (mat == PUPL)  col = vec3(0.1, 0.1, 0.5);
+            else if (mat == BULB)  col = vec3(1.0, 1.0, 1.0);
+            else if (mat == NONE)  col = vec3(0.22, 0.0, 0.0);
+        
+            if (light)
+                col = getLight(p, n, col, mat);
+        }
         cols += col;
     }
     
     col = cols/float(AA*AA);
     
     col *= pow(clamp01(1.2*gl.aspect-length(gl.uv)), 0.5);
-    col = pow(col, vec3(1.0/2.2));
+    col  = pow(col, vec3(1.0/2.2));
+    
+    col += vec3(print(0, 0, iFrameRate));
+    // col += vec3(print(0, 1, camDir));
+    
     fragColor = vec4(col,1.0);
 }
