@@ -20,44 +20,44 @@ const vec3 green = vec3(0.0,0.5,0.0);
 const vec3 blue  = vec3(0.2,0.2,1.0);
 const vec3 white = vec3(1.0,1.0,1.0);
 
-#define save(a,b,c) if(gl.ifrag.x==(a)&&gl.ifrag.y==(b)){gl.color=(c);}
-#define keys(x,y) texelFetch(iChannel0, ivec2(x,y), 0)
-#define load(x,y) texelFetch(iChannel1, ivec2(x,y), 0)
-#define font(x,y) texelFetch(iChannel2, ivec2(x,y), 0)
-
-bool keyState(int key) { return keys(key, 2).x < 0.5; }
-bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
-
 //  0000000   000       0000000   0000000     0000000   000      
 // 000        000      000   000  000   000  000   000  000      
 // 000  0000  000      000   000  0000000    000000000  000      
 // 000   000  000      000   000  000   000  000   000  000      
 //  0000000   0000000   0000000   0000000    000   000  0000000  
 
-struct {
+struct _text {
     ivec2 size;
     ivec2 adv;
 } text;
 
-struct {
+struct _gl {
     vec2  uv;
     vec2  frag;
+    vec2  mouse;
+    vec2  mp;
     ivec2 ifrag;
     float aspect;
     vec4  color;
     int   option;
 } gl;
 
-void initGlobal(vec2 fragCoord)
+void initGlobal(vec2 fragCoord, vec3 resolution, vec4 mouse)
 {
+    //text.size = ivec2(8,16);
     text.size = ivec2(16,32);
-    //text.size = ivec2(32,64);
     text.adv  = ivec2(text.size.x,0);
-    gl.aspect = iResolution.x / iResolution.y;
+    
+    mouse.xy = min(mouse.xy,resolution.xy);
+    if (mouse.z < 1.0 && mouse.z > -1.0) gl.mouse = resolution.xy*0.5;
+    else gl.mouse = mouse.xy;
+    
+	gl.mp = (2.0*abs(gl.mouse)-vec2(resolution.xy))/resolution.y;    
+
+    gl.aspect = resolution.x / resolution.y;
     gl.frag   = fragCoord;
     gl.ifrag  = ivec2(fragCoord);
-    gl.uv     = (fragCoord+fragCoord-iResolution.xy)/iResolution.y;
-    for (int i = KEY_1; i <= KEY_9; i++) { if (keyDown(i)) { gl.option = i-KEY_1+1; break; } }
+    gl.uv     = (fragCoord+fragCoord-resolution.xy)/resolution.y;
 }
 
 // 000   000   0000000    0000000  000   000  

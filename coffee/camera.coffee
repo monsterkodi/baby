@@ -55,6 +55,7 @@ class Camera extends UniversalCamera
             delta: vec 0 0
             down:  vec 0 0
             pos:   vec 0 0
+            up:    vec 0 0
             
         super 'Camera' new Vector3(0 0 0), @scene
 
@@ -169,6 +170,7 @@ class Camera extends UniversalCamera
     onMouseUp: (event) => 
     
         @mouse.buttons = 0
+        @mouse.up      = @mouse.pos
 
     onMouseDrag: (event) =>
 

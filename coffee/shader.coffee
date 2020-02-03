@@ -15,7 +15,7 @@ class Shader
     @: (@world) ->
 
         @scene = @world.scene
-        @bufferSize = width:256, height:256
+        @bufferSize = width:512, height:16
         @frameRates = []
 
         buffer = new Float32Array 4*@bufferSize.width*@bufferSize.height
@@ -31,9 +31,9 @@ class Shader
             void main(void) { gl_Position = worldViewProjection * vec4(position, 1.0); }
             """
         
-        fragSource    = slash.readText "#{__dirname}/../shader/follow.frag"
-        bufferSource  = slash.readText "#{__dirname}/../shader/buffer.frag"
-        @commonSource = slash.readText "#{__dirname}/../shader/common.frag"
+        fragSource    = slash.readText "#{__dirname}/../shader/boid_particles.frag"
+        bufferSource  = slash.readText "#{__dirname}/../shader/boid_buffer.frag"
+        @commonSource = slash.readText "#{__dirname}/../shader/boid_common.frag"
         
         Effect.ShadersStore.mainVertexShader = @vertexShader
         Effect.ShadersStore.mainFragmentShader = @shaderCode fragSource 
@@ -97,12 +97,19 @@ class Shader
             
             @iDelta = new Vector2(@world.camera.mouse.delta.x, @world.camera.mouse.delta.y) 
             
-            @iMouse = new Vector4(
-                @world.camera.mouse.pos.x * (window.devicePixelRatio ? 0)
-                @iResolution.y - (@world.camera.mouse.pos.y * (window.devicePixelRatio ? @iResolution.y))
-                (@world.camera.mouse.buttons and 1 or -1) * @world.camera.mouse.down.x * (window.devicePixelRatio ? 0)
-                (@world.camera.mouse.buttons and 1 or -1) * (@iResolution.y - (@world.camera.mouse.down.y * (window.devicePixelRatio ? @iResolution.y))))
-               
+            if (@world.camera.mouse.buttons)
+                @iMouse = new Vector4(
+                    @world.camera.mouse.pos.x * (window.devicePixelRatio ? 0)
+                    @iResolution.y - (@world.camera.mouse.pos.y * (window.devicePixelRatio ? @iResolution.y))
+                    (@world.camera.mouse.buttons and 1 or -1) * @world.camera.mouse.down.x * (window.devicePixelRatio ? 0)
+                    (@world.camera.mouse.buttons and 1 or -1) * (@iResolution.y - (@world.camera.mouse.down.y * (window.devicePixelRatio ? @iResolution.y))))
+            else
+                @iMouse = new Vector4(
+                    @world.camera.mouse.up.x * (window.devicePixelRatio ? 0)
+                    @iResolution.y - (@world.camera.mouse.up.y * (window.devicePixelRatio ? @iResolution.y))
+                    (@world.camera.mouse.buttons and 1 or -1) * @world.camera.mouse.down.x * (window.devicePixelRatio ? 0)
+                    (@world.camera.mouse.buttons and 1 or -1) * (@iResolution.y - (@world.camera.mouse.down.y * (window.devicePixelRatio ? @iResolution.y))))
+                    
             @iCenter = new Vector3 @world.camera.center.x, @world.camera.center.y, @world.camera.center.z
             @iCamera = new Vector3 @world.camera.position.x, @world.camera.position.y, @world.camera.position.z
                
