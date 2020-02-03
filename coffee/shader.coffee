@@ -31,9 +31,9 @@ class Shader
             void main(void) { gl_Position = worldViewProjection * vec4(position, 1.0); }
             """
         
-        fragSource    = slash.readText "#{__dirname}/../shader/boid_particles.frag"
-        bufferSource  = slash.readText "#{__dirname}/../shader/boid_buffer.frag"
-        @commonSource = slash.readText "#{__dirname}/../shader/boid_common.frag"
+        fragSource    = slash.readText "#{__dirname}/../shader/eye_boids.frag"
+        bufferSource  = slash.readText "#{__dirname}/../shader/eye_buffer.frag"
+        @commonSource = slash.readText "#{__dirname}/../shader/eye_common.frag"
         
         Effect.ShadersStore.mainVertexShader = @vertexShader
         Effect.ShadersStore.mainFragmentShader = @shaderCode fragSource 
