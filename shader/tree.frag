@@ -9,7 +9,7 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 #define ZERO min(iFrame,0)
 #define MAX_STEPS  128
 #define MIN_DIST   0.002
-#define MAX_DIST   15.0
+#define MAX_DIST   40.0
 #define SHADOW     0.2
 #define FLOOR      0.0
 
@@ -28,9 +28,45 @@ int  AA = 2;
 
 float planeDist;
 
-void branch(vec3 p, vec3 n)
+vec4 pivot[26];
+
+void poseSphere()
 {
-    sdSphere(p, length(p-camDir)*0.05, PLANE);    
+    pivot[0].xyz =  vx; 
+    pivot[1].xyz =  vy; 
+    pivot[2].xyz =  vz;
+    pivot[3].xyz =  vx + vy;
+    pivot[4].xyz =  vy + vz;
+    pivot[5].xyz =  vz + vx;
+    pivot[6].xyz =  vx + vy + vz;
+    
+    for (int i = 0; i <= 6; i++) pivot[i].xyz = normalize(pivot[i].xyz);
+}
+
+void calcAnim()
+{
+    for (int i = 0; i <=2; i++) pivot[i].w = 4.0 + sin(float(i)*2.0*PI/5.0+1.0*iTime*1.0);
+    for (int i = 3; i <=5; i++) pivot[i].w = 4.0 + sin(float(i)*2.0*PI/5.0+1.0*iTime*1.3);
+    for (int i = 6; i <=6; i++) pivot[i].w = 5.0 + sin(float(i)*2.0*PI/5.0+1.0*iTime*1.6);
+}
+
+float branch(int i)
+{
+    vec3 n = pivot[i].xyz * pivot[i].w;
+    float d = sdCapsule(v0, n, 0.3);
+    d = opUnion(d, sdSphere(n, 1.0));
+    
+    float f = smoothstep(0.8, 0.9, dot(abs(pivot[i].xyz), abs(camDir)));
+    d = opInter(d, sdPlane(n*(2.0-f), pivot[i].xyz), 0.2);
+    
+    return d;
+}
+
+float eye(int i)
+{
+    vec3 n = pivot[i].xyz * pivot[i].w;
+    float d = sdSphere(n, 0.8);
+    return d;
 }
 
 // 00     00   0000000   00000000   
@@ -43,8 +79,24 @@ float map(vec3 p)
 {
     gl.sdf = SDF(1000.0, p, NONE);
     
-    for (float i = 1.0; i <= 50.0; i++)
-        branch(normalize(hash31(i)*2.0-1.0), v0);
+    float d = sdSphere(v0, 2.0);
+    
+    gl.sdf.pos = abs(gl.sdf.pos);
+    for (int i = ZERO; i <=6; i++)
+    {
+        d = opUnion(d, branch(i));
+    }
+    
+    gl.sdf.mat = (d < gl.sdf.dist) ? PLANE : gl.sdf.mat;
+    gl.sdf.dist = min(d, gl.sdf.dist);
+    
+    for (int i = ZERO; i <=6; i++)
+    {
+        d = min(d, eye(i));
+    }
+
+    gl.sdf.mat = (d < gl.sdf.dist) ? BULB : gl.sdf.mat;
+    gl.sdf.dist = min(d, gl.sdf.dist);
     
     return gl.sdf.dist;
 }
@@ -210,15 +262,18 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     anim  =  keyState(KEY_RIGHT);
     occl  =  keyState(KEY_UP);
     
+    poseSphere();
+    calcAnim();
+    
     vec3 cols = v0, col = v0;
     
     if (!soft) AA = 1; 
     
    	vec2 ao = vec2(0);
     
-    float md = 5.5;
-    float mx = -gl.mp.x;
-    float my = -gl.mp.y;
+    float md = 30.0;
+    float mx = -gl.mp.x + iTime*0.15;
+    float my = -gl.mp.y + iTime*0.05;
         
     camTgt = v0; 
     camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, 89.0*my), vy, -90.0*mx);
@@ -226,7 +281,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         
     vec3 cr = cross(camDir, vec3(0,1,0));
     vec3 up = normalize(cross(cr,camDir));
-    gl.light = -0.5*cr+ 1.0*up -4.0*camDir; 
+    gl.light = (-0.2*cr + 0.5*up -camDir)*md; 
     
     vec3 uu = normalize(cross(camDir, vy));
     vec3 vv = normalize(cross(uu, camDir));
@@ -242,28 +297,18 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         vec3 rd = normalize(gl.uv.x*uu + gl.uv.y*vv + fov*camDir);
         float d = rayMarch(camPos, rd);
         
-        if (true) {
-            if (gl.sdf.mat != NONE)
-                col = vx;
-            else
-                col = vec3(d)*0.01;
-        }
+        int mat = gl.sdf.mat;
         
-        if (false) {
-            
-            int mat = gl.sdf.mat;
-            
-            vec3 p = camPos + d * rd;
-            vec3 n = getNormal(p);
-                    
-            if      (mat == PLANE) col = vec3(0.15, 0.0, 0.0);
-            else if (mat == PUPL)  col = vec3(0.1, 0.1, 0.5);
-            else if (mat == BULB)  col = vec3(1.0, 1.0, 1.0);
-            else if (mat == NONE)  col = vec3(0.22, 0.0, 0.0);
-        
-            if (light)
-                col = getLight(p, n, col, mat);
-        }
+        vec3 p = camPos + d * rd;
+        vec3 n = getNormal(p);
+                
+        if      (mat == PLANE) col = vec3(0.005);
+        else if (mat == PUPL)  col = vec3(0.1, 0.1, 0.5);
+        else if (mat == BULB)  col = vec3(0.1);
+        else if (mat == NONE)  col = vec3(0.001);
+    
+        col = getLight(p, n, col, mat);
+
         cols += col;
     }
     
@@ -273,7 +318,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     col  = pow(col, vec3(1.0/2.2));
     
     col += vec3(print(0, 0, iFrameRate));
-    // col += vec3(print(0, 1, camDir));
     
     fragColor = vec4(col,1.0);
 }

@@ -350,31 +350,27 @@ bool rayIntersectsSphere(vec3 ro, vec3 rd, vec3 ctr, float r)
 // 000   000  000        
 //  0000000   000        
 
-float opUnion(float d1, float d2)
-{
-    float k = 0.15;
-    float h = clamp(0.5 + 0.5*(d2-d1)/k, 0.0, 1.0);
-    return mix(d2, d1, h) - k*h*(1.0-h);
-}
-
-float opUnion(float d1, float d2, float k) 
+float opUnion(float d1, float d2, float k)
 {
     float h = clamp(0.5 + 0.5*(d2-d1)/k, 0.0, 1.0);
     return mix(d2, d1, h) - k*h*(1.0-h);
-}
-
-float opDiff(float d1, float d2) 
-{
-    float k = 0.05;
-    float h = clamp(0.5 - 0.5*(d2+d1)/k, 0.0, 1.0);
-    return mix(d1, -d2, h) + k*h*(1.0-h); 
 }
 
 float opDiff(float d1, float d2, float k) 
 {
     float h = clamp(0.5 - 0.5*(d2+d1)/k, 0.0, 1.0);
-    return mix(d1, -d2, h) + k*h*(1.0-h); 
+    return mix(d1, -d2, h) - k*h*(1.0-h);
 }
+
+float opInter(float d1, float d2, float k) 
+{    
+    float h = clamp(0.5 - 0.5*(d2-d1)/k, 0.0, 1.0);
+    return mix(d2, d1, h) + k*h*(1.0-h);
+}
+
+float opDiff (float d1, float d2) { return opDiff (d1, d2, 0.0); }
+float opUnion(float d1, float d2) { return opUnion(d1, d2, 0.5); }
+float opInter(float d1, float d2) { return opInter(d1, d2, 0.2); }
 
 //  0000000  0000000    
 // 000       000   000  
@@ -382,66 +378,55 @@ float opDiff(float d1, float d2, float k)
 //      000  000   000  
 // 0000000   0000000    
 
-float sdSphere(vec3 a, float r, int mat)
+
+float sdSphere(vec3 a, float r)
 {
-    vec3 p = gl.sdf.pos;
-    float d = length(p-a)-r;
-
-    gl.sdf.mat = (d < gl.sdf.dist) ? mat : gl.sdf.mat;
-    gl.sdf.dist = min(d, gl.sdf.dist);
-        
-    return d;     
+    return length(gl.sdf.pos-a)-r;
 }
 
-float sdPlane(vec3 p, vec3 a, vec3 n)
+float sdPlane(vec3 a, vec3 n)
 {   
-    return dot(n, p-a);
+    return dot(n, gl.sdf.pos-a);
 }
 
-float sdPlane(vec3 p, vec3 n)
+float sdPlane(vec3 n)
 {   
-    return dot(n, p);
+    return dot(n, gl.sdf.pos);
 }
 
-float sdEllipsoid(vec3 p, vec3 a, vec3 r)
+float sdEllipsoid(vec3 a, vec3 r)
 {
-    p = p-a;
+    vec3 p = gl.sdf.pos-a;
     float k0 = length(p/r);
     float k1 = length(p/(r*r));
     return k0*(k0-1.0)/k1;
 }
 
-float sdCone(vec3 p, vec3 a, vec3 b, float r1, float r2)
+float sdCone(vec3 a, vec3 b, float r1, float r2)
 {
     vec3 ab = b-a;
-    vec3 ap = p-a;
+    vec3 ap = gl.sdf.pos-a;
     float t = dot(ab,ap) / dot(ab,ab);
     t = clamp(t, 0.0, 1.0);
     vec3 c = a + t*ab;
-    return length(p-c)-(t*r2+(1.0-t)*r1);      
+    return length(gl.sdf.pos-c)-(t*r2+(1.0-t)*r1);      
 }
 
-float sdCapsule(vec3 a, vec3 b, float r, int mat)
+
+float sdCapsule(vec3 a, vec3 b, float r)
 {
-    vec3 p = gl.sdf.pos;
     vec3 ab = b-a;
-    vec3 ap = p-a;
+    vec3 ap = gl.sdf.pos-a;
     float t = dot(ab,ap) / dot(ab,ab);
     t = clamp(t, 0.0, 1.0);
     vec3 c = a + t*ab;
-    
-    float d = length(p-c)-r;
-
-    gl.sdf.mat = (d < gl.sdf.dist) ? mat : gl.sdf.mat;
-    gl.sdf.dist = min(d, gl.sdf.dist);
-        
-    return d;        
+    return length(gl.sdf.pos-c)-r;        
 }
 
-float sdCylinder(vec3 p, vec3 a, vec3 b, float r)
+float sdCylinder(vec3 a, vec3 b, float r)
 {
   vec3  ba = b - a;
-  vec3  pa = p - a;
+  vec3  pa = gl.sdf.pos - a;
   float baba = dot(ba,ba);
   float paba = dot(pa,ba);
   float x = length(pa*baba-ba*paba) - r*baba;
