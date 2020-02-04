@@ -13,12 +13,14 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 #define SHADOW     0.2
 #define FLOOR      0.0
 
-#define NONE  0
-#define PLANE 1
-#define BULB  2
-#define PUPL  3
+#define NONE 0
+#define SKIN 1
+#define BULB 2
+#define PUPL 3
 
-bool anim, soft, occl, light;
+#define NUM_EYES 7
+
+bool anim, soft, occl, light, dither;
 
 vec3 camPos;
 vec3 camTgt;
@@ -26,7 +28,7 @@ vec3 camDir;
 
 int  AA = 2;
 
-float planeDist;
+float SKINDist;
 
 vec4 pivot[26];
 
@@ -82,15 +84,15 @@ float map(vec3 p)
     float d = sdSphere(v0, 2.0);
     
     gl.sdf.pos = abs(gl.sdf.pos);
-    for (int i = ZERO; i <=6; i++)
+    for (int i = ZERO; i < NUM_EYES; i++)
     {
         d = opUnion(d, branch(i));
     }
     
-    gl.sdf.mat = (d < gl.sdf.dist) ? PLANE : gl.sdf.mat;
+    gl.sdf.mat = (d < gl.sdf.dist) ? SKIN : gl.sdf.mat;
     gl.sdf.dist = min(d, gl.sdf.dist);
     
-    for (int i = ZERO; i <=6; i++)
+    for (int i = ZERO; i < NUM_EYES; i++)
     {
         d = min(d, eye(i));
     }
@@ -202,7 +204,7 @@ vec3 getLight(vec3 p, vec3 n, vec3 col, int mat)
     
     vec3 l = normalize(gl.light-p);
  
-    float ambient = 0.5;
+    float ambient = 0.05;
     float dif = clamp(dot(n,l), 0.0, 1.0);
     
     if (mat == PUPL)
@@ -217,12 +219,12 @@ vec3 getLight(vec3 p, vec3 n, vec3 col, int mat)
         dif = mix(pow(dif, 32.0), 3.0*dif+1.0, 0.2);
         ambient = 0.12;
     }
-    else if (mat == PLANE)
+    else if (mat == SKIN)
     {
         dif = mix(pow(dif, 2.0), dif, 0.2);
     }
     
-    if (mat == PLANE || mat == BULB)
+    if (mat == SKIN || mat == BULB)
     {
         dif *= softShadow(p, gl.light, 6.0);        
     }
@@ -234,12 +236,13 @@ vec3 getLight(vec3 p, vec3 n, vec3 col, int mat)
     
    	if (mat == PUPL || mat == BULB)
     {
-        col += vec3(pow(clamp01(smoothstep(0.9,1.0,dot(n, l))), 20.0));
+        col += vec3(pow(clamp01(smoothstep(0.9,1.0,dot(n, l))), 0.8));
     }
-    else if (mat == PLANE)
+    else if (mat == SKIN)
     {
         col += col*vec3(pow(clamp01(smoothstep(0.25,1.0,dot(n, l))), 2.0));
-        col += col*vec3(pow(clamp01(smoothstep(0.9,1.0,dot(n, l))), 4.0));
+        col += 0.5*col*vec3(pow(clamp01(smoothstep(0.5,0.55,dot(n, l))), 11.8));
+        col += vec3(pow(clamp01(smoothstep(0.989,1.0,dot(n, l))), 0.5));
     }
     
     if (light) col = clamp(col, 0.0, 1.0);
@@ -257,10 +260,11 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     initGlobal(fragCoord, iResolution, iMouse, iTime);
     for (int i = KEY_1; i <= KEY_9; i++) { if (keyDown(i)) { gl.option = i-KEY_1+1; break; } }
     
-    soft  = !keyState(KEY_DOWN);
-    light = !keyState(KEY_LEFT);
-    anim  =  keyState(KEY_RIGHT);
-    occl  =  keyState(KEY_UP);
+    soft   = !keyState(KEY_DOWN);
+    light  = !keyState(KEY_LEFT);
+    anim   =  keyState(KEY_RIGHT);
+    occl   =  keyState(KEY_UP);
+    dither =  keyState(KEY_SPACE);
     
     poseSphere();
     calcAnim();
@@ -302,10 +306,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         vec3 p = camPos + d * rd;
         vec3 n = getNormal(p);
                 
-        if      (mat == PLANE) col = vec3(0.005);
-        else if (mat == PUPL)  col = vec3(0.1, 0.1, 0.5);
-        else if (mat == BULB)  col = vec3(0.1);
-        else if (mat == NONE)  col = vec3(0.001);
+        if      (mat == SKIN) col = vec3(0.4, 0.0, 0.0);
+        else if (mat == PUPL) col = vec3(0.1, 0.1, 0.5);
+        else if (mat == BULB) col = vec3(0.95);
+        else if (mat == NONE) col = vec3(0.1, 0.1, 0.6);
     
         col = getLight(p, n, col, mat);
 
@@ -314,10 +318,17 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     col = cols/float(AA*AA);
     
-    col *= pow(clamp01(1.2*gl.aspect-length(gl.uv)), 0.5);
+    col += vec3(print(0, 0, iFrameRate));
+    
+    if (dither)
+    {
+        float dit = gradientNoise(fragCoord.xy);
+        col += vec3(dit/1024.0);
+    }
+    
     col  = pow(col, vec3(1.0/2.2));
     
-    col += vec3(print(0, 0, iFrameRate));
+    col *= vec3(smoothstep(1.8, 0.5, length(gl.uv)/max(gl.aspect,1.0)));
     
     fragColor = vec4(col,1.0);
 }
