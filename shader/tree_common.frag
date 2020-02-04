@@ -1,6 +1,7 @@
-#define PI 3.141592653589
-#define E  2.718281828459
-#define EPSILON 0.0000001
+#define PI  3.141592653589
+#define TAU 6.283185307178
+#define E   2.718281828459
+#define EPS 0.000000000001
 
 #define KEY_LEFT  37
 #define KEY_UP    38
@@ -9,6 +10,16 @@
 #define KEY_SPACE 32
 #define KEY_1     49
 #define KEY_9     57
+#define KEY_A     65
+#define KEY_C     67
+#define KEY_D     68
+#define KEY_E     69
+#define KEY_Q     81
+#define KEY_R     82
+#define KEY_S     83
+#define KEY_W     87
+#define KEY_X     88
+#define KEY_Z     90
 
 const vec3 v0 = vec3(0,0,0);
 const vec3 vx = vec3(1,0,0);
@@ -109,6 +120,7 @@ float print(ivec2 pos, float v)
     if (v < 0.0) c = max(c, print(p-i*a, 45)*float(i)/30.0);
     return c;
 }
+
 float print(ivec2 pos, vec4 v)
 {
     float c = 0.0;
@@ -136,10 +148,12 @@ float print(ivec2 pos, vec2 v)
     return c;
 }
 
+float print(int x, int y, int v)   { return print(ivec2(text.size.x*x,text.size.y*y), float(v)); }
 float print(int x, int y, float v) { return print(ivec2(text.size.x*x,text.size.y*y), v); }
 float print(int x, int y, vec4 v)  { return print(ivec2(text.size.x*x,text.size.y*y), v); }
 float print(int x, int y, vec3 v)  { return print(ivec2(text.size.x*x,text.size.y*y), v); }
 float print(int x, int y, vec2 v)  { return print(ivec2(text.size.x*x,text.size.y*y), v); }
+float print(int x, int y, ivec3 v) { return print(ivec2(text.size.x*x,text.size.y*y), vec3(v)); }
 
 // 000   000   0000000    0000000  000   000  
 // 000   000  000   000  000       000   000  
@@ -198,9 +212,9 @@ vec3 rgb2hsl( vec3 col )
     float minc = min( col.r, min(col.g, col.b) );
     float maxc = max( col.r, max(col.g, col.b) );
     vec3  mask = step(col.grr,col.rgb) * step(col.bbg,col.rgb);
-    vec3 h = mask * (vec3(0.0,2.0,4.0) + (col.gbr-col.brg)/(maxc-minc + EPSILON)) / 6.0;
+    vec3 h = mask * (vec3(0.0,2.0,4.0) + (col.gbr-col.brg)/(maxc-minc + EPS)) / 6.0;
     return vec3( fract( 1.0 + h.x + h.y + h.z ),              
-                 (maxc-minc)/(1.0-abs(minc+maxc-1.0) + EPSILON),  
+                 (maxc-minc)/(1.0-abs(minc+maxc-1.0) + EPS),  
                  (minc+maxc)*0.5 );                           
 }
 
@@ -227,6 +241,9 @@ mat3 alignMatrix(vec3 dir)
 float rad2deg(float r) { return 180.0 * r / PI; }
 float deg2rad(float d) { return PI * d / 180.0; }
 
+vec3 rad2deg(vec3 v) { return 180.0 * v / PI; }
+vec3 deg2rad(vec3 v) { return PI * v / 180.0; }
+
 mat3 rotMat(vec3 u, float angle)
 {
     float s = sin(deg2rad(angle));
@@ -244,6 +261,46 @@ vec3 rotAxisAngle(vec3 position, vec3 axis, float angle)
 {
     mat3 m = rotMat(axis, angle);
     return m * position;
+}
+
+// 00000000    0000000   000       0000000   00000000   
+// 000   000  000   000  000      000   000  000   000  
+// 00000000   000   000  000      000000000  0000000    
+// 000        000   000  000      000   000  000   000  
+// 000         0000000   0000000  000   000  000   000  
+
+vec3 polar(vec3 v)
+{
+    float radius = length(v);
+    float phi    = atan(v.y, v.x);
+    float rho    = acos(v.z/radius);
+    return vec3(phi, rho, radius);
+}
+
+vec3 unpolar(vec3 v)
+{
+    float s = sin(v.y);
+    float x = s * cos(v.x);
+    float y = s * sin(v.x);
+    float z =     cos(v.y);
+    return vec3(x, y, z)*v.z;
+}
+
+vec3 polar2(vec3 v)
+{
+    float radius = length(v);
+    float phi    = atan(v.z, v.x);
+    float rho    = acos(v.y/radius);
+    return vec3(phi, rho, radius);
+}
+
+vec3 unpolar2(vec3 v)
+{
+    float s = sin(v.y);
+    float x = s * cos(v.x);
+    float z = s * sin(v.x);
+    float y =     cos(v.y);
+    return vec3(x, y, z)*v.z;
 }
 
 //  0000000   000   000   0000000   000000000  
@@ -271,20 +328,6 @@ vec4 quatMul(vec4 q1, vec4 q2)
     qr.z = (q1.w * q2.z) + (q1.x * q2.y) - (q1.y * q2.x) + (q1.z * q2.w);
     qr.w = (q1.w * q2.w) - (q1.x * q2.x) - (q1.y * q2.y) - (q1.z * q2.z);
     return qr;
-}
-
-vec3 rotate(vec4 q, vec3 p)
-{
-    vec4 conj = quatConj(q);
-    vec4 q_tmp = quatMul(q, vec4(p, 0));
-    return quatMul(q_tmp, conj).xyz;
-}
-
-vec3 rotate(vec4 q, vec3 o, vec3 p)
-{
-    vec4 conj = quatConj(q);
-    vec4 q_tmp = quatMul(q, vec4(p-o, 0));
-    return o + quatMul(q_tmp, conj).xyz;
 }
 
 vec3 rotAxisAngleQuat(vec3 p, vec3 axis, float angle)

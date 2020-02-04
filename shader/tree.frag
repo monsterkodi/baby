@@ -18,9 +18,9 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 #define BULB 2
 #define PUPL 3
 
-#define NUM_EYES 7
+#define NUM_EYES 1
 
-bool anim, soft, occl, light, dither;
+bool anim, soft, occl, light, dither, rotate;
 
 vec3 camPos;
 vec3 camTgt;
@@ -30,43 +30,26 @@ int  AA = 2;
 
 float SKINDist;
 
-vec4 pivot[26];
-
-void poseSphere()
-{
-    pivot[0].xyz =  vx; 
-    pivot[1].xyz =  vy; 
-    pivot[2].xyz =  vz;
-    pivot[3].xyz =  vx + vy;
-    pivot[4].xyz =  vy + vz;
-    pivot[5].xyz =  vz + vx;
-    pivot[6].xyz =  vx + vy + vz;
-    
-    for (int i = 0; i <= 6; i++) pivot[i].xyz = normalize(pivot[i].xyz);
-}
+vec4 pivot = vec4(normalize(vec3(1)), 0);
 
 void calcAnim()
 {
-    for (int i = 0; i <=2; i++) pivot[i].w = 4.0 + sin(float(i)*2.0*PI/5.0+1.0*iTime*1.0);
-    for (int i = 3; i <=5; i++) pivot[i].w = 4.0 + sin(float(i)*2.0*PI/5.0+1.0*iTime*1.3);
-    for (int i = 6; i <=6; i++) pivot[i].w = 5.0 + sin(float(i)*2.0*PI/5.0+1.0*iTime*1.6);
+    pivot.w = 4.0 + sin(1.0*iTime*1.0);
 }
 
-float branch(int i)
+float branch(float open)
 {
-    vec3 n = pivot[i].xyz * pivot[i].w;
+    vec3 n = pivot.xyz * pivot.w;
     float d = sdCapsule(v0, n, 0.3);
-    d = opUnion(d, sdSphere(n, 1.0));
-    
-    float f = smoothstep(0.8, 0.9, dot(abs(pivot[i].xyz), abs(camDir)));
-    d = opInter(d, sdPlane(n*(2.0-f), pivot[i].xyz), 0.2);
+    d = opUnion(d, sdSphere(n, 1.0));    
+    d = opInter(d, sdPlane(n*(2.0-open), pivot.xyz), 0.2);
     
     return d;
 }
 
-float eye(int i)
+float eye()
 {
-    vec3 n = pivot[i].xyz * pivot[i].w;
+    vec3 n = pivot.xyz * pivot.w;
     float d = sdSphere(n, 0.8);
     return d;
 }
@@ -77,24 +60,65 @@ float eye(int i)
 // 000 0 000  000   000  000        
 // 000   000  000   000  000        
 
+ivec3 iv26(vec3 p)
+{
+    return ivec3(0);
+} 
+
+int id26(vec3 p) 
+{
+    ivec3 v = iv26(p);
+    ivec3 a = abs(v);
+    int sum = a.x + a.y + a.z;
+    int ssm = v.x + v.y + v.z;
+    if (sum == 1) // 6 faces
+        return a.y*2+a.z*4 + (ssm > 0 ? 0 : 1);
+    else if (sum == 3) // 8 corners
+        return 6 + (v.y*2+2) + (a.z+v.z)/2 + (v.x > 0 ? 0 : 4);
+    else // 12 edges
+        return 14+0;
+}
+
 float map(vec3 p)
 {
+    // float open = smoothstep(0.9, 0.8, dot(p, camDir));
+    float open = smoothstep(0.9999, 0.9980, sin(iTime*1.1)*0.5+0.5);
+    
+    open = id26(p) == 0 ? 1.0 : open;
+
+    // if (gl.option == 2 || gl.option == 3)
+        p = abs(p);
+     
+    vec3 r;
+    
+    r = polar(p);
+        
+    // if (gl.option == 1 || gl.option == 3)
+    {
+        if (r.x < (PI/2.0)/4.0) 
+        {
+            r.x += (PI/2.0)/2.0;
+        }
+        else if (r.x > 3.0*(PI/2.0)/4.0)
+        {
+            r.x -= (PI/2.0)/2.0;
+        }
+    }
+    
+    p = unpolar(r);
+                
     gl.sdf = SDF(1000.0, p, NONE);
     
-    float d = sdSphere(v0, 2.0);
-    
-    gl.sdf.pos = abs(gl.sdf.pos);
-    for (int i = ZERO; i < NUM_EYES; i++)
-    {
-        d = opUnion(d, branch(i));
-    }
+    float d = sdSphere(v0, 2.0-0.2*smoothstep(1.0, 0.8, sin(iTime*TAU)*0.5+0.5));
+
+    d = opUnion(d, branch(open), 0.3);
     
     gl.sdf.mat = (d < gl.sdf.dist) ? SKIN : gl.sdf.mat;
     gl.sdf.dist = min(d, gl.sdf.dist);
     
-    for (int i = ZERO; i < NUM_EYES; i++)
+    if (open > 0.8f)
     {
-        d = min(d, eye(i));
+        d = min(d, eye());
     }
 
     gl.sdf.mat = (d < gl.sdf.dist) ? BULB : gl.sdf.mat;
@@ -152,8 +176,7 @@ float softShadow(vec3 ro, vec3 lp, float k)
     for (int i=0; i<25; i++)
     {
         float h = map(ro+rd*dist);
-        //if (s.mat != BBOX)
-            shade = min(shade, k*h/dist);
+        shade = min(shade, k*h/dist);
         dist += clamp(h, 0.02, stepDist*2.0);
         
         if (h < 0.0 || dist > end) break; 
@@ -228,11 +251,14 @@ vec3 getLight(vec3 p, vec3 n, vec3 col, int mat)
     {
         dif *= softShadow(p, gl.light, 6.0);        
     }
-       
+    
+    float df = smoothstep(7.0, 2.0, length(p));
+    col = mix(vec3((col.x+col.y+col.z)/3.0), col, df*(1.0-smoothstep(1.0, 0.8, sin(iTime*TAU)*0.5+0.5)));
+    
     col *= clamp(dif, ambient, 1.0);
     col *= getOcclusion(p, n);
     
-    if (light) col = vec3(dif*getOcclusion(p, n));
+    if (light) col = vec3(vec3((col.x+col.y+col.z)/3.0)*clamp(dif, ambient, 1.0)*getOcclusion(p, n));
     
    	if (mat == PUPL || mat == BULB)
     {
@@ -264,9 +290,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     light  = !keyState(KEY_LEFT);
     anim   =  keyState(KEY_RIGHT);
     occl   =  keyState(KEY_UP);
-    dither =  keyState(KEY_SPACE);
+    dither =  keyState(KEY_D);
+    rotate = !keyState(KEY_R);
     
-    poseSphere();
     calcAnim();
     
     vec3 cols = v0, col = v0;
@@ -276,8 +302,15 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
    	vec2 ao = vec2(0);
     
     float md = 30.0;
-    float mx = -gl.mp.x + iTime*0.15;
-    float my = -gl.mp.y + iTime*0.05;
+    
+    float mx = -gl.mp.x*2.0;
+    float my = -gl.mp.y*2.0;
+    
+    if (rotate) 
+    {
+        mx += iTime*0.15;
+        my += iTime*0.05;
+    }
         
     camTgt = v0; 
     camPos = rotAxisAngle(rotAxisAngle(vec3(0,0,md), vx, 89.0*my), vy, -90.0*mx);
@@ -289,7 +322,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     vec3 uu = normalize(cross(camDir, vy));
     vec3 vv = normalize(cross(uu, camDir));
-    float fov = 4.0 + float(gl.option);
+    
+    float fov = 4.0;
+    if (gl.option > 3) fov += float(gl.option);
     
     for( int am=ZERO; am<AA; am++ )
     for( int an=ZERO; an<AA; an++ )
@@ -320,10 +355,18 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     col += vec3(print(0, 0, iFrameRate));
     
+    col += vec3(print(0, 3, iv26(vx)));
+    col += vec3(print(0, 2, iv26(vy)));
+    col += vec3(print(0, 1, iv26(vz)));
+
+    // col += vec3(print(0, 6, unpolar(polar(vx))));
+    // col += vec3(print(0, 5, unpolar(polar(vy))));
+    // col += vec3(print(0, 4, unpolar(polar(vz))));
+    
     if (dither)
     {
         float dit = gradientNoise(fragCoord.xy);
-        col += vec3(dit/1024.0);
+        col -= vec3(dit/256.0);
     }
     
     col  = pow(col, vec3(1.0/2.2));
