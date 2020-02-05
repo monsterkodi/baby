@@ -82,6 +82,44 @@ const vec3 cubo[26] = vec3[26](
     normalize(vec3(-1,-1,-1))
 );
 
+const vec3 dodeca[12] = vec3[12](
+    normalize(vec3(0, 1, PHI)),
+    normalize(vec3(0,-1, PHI)),
+    normalize(vec3(0,-1,-PHI)),
+    normalize(vec3(0, 1,-PHI)),
+    normalize(vec3( 1, PHI,0)),
+    normalize(vec3(-1, PHI,0)),
+    normalize(vec3(-1,-PHI,0)),
+    normalize(vec3( 1,-PHI,0)),
+    normalize(vec3( PHI, 0,  1)),
+    normalize(vec3( PHI, 0, -1)),
+    normalize(vec3(-PHI, 0, -1)),
+    normalize(vec3(-PHI, 0,  1))
+);
+
+const vec3 icosa[20] = vec3[20](
+    normalize(vec3( 1, 1,-1)),
+    normalize(vec3( 1, 1, 1)),
+    normalize(vec3( 1,-1,-1)),
+    normalize(vec3( 1,-1, 1)),
+    normalize(vec3(-1, 1,-1)),
+    normalize(vec3(-1, 1, 1)),
+    normalize(vec3(-1,-1,-1)),
+    normalize(vec3(-1,-1, 1)),
+    normalize(vec3(0, PHI,  1.0/PHI)),
+    normalize(vec3(0, PHI, -1.0/PHI)),
+    normalize(vec3(0,-PHI, -1.0/PHI)),
+    normalize(vec3(0,-PHI,  1.0/PHI)),
+    normalize(vec3( PHI,  1.0/PHI, 0)),
+    normalize(vec3( PHI, -1.0/PHI, 0)),
+    normalize(vec3(-PHI, -1.0/PHI, 0)),
+    normalize(vec3(-PHI,  1.0/PHI, 0)),
+    normalize(vec3( 1.0/PHI, 0, PHI)),
+    normalize(vec3(-1.0/PHI, 0, PHI)),
+    normalize(vec3(-1.0/PHI, 0,-PHI)),
+    normalize(vec3( 1.0/PHI, 0,-PHI))
+);
+
 vec3 v26(vec3 p)
 {
     float d = 0.0;
@@ -107,44 +145,6 @@ vec3 map26(vec3 p)
     basis(m,r,f);
     return vec3(dot(r,q),dot(m,q),dot(f,q));
 }
-
-const vec3 dodeca[12] = vec3[12](
-    normalize(vec3(0, PHI, 1)),
-    normalize(vec3(0, PHI,-1)),
-    normalize(vec3(0,-PHI,-1)),
-    normalize(vec3(0,-PHI, 1)),
-    normalize(vec3( PHI, 1,0)),
-    normalize(vec3( PHI,-1,0)),
-    normalize(vec3(-PHI,-1,0)),
-    normalize(vec3(-PHI, 1,0)),
-    normalize(vec3( 1,0, PHI)),
-    normalize(vec3(-1,0, PHI)),
-    normalize(vec3(-1,0,-PHI)),
-    normalize(vec3( 1,0,-PHI))
-);
-
-const vec3 icosa[20] = vec3[20](
-    normalize(vec3( 1, 1,-1)),
-    normalize(vec3( 1, 1, 1)),
-    normalize(vec3( 1,-1,-1)),
-    normalize(vec3( 1,-1, 1)),
-    normalize(vec3(-1, 1,-1)),
-    normalize(vec3(-1, 1, 1)),
-    normalize(vec3(-1,-1,-1)),
-    normalize(vec3(-1,-1, 1)),
-    normalize(vec3(0, PHI,  1.0/PHI)),
-    normalize(vec3(0, PHI, -1.0/PHI)),
-    normalize(vec3(0,-PHI, -1.0/PHI)),
-    normalize(vec3(0,-PHI,  1.0/PHI)),
-    normalize(vec3( PHI,  1.0/PHI, 0)),
-    normalize(vec3( PHI, -1.0/PHI, 0)),
-    normalize(vec3(-PHI, -1.0/PHI, 0)),
-    normalize(vec3(-PHI,  1.0/PHI, 0)),
-    normalize(vec3( 1.0/PHI, 0, PHI)),
-    normalize(vec3(-1.0/PHI, 0, PHI)),
-    normalize(vec3(-1.0/PHI, 0,-PHI)),
-    normalize(vec3( 1.0/PHI, 0,-PHI))
-);
 
 vec3 v20(vec3 p)
 {
@@ -192,6 +192,26 @@ vec3 v12(vec3 p)
 vec3 map12(vec3 p)
 {
     vec3 m = v12(p);
+    vec3 q = p-m;
+    vec3 r, f;
+    basis(m,r,f);
+    return vec3(dot(r,q),dot(m,q),dot(f,q));
+}
+
+vec3 v32(vec3 p)
+{
+    vec3  n = normalize(p);
+    vec3  m1 = v12(p);
+    vec3  m2 = v20(p);
+    float d1 = dot(n,m1);
+    float d2 = dot(n,m2);
+    if (d1 > d2) return m1;
+    return m2;
+}
+
+vec3 map32(vec3 p)
+{
+    vec3 m = v32(p);
     vec3 q = p-m;
     vec3 r, f;
     basis(m,r,f);
@@ -318,7 +338,7 @@ float map(vec3 p)
     } 
     else if (gl.option==1)
     {
-        p = map26(p);
+        p = map32(p);
     }
     else
     {
