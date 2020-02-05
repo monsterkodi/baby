@@ -18,7 +18,7 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 #define BULB 2
 #define PUPL 3
 
-#define NUM_EYES 1
+#define EYE_RADIUS 0.8
 
 bool anim, soft, occl, light, dither, rotate;
 
@@ -28,30 +28,271 @@ vec3 camDir;
 
 int  AA = 2;
 
-float SKINDist;
+void basis(vec3 n, out vec3 right, out vec3 front) 
+{
+    if (n.y < -0.999999)
+    {
+        right = -vz;
+        front = -vx;
+    } 
+    else 
+    {
+        float a = 1.0/(1.0+n.y);
+        float b = -n.x*n.z*a;
+        right = vec3(1.0-n.x*n.x*a,-n.x,b);
+        front = vec3(b,-n.z,1.0-n.z*n.z*a);
+    }
+}
 
-vec4 pivot = vec4(normalize(vec3(1)), 0);
+// 00000     000     
+//    000   000      
+//   000   0000000   
+//  000    000  000  
+// 000000   000000   
+
+
+const vec3 cubo[26] = vec3[26](
+    normalize(vec3( 0, 0, 1)),
+    normalize(vec3( 0, 0,-1)),
+    normalize(vec3( 0, 1, 0)),
+    normalize(vec3( 0,-1, 0)),
+    normalize(vec3( 1, 0, 0)),
+
+    normalize(vec3(-1, 0, 0)),
+    normalize(vec3( 1, 1, 0)),
+    normalize(vec3( 1,-1, 0)),
+    normalize(vec3(-1, 1, 0)),
+    normalize(vec3(-1,-1, 0)),
+    normalize(vec3( 1, 0, 1)),
+    normalize(vec3( 1, 0,-1)),
+    normalize(vec3(-1, 0, 1)),
+    normalize(vec3(-1, 0,-1)),
+    normalize(vec3( 0, 1, 1)),
+    normalize(vec3( 0, 1,-1)),
+    normalize(vec3( 0,-1, 1)),
+    normalize(vec3( 0,-1,-1)),
+    
+    normalize(vec3( 1, 1, 1)),
+    normalize(vec3( 1, 1,-1)),
+    normalize(vec3( 1,-1, 1)),
+    normalize(vec3(-1, 1, 1)),
+    normalize(vec3( 1,-1,-1)),
+    normalize(vec3(-1, 1,-1)),
+    normalize(vec3(-1,-1, 1)),
+    normalize(vec3(-1,-1,-1))
+);
+
+vec3 v26(vec3 p)
+{
+    float d = 0.0;
+    int id = -1;
+    vec3 n = normalize(p);
+    for (int i = 0; i < 26; i++)
+    {
+        float dt = dot(n,cubo[i]);
+        if (dt > d)
+        {
+            d = dt;
+            id = i;
+        }
+    }
+    return cubo[id];
+}
+
+vec3 map26(vec3 p)
+{
+    vec3 m = v26(p);
+    vec3 q = p-m;
+    vec3 r, f;
+    basis(m,r,f);
+    return vec3(dot(r,q),dot(m,q),dot(f,q));
+}
+
+const vec3 dodeca[12] = vec3[12](
+    normalize(vec3(0, PHI, 1)),
+    normalize(vec3(0, PHI,-1)),
+    normalize(vec3(0,-PHI,-1)),
+    normalize(vec3(0,-PHI, 1)),
+    normalize(vec3( PHI, 1,0)),
+    normalize(vec3( PHI,-1,0)),
+    normalize(vec3(-PHI,-1,0)),
+    normalize(vec3(-PHI, 1,0)),
+    normalize(vec3( 1,0, PHI)),
+    normalize(vec3(-1,0, PHI)),
+    normalize(vec3(-1,0,-PHI)),
+    normalize(vec3( 1,0,-PHI))
+);
+
+const vec3 icosa[20] = vec3[20](
+    normalize(vec3( 1, 1,-1)),
+    normalize(vec3( 1, 1, 1)),
+    normalize(vec3( 1,-1,-1)),
+    normalize(vec3( 1,-1, 1)),
+    normalize(vec3(-1, 1,-1)),
+    normalize(vec3(-1, 1, 1)),
+    normalize(vec3(-1,-1,-1)),
+    normalize(vec3(-1,-1, 1)),
+    normalize(vec3(0, PHI,  1.0/PHI)),
+    normalize(vec3(0, PHI, -1.0/PHI)),
+    normalize(vec3(0,-PHI, -1.0/PHI)),
+    normalize(vec3(0,-PHI,  1.0/PHI)),
+    normalize(vec3( PHI,  1.0/PHI, 0)),
+    normalize(vec3( PHI, -1.0/PHI, 0)),
+    normalize(vec3(-PHI, -1.0/PHI, 0)),
+    normalize(vec3(-PHI,  1.0/PHI, 0)),
+    normalize(vec3( 1.0/PHI, 0, PHI)),
+    normalize(vec3(-1.0/PHI, 0, PHI)),
+    normalize(vec3(-1.0/PHI, 0,-PHI)),
+    normalize(vec3( 1.0/PHI, 0,-PHI))
+);
+
+vec3 v20(vec3 p)
+{
+    float d = 0.0;
+    int id = -1;
+    vec3 n = normalize(p);
+    for (int i = 0; i < 20; i++)
+    {
+        float dt = dot(n,icosa[i]);
+        if (dt > d)
+        {
+            d = dt;
+            id = i;
+        }
+    }
+    return icosa[id];
+}
+
+vec3 map20(vec3 p)
+{
+    vec3 m = v20(p);
+    vec3 q = p-m;
+    vec3 r, f;
+    basis(m,r,f);
+    return vec3(dot(r,q),dot(m,q),dot(f,q));
+}
+
+vec3 v12(vec3 p)
+{
+    float d = 0.0;
+    int id = -1;
+    vec3 n = normalize(p);
+    for (int i = 0; i < 12; i++)
+    {
+        float dt = dot(n,dodeca[i]);
+        if (dt > d)
+        {
+            d = dt;
+            id = i;
+        }
+    }
+    return dodeca[id];
+}
+
+vec3 map12(vec3 p)
+{
+    vec3 m = v12(p);
+    vec3 q = p-m;
+    vec3 r, f;
+    basis(m,r,f);
+    return vec3(dot(r,q),dot(m,q),dot(f,q));
+}
+
+// 00000000  000  0000000    
+// 000       000  000   000  
+// 000000    000  0000000    
+// 000       000  000   000  
+// 000       000  0000000    
+
+vec4 sphericalFibonacci(vec3 p, float num)
+{
+    float m   = 1.0-1.0/num;
+    float phi = min(atan(p.y,p.x),PI);
+    float k   = max(2.0, floor(log(num*PI*sqrt(5.0)*(1.0-p.z*p.z))/log(PHI+1.0)));
+    float Fk  = pow(PHI,k)/sqrt(5.0);
+    vec2  F   = vec2(round(Fk), round(Fk*PHI));
+    vec2  ka  = 2.0*F/num;
+    vec2  kb  = 2.0*PI*(fract((F+1.0)*PHI)-(PHI-1.0));    
+    mat2  iB  = mat2(ka.y,-ka.x, kb.y,-kb.x)/(ka.y*kb.x-ka.x*kb.y);
+    
+    vec2  c   = floor(iB*vec2(phi, p.z-m));
+    float d   = 0.0;
+    vec4  res = vec4(0);
+    
+    for (int s=0; s<4; s++)
+    {
+        vec2  uv  = vec2(s&1,s>>1);
+        float i   = dot(F,uv+c); 
+        float phi = 2.0*PI*fract(i*PHI);
+        float cot = m-2.0*i/num; 
+        float sit = sqrt(1.0-cot*cot); 
+        vec3  q   = vec3(cos(phi)*sit, sin(phi)*sit, cot);
+        float d1  = dot(p,q);
+        if (d1 > d)
+        {
+            d   = d1;
+            // res = vec4(q,d);
+            res = vec4(q,i);
+        }
+    }
+    return res;
+}
+
+//  0000000  000000000   0000000   000      000   000  
+// 000          000     000   000  000      000  000   
+// 0000000      000     000000000  000      0000000    
+//      000     000     000   000  000      000  000   
+// 0000000      000     000   000  0000000  000   000  
+
+vec4 pivot = vec4(vy, 0);
 
 void calcAnim()
 {
     pivot.w = 4.0 + sin(1.0*iTime*1.0);
 }
 
-float branch(float open)
+float stalk(float open)
 {
     vec3 n = pivot.xyz * pivot.w;
     float d = sdCapsule(v0, n, 0.3);
-    d = opUnion(d, sdSphere(n, 1.0));    
+    d = opUnion(d, sdSphere(n, EYE_RADIUS*1.25));    
     d = opInter(d, sdPlane(n*(2.0-open), pivot.xyz), 0.2);
-    
     return d;
 }
 
-float eye()
+// 00000000  000   000  00000000  
+// 000        000 000   000       
+// 0000000     00000    0000000   
+// 000          000     000       
+// 00000000     000     00000000  
+
+void eye(float id)
 {
-    vec3 n = pivot.xyz * pivot.w;
-    float d = sdSphere(n, 0.8);
-    return d;
+    vec3 pos = pivot.xyz * pivot.w;
+    vec3 n = pivot.xyz;
+    float r = EYE_RADIUS;
+    float d = sdSphere(pos, r);
+    
+    if (d < gl.sdf.dist) { gl.sdf.mat = BULB; gl.sdf.dist = d; }
+    if (d > gl.sdf.dist+r) return;
+    
+    return;
+    
+    vec3 hsh1 = hash31(id+floor(iTime*id/(id-0.5)*0.2));
+    vec3 hsh2 = hash31(id+floor(iTime*id/(id-0.5)*0.3));
+    
+    n  = normalize(n+(hsh1 + hsh2 - 1.0)*(dot(n,vz)-0.5));
+    
+    vec3 pupil = pos+1.0*r*n;
+    vec3 lens  = pos+0.5*r*n;
+    
+    d = opDiff(d, sdSphere(pupil, r*0.75), r*0.1);
+
+    if (d < gl.sdf.dist) { gl.sdf.mat = BULB; gl.sdf.dist = d; }
+    
+    d = min(d, sdEllipsoid(lens, r*vec3(0.7, 0.7, 0.35)));
+    
+    if (d < gl.sdf.dist) { gl.sdf.mat = PUPL; gl.sdf.dist = d; }
 }
 
 // 00     00   0000000   00000000   
@@ -60,87 +301,45 @@ float eye()
 // 000 0 000  000   000  000        
 // 000   000  000   000  000        
 
-ivec3 iv26(vec3 p)
-{
-    vec3 n = normalize(p);
-    float dx = dot(n, vx);
-    float dy = dot(n, vy);
-    float dz = dot(n, vz);
-    float dp = cos(3.0*PI/8.0);
-    float dn = cos(5.0*PI/8.0);
-    return ivec3(dx>=dp?1:dx<=dn?-1:0, dy>=dp?1:dy<=dn?-1:0, dz>=dp?1:dz<=dn?-1:0);
-} 
-
-int id26(vec3 p) 
-{
-    ivec3 v = iv26(p);
-    ivec3 a = abs(v);
-    int sum = a.x + a.y + a.z;
-    int ssm = v.x + v.y + v.z;
-    if (sum == 1) // 6 faces
-        return a.y*2+a.z*4 + (ssm > 0 ? 0 : 1);
-    else if (sum == 3) // 8 corners
-        return 6 + (v.y*2+2)/2 + (a.z+v.z)/2 + (v.x > 0 ? 0 : 4);
-    else // 12 edges
-        return 14 + (4+v.x*4) + (v.x == 0 ? (1+v.y + (v.z+1)/2) : ((1-a.y)*(v.z+1)/2) + (1-a.z)*(2+(v.y+1)/2));
-}
-
-vec3 map26(vec3 p)
-{
-    return p;
-}
-
-vec3 unmap26(vec3 p)
-{
-    return p;
-}
-
 float map(vec3 p)
 {
     // float open = smoothstep(0.9, 0.8, dot(p, camDir));
     float open = smoothstep(0.9999, 0.9980, sin(iTime*1.1)*0.5+0.5);
     
-    int id = id26(p);
-    open = id == 9 ? 0.0 : open;
-
-    if (gl.option == 2 || gl.option == 3)
-        p = abs(p);
-     
-    vec3 r;
-    
-    r = polar(p);
-        
-    if (gl.option == 1 || gl.option == 3)
+    if (gl.option==2) 
     {
-        if (r.x < (PI/2.0)/4.0) 
-        {
-            r.x += (PI/2.0)/2.0;
-        }
-        else if (r.x > 3.0*(PI/2.0)/4.0)
-        {
-            r.x -= (PI/2.0)/2.0;
-        }
+        vec3 r,f;
+        vec4 fib = sphericalFibonacci(normalize(p),32.0);
+        vec3 q = p-fib.xyz;
+        vec3 n = normalize(fib.xyz);
+        basis(n,r,f);
+        p = vec3(dot(r,q),dot(n,q),dot(f,q));
+        open = (mod(fib.w, 2.0) == 0.0) ? 0.0 : open;
+    } 
+    else if (gl.option==1)
+    {
+        p = map26(p);
+    }
+    else
+    {
+        p = map20(p);
     }
     
-    p = unpolar(r);
-                
     gl.sdf = SDF(1000.0, p, NONE);
     
-    float d = sdSphere(v0, 2.0-0.2*smoothstep(1.0, 0.8, sin(iTime*TAU)*0.5+0.5));
+    // float d = sdSphere(v0, 2.0-0.2*smoothstep(1.0, 0.8, sin(iTime*TAU)*0.5+0.5));
+    float d = sdSphere(v0, 2.0);
 
-    d = opUnion(d, branch(open), 0.3);
+    d = opUnion(d, stalk(open), 0.3);
     
-    gl.sdf.mat = (d < gl.sdf.dist) ? SKIN : gl.sdf.mat;
-    gl.sdf.dist = min(d, gl.sdf.dist);
-    
+    if (d < gl.sdf.dist) { gl.sdf.mat = SKIN; gl.sdf.dist = d; }
+
     if (open > 0.8f)
     {
-        d = min(d, eye());
+        // d = min(d, eye(fib.w));
+        eye(0.0);
     }
 
-    gl.sdf.mat = (d < gl.sdf.dist) ? BULB : gl.sdf.mat;
-    gl.sdf.dist = min(d, gl.sdf.dist);
-    
     return gl.sdf.dist;
 }
 
@@ -229,17 +428,17 @@ float getOcclusion(vec3 p, vec3 n)
 // 000      000  000   000  000   000     000     
 // 0000000  000   0000000   000   000     000     
 
-float shiny(float rough, float NoH, const vec3 h) 
+vec3 getLight(vec3 p, vec3 n, int mat)
 {
-    float o = 1.0 - NoH * NoH;
-    float a = NoH * rough;
-    float k = rough / (o + a * a);
-    float d = k * k / PI;
-    return d;
-}
-
-vec3 getLight(vec3 p, vec3 n, vec3 col, int mat)
-{
+    vec3 col;
+    switch (mat)
+    {
+        case SKIN: col = vec3(0.4, 0.0, 0.0); break;
+        case PUPL: col = vec3(0.1, 0.1, 0.5); break;
+        case BULB: col = vec3(0.95);          break;
+        case NONE: col = vec3(0.1, 0.1, 0.6); break;
+    }
+    
     if (mat == NONE) return col;
     
     vec3 l = normalize(gl.light-p);
@@ -270,7 +469,7 @@ vec3 getLight(vec3 p, vec3 n, vec3 col, int mat)
     }
     
     float df = smoothstep(7.0, 2.0, length(p));
-    col = mix(vec3((col.x+col.y+col.z)/3.0), col, df*(1.0-smoothstep(1.0, 0.8, sin(iTime*TAU)*0.5+0.5)));
+    //col = mix(vec3((col.x+col.y+col.z)/3.0), col, df*(1.0-smoothstep(1.0, 0.8, sin(iTime*TAU)*0.5+0.5)));
     
     col *= clamp(dif, ambient, 1.0);
     col *= getOcclusion(p, n);
@@ -357,19 +556,15 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         
         vec3 p = camPos + d * rd;
         vec3 n = getNormal(p);
-                
-        if      (mat == SKIN) col = vec3(0.4, 0.0, 0.0);
-        else if (mat == PUPL) col = vec3(0.1, 0.1, 0.5);
-        else if (mat == BULB) col = vec3(0.95);
-        else if (mat == NONE) col = vec3(0.1, 0.1, 0.6);
-    
-        col = getLight(p, n, col, mat);
+                    
+        col = getLight(p, n, mat);
 
         cols += col;
     }
     
     col = cols/float(AA*AA);
     
+    #ifndef TOY
     col += vec3(print(0, 0, iFrameRate));
     
     // col += vec3(print(0, 3, iv26(vx)));
@@ -383,7 +578,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     // col += vec3(print(0, 7, id26(-vx+vy-vz)));
     // col += vec3(print(0, 6, id26(-vx-vy+vz)));
     // col += vec3(print(0, 5, id26(-vx-vy-vz)));
-    col += vec3(print(0, 4, id26(vx+vy+vz)));
+    // col += vec3(print(0, 4, id26(vx+vy+vz)));
     // col += vec3(print(0, 3, id26(vx+vy-vz)));
     // col += vec3(print(0, 2, id26(vx-vy+vz)));
     // col += vec3(print(0, 1, id26(vx-vy-vz)));
@@ -400,7 +595,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     // col += vec3(print(0, 3, id26( vx-vy)));
     // col += vec3(print(0, 2, id26( vx+vz)));
     // col += vec3(print(0, 1, id26( vx-vz)));
-        
+    #endif
+    
     if (dither)
     {
         float dit = gradientNoise(fragCoord.xy);

@@ -1,7 +1,9 @@
+// #define TOY
 #define PI  3.141592653589
 #define TAU 6.283185307178
 #define E   2.718281828459
 #define EPS 0.000000000001
+#define PHI 1.618033988750
 
 #define KEY_LEFT  37
 #define KEY_UP    38
@@ -97,6 +99,7 @@ float clamp01(float v) { return clamp(v, 0.0, 1.0); }
 // 000        000   000  000  000  0000     000     
 // 000        000   000  000  000   000     000     
 
+#ifndef TOY
 float print(ivec2 pos, int ch)
 {
     ivec2 r = gl.ifrag-pos; bool i = r.y>0 && r.x>0 && r.x<=text.size.y && r.y<=text.size.y;
@@ -154,6 +157,7 @@ float print(int x, int y, vec4 v)  { return print(ivec2(text.size.x*x,text.size.
 float print(int x, int y, vec3 v)  { return print(ivec2(text.size.x*x,text.size.y*y), v); }
 float print(int x, int y, vec2 v)  { return print(ivec2(text.size.x*x,text.size.y*y), v); }
 float print(int x, int y, ivec3 v) { return print(ivec2(text.size.x*x,text.size.y*y), vec3(v)); }
+#endif
 
 // 000   000   0000000    0000000  000   000  
 // 000   000  000   000  000       000   000  

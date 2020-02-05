@@ -34,9 +34,9 @@ class Shader
             void main(void) { gl_Position = worldViewProjection * vec4(position, 1.0); }
             """
         
-        fragSource    = slash.readText "#{__dirname}/../shader/tree.frag"
+        fragSource    = slash.readText "#{__dirname}/../shader/veyerus.frag"
         if @buffer then bufferSource = slash.readText "#{__dirname}/../shader/eye_buffer.frag"
-        @commonSource = slash.readText "#{__dirname}/../shader/tree_common.frag"
+        @commonSource = slash.readText "#{__dirname}/../shader/veyerus_common.frag"
         
         Effect.ShadersStore.mainVertexShader   = @vertexShader
         Effect.ShadersStore.mainFragmentShader = @shaderCode fragSource 
