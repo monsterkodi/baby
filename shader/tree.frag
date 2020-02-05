@@ -62,7 +62,13 @@ float eye()
 
 ivec3 iv26(vec3 p)
 {
-    return ivec3(0);
+    vec3 n = normalize(p);
+    float dx = dot(n, vx);
+    float dy = dot(n, vy);
+    float dz = dot(n, vz);
+    float dp = cos(3.0*PI/8.0);
+    float dn = cos(5.0*PI/8.0);
+    return ivec3(dx>=dp?1:dx<=dn?-1:0, dy>=dp?1:dy<=dn?-1:0, dz>=dp?1:dz<=dn?-1:0);
 } 
 
 int id26(vec3 p) 
@@ -74,9 +80,9 @@ int id26(vec3 p)
     if (sum == 1) // 6 faces
         return a.y*2+a.z*4 + (ssm > 0 ? 0 : 1);
     else if (sum == 3) // 8 corners
-        return 6 + (v.y*2+2) + (a.z+v.z)/2 + (v.x > 0 ? 0 : 4);
+        return 6 + (v.y*2+2)/2 + (a.z+v.z)/2 + (v.x > 0 ? 0 : 4);
     else // 12 edges
-        return 14+0;
+        return 14 + (4+v.x*4) + (v.x == 0 ? (1+v.y + (v.z+1)/2) : ((1-a.y)*(v.z+1)/2) + (1-a.z)*(2+(v.y+1)/2));
 }
 
 float map(vec3 p)
@@ -355,14 +361,36 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     col += vec3(print(0, 0, iFrameRate));
     
-    col += vec3(print(0, 3, iv26(vx)));
-    col += vec3(print(0, 2, iv26(vy)));
-    col += vec3(print(0, 1, iv26(vz)));
-
-    // col += vec3(print(0, 6, unpolar(polar(vx))));
-    // col += vec3(print(0, 5, unpolar(polar(vy))));
-    // col += vec3(print(0, 4, unpolar(polar(vz))));
+    // col += vec3(print(0, 3, iv26(vx)));
+    // col += vec3(print(0, 2, iv26(vy)));
+    // col += vec3(print(0, 1, iv26(vz)));
+    // col += vec3(print(0, 6, iv26(-vx-vy+vz)));
+    // col += vec3(print(0, 5, iv26(-vz-vx)));
+    // col += vec3(print(0, 4, iv26(-vy-vz)));
     
+    // col += vec3(print(0, 8, id26(-vx+vy+vz)));
+    // col += vec3(print(0, 7, id26(-vx+vy-vz)));
+    // col += vec3(print(0, 6, id26(-vx-vy+vz)));
+    // col += vec3(print(0, 5, id26(-vx-vy-vz)));
+    // col += vec3(print(0, 4, id26(vx+vy+vz)));
+    // col += vec3(print(0, 3, id26(vx+vy-vz)));
+    // col += vec3(print(0, 2, id26(vx-vy+vz)));
+    // col += vec3(print(0, 1, id26(vx-vy-vz)));
+    
+    col += vec3(print(0, 12, id26(-vy+vz)));
+    col += vec3(print(0, 11, id26(-vy-vz)));
+    col += vec3(print(0, 10, id26( vy+vz)));
+    col += vec3(print(0,  9, id26( vy-vz)));
+    
+    col += vec3(print(0, 8, id26(-vx+vy)));
+    col += vec3(print(0, 7, id26(-vx-vy)));
+    col += vec3(print(0, 6, id26(-vx+vz)));
+    col += vec3(print(0, 5, id26(-vx-vz)));
+    col += vec3(print(0, 4, id26( vx+vy)));
+    col += vec3(print(0, 3, id26( vx-vy)));
+    col += vec3(print(0, 2, id26( vx+vz)));
+    col += vec3(print(0, 1, id26( vx-vz)));
+        
     if (dither)
     {
         float dit = gradientNoise(fragCoord.xy);
