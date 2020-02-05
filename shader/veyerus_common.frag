@@ -219,7 +219,18 @@ vec3 rgb2hsl( vec3 col )
     vec3 h = mask * (vec3(0.0,2.0,4.0) + (col.gbr-col.brg)/(maxc-minc + EPS)) / 6.0;
     return vec3( fract( 1.0 + h.x + h.y + h.z ),              
                  (maxc-minc)/(1.0-abs(minc+maxc-1.0) + EPS),  
-                 (minc+maxc)*0.5 );                           
+                 (minc+maxc)*0.5);
+}
+
+vec3 colsat(vec3 col, float sat)
+{
+    vec3 h = rgb2hsl(col);
+    return hsl(h.x,sat,h.z);
+}
+
+vec3 gray(vec3 col)
+{
+    return colsat(col, 0.0);
 }
 
 // 00     00   0000000   000000000  00000000   000  000   000  
@@ -375,7 +386,6 @@ vec3 rotZ(vec3 v, float d)
 // 000   000  000       000   000  000 0 000    
 //  0000000   00000000   0000000   000   000    
 
-
 vec3 posOnPlane(vec3 p, vec3 a, vec3 n)
 {
     return p-dot(p-a,n)*n;
@@ -429,6 +439,14 @@ float opInter(float d1, float d2) { return opInter(d1, d2, 0.2); }
 float sdSphere(vec3 a, float r)
 {
     return length(gl.sdf.pos-a)-r;
+}
+
+float sdPill(vec3 a, float r, vec3 n)
+{
+    vec3 p = gl.sdf.pos-a;
+    float d = abs(dot(normalize(n),normalize(p)));
+    float f = smoothstep(0.0, 1.3, d);
+    return length(p) - r + f * length(n);
 }
 
 float sdPlane(vec3 a, vec3 n)
@@ -493,4 +511,247 @@ float sdTorus(vec3 p, vec3 a, vec3 n, float rl, float rs)
 {
     vec3 q = p-a;
     return length(vec2(length(posOnPlane(q, n))-rl,abs(dot(n, q))))-rs;
+}
+
+// 0000000     0000000    0000000  000   0000000  
+// 000   000  000   000  000       000  000       
+// 0000000    000000000  0000000   000  0000000   
+// 000   000  000   000       000  000       000  
+// 0000000    000   000  0000000   000  0000000   
+
+void basis(vec3 n, out vec3 right, out vec3 front) 
+{
+    if (n.y < -0.999999)
+    {
+        right = -vz;
+        front = -vx;
+    } 
+    else 
+    {
+        float a = 1.0/(1.0+n.y);
+        float b = -n.x*n.z*a;
+        right = vec3(1.0-n.x*n.x*a,-n.x,b);
+        front = vec3(b,-n.z,1.0-n.z*n.z*a);
+    }
+}
+// 00     00   0000000   00000000     
+// 000   000  000   000  000   000    
+// 000000000  000000000  00000000     
+// 000 0 000  000   000  000          
+// 000   000  000   000  000          
+
+const vec3 cubo[26] = vec3[26](
+    normalize(vec3( 0, 0, 1)),
+    normalize(vec3( 0, 0,-1)),
+    normalize(vec3( 0, 1, 0)),
+    normalize(vec3( 0,-1, 0)),
+    normalize(vec3( 1, 0, 0)),
+
+    normalize(vec3(-1, 0, 0)),
+    normalize(vec3( 1, 1, 0)),
+    normalize(vec3( 1,-1, 0)),
+    normalize(vec3(-1, 1, 0)),
+    normalize(vec3(-1,-1, 0)),
+    normalize(vec3( 1, 0, 1)),
+    normalize(vec3( 1, 0,-1)),
+    normalize(vec3(-1, 0, 1)),
+    normalize(vec3(-1, 0,-1)),
+    normalize(vec3( 0, 1, 1)),
+    normalize(vec3( 0, 1,-1)),
+    normalize(vec3( 0,-1, 1)),
+    normalize(vec3( 0,-1,-1)),
+    
+    normalize(vec3( 1, 1, 1)),
+    normalize(vec3( 1, 1,-1)),
+    normalize(vec3( 1,-1, 1)),
+    normalize(vec3(-1, 1, 1)),
+    normalize(vec3( 1,-1,-1)),
+    normalize(vec3(-1, 1,-1)),
+    normalize(vec3(-1,-1, 1)),
+    normalize(vec3(-1,-1,-1))
+);
+
+const vec3 dodeca[12] = vec3[12](
+    normalize(vec3(0, 1, PHI)),
+    normalize(vec3(0,-1, PHI)),
+    normalize(vec3(0,-1,-PHI)),
+    normalize(vec3(0, 1,-PHI)),
+    normalize(vec3( 1, PHI,0)),
+    normalize(vec3(-1, PHI,0)),
+    normalize(vec3(-1,-PHI,0)),
+    normalize(vec3( 1,-PHI,0)),
+    normalize(vec3( PHI, 0,  1)),
+    normalize(vec3( PHI, 0, -1)),
+    normalize(vec3(-PHI, 0, -1)),
+    normalize(vec3(-PHI, 0,  1))
+);
+
+const vec3 icosa[20] = vec3[20](
+    normalize(vec3( 1, 1,-1)),
+    normalize(vec3( 1, 1, 1)),
+    normalize(vec3( 1,-1,-1)),
+    normalize(vec3( 1,-1, 1)),
+    normalize(vec3(-1, 1,-1)),
+    normalize(vec3(-1, 1, 1)),
+    normalize(vec3(-1,-1,-1)),
+    normalize(vec3(-1,-1, 1)),
+    normalize(vec3(0, PHI,  1.0/PHI)),
+    normalize(vec3(0, PHI, -1.0/PHI)),
+    normalize(vec3(0,-PHI, -1.0/PHI)),
+    normalize(vec3(0,-PHI,  1.0/PHI)),
+    normalize(vec3( PHI,  1.0/PHI, 0)),
+    normalize(vec3( PHI, -1.0/PHI, 0)),
+    normalize(vec3(-PHI, -1.0/PHI, 0)),
+    normalize(vec3(-PHI,  1.0/PHI, 0)),
+    normalize(vec3( 1.0/PHI, 0, PHI)),
+    normalize(vec3(-1.0/PHI, 0, PHI)),
+    normalize(vec3(-1.0/PHI, 0,-PHI)),
+    normalize(vec3( 1.0/PHI, 0,-PHI))
+);
+
+vec4 v26(vec3 p)
+{
+    float d = 0.0;
+    int id = -1;
+    vec3 n = normalize(p);
+    for (int i = 0; i < 26; i++)
+    {
+        float dt = dot(n,cubo[i]);
+        if (dt > d)
+        {
+            d = dt;
+            id = i;
+        }
+    }
+    return vec4(cubo[id], float(id));
+}
+
+vec4 v20(vec3 p)
+{
+    float d = 0.0;
+    int id = -1;
+    vec3 n = normalize(p);
+    for (int i = 0; i < 20; i++)
+    {
+        float dt = dot(n,icosa[i]);
+        if (dt > d)
+        {
+            d = dt;
+            id = i;
+        }
+    }
+    return vec4(icosa[id], float(id));
+}
+
+vec4 v12(vec3 p)
+{
+    float d = 0.0;
+    int id = -1;
+    vec3 n = normalize(p);
+    for (int i = 0; i < 12; i++)
+    {
+        float dt = dot(n,dodeca[i]);
+        if (dt > d)
+        {
+            d = dt;
+            id = i;
+        }
+    }
+    return vec4(dodeca[id], float(id));
+}
+
+vec4 v32(vec3 p)
+{
+    vec3  n = normalize(p);
+    vec4  m1 = v12(p);
+    vec4  m2 = v20(p);
+    float d1 = dot(n,m1.xyz);
+    float d2 = dot(n,m2.xyz);
+    if (d1 > d2) return m1;
+    return m2;
+}
+
+vec4 map12(vec3 p)
+{
+    vec4 m = v12(p);
+    vec3 q = p-m.xyz;
+    vec3 r, f;
+    basis(m.xyz,r,f);
+    return vec4(dot(r,q),dot(m.xyz,q),dot(f,q), m.w);
+}
+
+vec4 map20(vec3 p)
+{
+    vec4 m = v20(p);
+    vec3 q = p-m.xyz;
+    vec3 r, f;
+    basis(m.xyz,r,f);
+    return vec4(dot(r,q),dot(m.xyz,q),dot(f,q), m.w);
+}
+
+vec4 map26(vec3 p)
+{
+    vec4 m = v26(p);
+    vec3 q = p-m.xyz;
+    vec3 r, f;
+    basis(m.xyz,r,f);
+    return vec4(dot(r,q),dot(m.xyz,q),dot(f,q),m.w);
+}
+
+vec4 map32(vec3 p)
+{
+    vec4 m = v32(p);
+    vec3 q = p-m.xyz;
+    vec3 r, f;
+    basis(m.xyz,r,f);
+    return vec4(dot(r,q),dot(m.xyz,q),dot(f,q), m.w);
+}
+
+// 00000000  000  0000000    
+// 000       000  000   000  
+// 000000    000  0000000    
+// 000       000  000   000  
+// 000       000  0000000    
+
+vec4 sphericalFibonacci(vec3 p, float num)
+{
+    float m   = 1.0-1.0/num;
+    float phi = min(atan(p.y,p.x),PI);
+    float k   = max(2.0, floor(log(num*PI*sqrt(5.0)*(1.0-p.z*p.z))/log(PHI+1.0)));
+    float Fk  = pow(PHI,k)/sqrt(5.0);
+    vec2  F   = vec2(round(Fk), round(Fk*PHI));
+    vec2  ka  = 2.0*F/num;
+    vec2  kb  = 2.0*PI*(fract((F+1.0)*PHI)-(PHI-1.0));    
+    mat2  iB  = mat2(ka.y,-ka.x, kb.y,-kb.x)/(ka.y*kb.x-ka.x*kb.y);
+    
+    vec2  c   = floor(iB*vec2(phi, p.z-m));
+    float d   = 0.0;
+    vec4  res = vec4(0);
+    
+    for (int s=0; s<4; s++)
+    {
+        vec2  uv  = vec2(s&1,s>>1);
+        float i   = dot(F,uv+c); 
+        float phi = 2.0*PI*fract(i*PHI);
+        float cot = m-2.0*i/num; 
+        float sit = sqrt(1.0-cot*cot); 
+        vec3  q   = vec3(cos(phi)*sit, sin(phi)*sit, cot);
+        float d1  = dot(p,q);
+        if (d1 > d)
+        {
+            d   = d1;
+            res = vec4(q,i);
+        }
+    }
+    return res;
+}
+
+vec4 mapFib(vec3 p, int num)
+{
+    vec4 fib = sphericalFibonacci(normalize(p),float(num));
+    vec3 q = p-fib.xyz;
+    vec3 n = normalize(fib.xyz);
+    vec3 r,f;
+    basis(n,r,f);
+    return vec4(dot(r,q),dot(n,q),dot(f,q), fib.w);
 }
