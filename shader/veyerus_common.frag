@@ -16,6 +16,7 @@
 #define KEY_C     67
 #define KEY_D     68
 #define KEY_E     69
+#define KEY_N     78
 #define KEY_Q     81
 #define KEY_R     82
 #define KEY_S     83
@@ -32,7 +33,8 @@ const vec3 red   = vec3(0.8,0.0,0.0);
 const vec3 green = vec3(0.0,0.5,0.0);
 const vec3 blue  = vec3(0.2,0.2,1.0);
 const vec3 white = vec3(1.0,1.0,1.0);
-
+const vec3 black = vec3(0.0,0.0,0.0);
+    
 //  0000000   000       0000000   0000000     0000000   000      
 // 000        000      000   000  000   000  000   000  000      
 // 000  0000  000      000   000  0000000    000000000  000      

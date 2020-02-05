@@ -20,12 +20,14 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 
 #define EYE_RADIUS  0.8
 #define CORE_RADIUS 1.2
-// #define BG_COLOR    hsl(2./3., 0.75, 0.15)
-vec4 BG_COLOR;
+#define CAM_DIST    30.0
+
+vec3 BG_COLOR;
 
 float heartBeat;
+float bgH, bgS, bgL;
 
-bool anim, soft, occl, light, dither, rotate;
+bool anim, soft, occl, light, dither, rotate, normal, depthb;
 
 vec3 camPos;
 vec3 camTgt;
@@ -33,28 +35,50 @@ vec3 camDir;
 
 int  AA = 2;
 
+//  0000000   000   000  000  00     00  
+// 000   000  0000  000  000  000   000  
+// 000000000  000 0 000  000  000000000  
+// 000   000  000  0000  000  000 0 000  
+// 000   000  000   000  000  000   000  
+
+float iFade(float a, float b, float s)
+{
+    return a + (b-a) * (1.0 - (sin(iTime*s) * 0.5 + 0.5));
+}
+
+void calcAnim()
+{
+    if (anim)
+    {
+        heartBeat = smoothstep(1.0, 0.8, sin(1.5*iTime*TAU)*0.5+0.5);
+        bgH = iFade(0.666,1.0,0.1);
+        bgS = iFade(0.75,1.0,0.1);
+        bgL = iFade(0.15,0.06,0.1);
+    }
+    else
+    {
+        heartBeat = 0.0;
+        bgH = 2./3.;
+        bgS = 0.75;
+        bgL = 0.15;
+    }
+
+    BG_COLOR = hsl(bgH, bgS, bgL);
+    
+    if (light) BG_COLOR = gray(BG_COLOR);
+}
+
 //  0000000  000000000   0000000   000      000   000  
 // 000          000     000   000  000      000  000   
 // 0000000      000     000000000  000      0000000    
 //      000     000     000   000  000      000  000   
 // 0000000      000     000   000  0000000  000   000  
 
-vec4 pivot = vec4(vy, 0);
-
-void calcAnim()
-{
-    heartBeat = smoothstep(1.0, 0.8, sin(1.5*iTime*TAU)*0.5+0.5);
-    pivot.w = 4.0 + sin(1.0*iTime*1.0);
-    // BG_COLOR = hsl(2./3., 0.75, 0.15);
-    BG_COLOR = hsl(sin(iTime), 0.75, 0.15);
-}
-
-float stalk(float open)
-{
-    vec3 n = pivot.xyz * pivot.w;
-    float d = sdCapsule(v0, n, 0.3);
-    d = opUnion(d, sdSphere(n, EYE_RADIUS*1.25));    
-    d = opInter(d, sdPlane(n*(2.0-open), pivot.xyz), 0.2);
+float stalk(float open, vec3 pos)
+{    
+    float d = sdCapsule(v0, pos, 0.3);
+    d = opUnion(d, sdSphere(pos, EYE_RADIUS*1.25));    
+    d = opInter(d, sdPlane(pos*(2.0-open), normalize(pos)), 0.2);
     return d;
 }
 
@@ -64,10 +88,9 @@ float stalk(float open)
 // 000          000     000       
 // 00000000     000     00000000  
 
-void eye(float id)
+void eye(float id, vec3 pos)
 {
-    vec3  pos = pivot.xyz * pivot.w;
-    vec3  n   = pivot.xyz;
+    vec3  n   = normalize(pos);
     float r   = EYE_RADIUS;
     float d   = sdSphere(pos, r);
     
@@ -78,8 +101,8 @@ void eye(float id)
     vec3 hsh1 = hash31(id+floor(iTime*id/(id-0.5)*0.2));
     vec3 hsh2 = hash31(id+floor(iTime*id/(id-0.5)*0.3));
     n  = normalize(n+(hsh1 + hsh2 - 1.0)*(dot(n,vz)-0.5));
-    vec3 lens = pos+0.67*r*n;
-    d = sdPill(lens, r*0.6, n*0.2);
+    vec3 lens = pos + 0.67 * r * n;
+    d = sdPill(lens,  0.6*r, n*0.2);
     
     if (d < gl.sdf.dist) { gl.sdf.mat = PUPL; gl.sdf.dist = d; }
 }
@@ -107,21 +130,35 @@ float map(vec3 p)
     gl.sdf = SDF(1000.0, p, NONE);
     
     float d = sdSphere(v0, CORE_RADIUS*(1.0-0.1*heartBeat));
-                     
+
+    float l;
+    if (anim)
+        l = 4.0 + sin(iTime*(1.0+(id/4.0)));
+    else
+        l = 4.0 + sin(1.0+(id/4.0));
+    //float l = 4.0 + sin(iTime*1.0);
+    vec3 pos = vy * l;
+    
     float open = smoothstep(0.9999, 0.9980, sin(iTime*1.1)*0.5+0.5);
     open = (mod(id, 2.0) == 0.0) ? 0.0 : open;
 
-    d = opUnion(d, stalk(open), 0.3);
+    d = opUnion(d, stalk(open, pos), 0.3);
     
     if (d < gl.sdf.dist) { gl.sdf.mat = SKIN; gl.sdf.dist = d; }
 
     if (open > 0.8f)
     {
-        eye(id);
+        eye(id, pos);
     }
 
     return gl.sdf.dist;
 }
+
+// 000   000   0000000   00000000   00     00   0000000   000      
+// 0000  000  000   000  000   000  000   000  000   000  000      
+// 000 0 000  000   000  0000000    000000000  000000000  000      
+// 000  0000  000   000  000   000  000 0 000  000   000  000      
+// 000   000   0000000   000   000  000   000  000   000  0000000  
 
 vec3 getNormal(vec3 p)
 {
@@ -132,6 +169,15 @@ vec3 getNormal(vec3 p)
         n += e*map(p+e*0.0001);
     }
     return normalize(n);
+}
+
+vec3 getNormal2(vec3 p)
+{
+    vec3 eps=vec3(0.001,0,0);
+    
+    return normalize(vec3(map(p+eps.xyz)-map(p-eps.xyz),
+                          map(p+eps.yxz)-map(p-eps.yxz),
+                          map(p+eps.yzx)-map(p-eps.yzx)));
 }
 
 // 00     00   0000000   00000000    0000000  000   000  
@@ -221,7 +267,6 @@ vec3 getLight(vec3 p, vec3 n, int mat)
     
     if (mat == NONE) 
     {
-        if (light) return gray(col);
         return col;
     }
     
@@ -288,10 +333,12 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     soft   = !keyState(KEY_DOWN);
     light  = !keyState(KEY_LEFT);
-    anim   =  keyState(KEY_RIGHT);
+    anim   = !keyState(KEY_RIGHT);
     occl   =  keyState(KEY_UP);
     dither =  keyState(KEY_D);
-    rotate =  keyState(KEY_R);
+    rotate = !keyState(KEY_R);
+    normal = !keyState(KEY_N);
+    depthb = !keyState(KEY_Z);
     
     calcAnim();
     
@@ -301,7 +348,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
    	vec2 ao = vec2(0);
     
-    float md = 30.0;
+    float md = CAM_DIST;
     
     float mx = -gl.mp.x*2.0;
     float my = -gl.mp.y*2.0;
@@ -338,8 +385,18 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
             vec3 rd = normalize(gl.uv.x*uu + gl.uv.y*vv + fov*camDir);
             float d = rayMarch(camPos, rd);
             int mat = gl.sdf.mat;
+            float dst = d;
             vec3  p = camPos + d * rd;
-            col = getLight(p, getNormal(p), mat);
+            vec3  n = getNormal(p);
+            
+            if (normal || depthb)
+            {
+                vec3 nc = normal ? mat == NONE ? black : n : white;
+                vec3 zc = depthb ? vec3(1.0-clamp01(0.5+(dst-CAM_DIST)/6.0)) : white;
+                col = nc*zc;
+            }
+            else
+                col = getLight(p, n, mat);
         }
         else
         {
@@ -350,7 +407,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     col = cols/float(AA*AA);
     
     #ifndef TOY
-    col += vec3(print(0, 0, iFrameRate));
+    col += vec3(print(0, 0, vec4(iFrameRate, bgH, bgS, bgL)));
     
     // col += vec3(print(0, 3, iv26(vx)));
     // col += vec3(print(0, 2, iv26(vy)));
