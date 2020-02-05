@@ -85,21 +85,32 @@ int id26(vec3 p)
         return 14 + (4+v.x*4) + (v.x == 0 ? (1+v.y + (v.z+1)/2) : ((1-a.y)*(v.z+1)/2) + (1-a.z)*(2+(v.y+1)/2));
 }
 
+vec3 map26(vec3 p)
+{
+    return p;
+}
+
+vec3 unmap26(vec3 p)
+{
+    return p;
+}
+
 float map(vec3 p)
 {
     // float open = smoothstep(0.9, 0.8, dot(p, camDir));
     float open = smoothstep(0.9999, 0.9980, sin(iTime*1.1)*0.5+0.5);
     
-    open = id26(p) == 0 ? 1.0 : open;
+    int id = id26(p);
+    open = id == 9 ? 0.0 : open;
 
-    // if (gl.option == 2 || gl.option == 3)
+    if (gl.option == 2 || gl.option == 3)
         p = abs(p);
      
     vec3 r;
     
     r = polar(p);
         
-    // if (gl.option == 1 || gl.option == 3)
+    if (gl.option == 1 || gl.option == 3)
     {
         if (r.x < (PI/2.0)/4.0) 
         {
@@ -372,24 +383,23 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     // col += vec3(print(0, 7, id26(-vx+vy-vz)));
     // col += vec3(print(0, 6, id26(-vx-vy+vz)));
     // col += vec3(print(0, 5, id26(-vx-vy-vz)));
-    // col += vec3(print(0, 4, id26(vx+vy+vz)));
+    col += vec3(print(0, 4, id26(vx+vy+vz)));
     // col += vec3(print(0, 3, id26(vx+vy-vz)));
     // col += vec3(print(0, 2, id26(vx-vy+vz)));
     // col += vec3(print(0, 1, id26(vx-vy-vz)));
     
-    col += vec3(print(0, 12, id26(-vy+vz)));
-    col += vec3(print(0, 11, id26(-vy-vz)));
-    col += vec3(print(0, 10, id26( vy+vz)));
-    col += vec3(print(0,  9, id26( vy-vz)));
-    
-    col += vec3(print(0, 8, id26(-vx+vy)));
-    col += vec3(print(0, 7, id26(-vx-vy)));
-    col += vec3(print(0, 6, id26(-vx+vz)));
-    col += vec3(print(0, 5, id26(-vx-vz)));
-    col += vec3(print(0, 4, id26( vx+vy)));
-    col += vec3(print(0, 3, id26( vx-vy)));
-    col += vec3(print(0, 2, id26( vx+vz)));
-    col += vec3(print(0, 1, id26( vx-vz)));
+    // col += vec3(print(0, 12, id26(-vy+vz)));
+    // col += vec3(print(0, 11, id26(-vy-vz)));
+    // col += vec3(print(0, 10, id26( vy+vz)));
+    // col += vec3(print(0,  9, id26( vy-vz)));
+    // col += vec3(print(0, 8, id26(-vx+vy)));
+    // col += vec3(print(0, 7, id26(-vx-vy)));
+    // col += vec3(print(0, 6, id26(-vx+vz)));
+    // col += vec3(print(0, 5, id26(-vx-vz)));
+    // col += vec3(print(0, 4, id26( vx+vy)));
+    // col += vec3(print(0, 3, id26( vx-vy)));
+    // col += vec3(print(0, 2, id26( vx+vz)));
+    // col += vec3(print(0, 1, id26( vx-vz)));
         
     if (dither)
     {
