@@ -63,6 +63,7 @@ struct _gl {
     int   option;
     float time;
     vec3  light;
+    int   zero;
     SDF   sdf;
 } gl;
 
@@ -542,7 +543,7 @@ void basis(vec3 n, out vec3 right, out vec3 front)
 // 000 0 000  000   000  000          
 // 000   000  000   000  000          
 
-const vec3 cubo[26] = vec3[26](
+const vec3 cubo[32] = vec3[32](
     normalize(vec3( 0, 0, 1)),
     normalize(vec3( 0, 0,-1)),
     normalize(vec3( 0, 1, 0)),
@@ -570,10 +571,11 @@ const vec3 cubo[26] = vec3[26](
     normalize(vec3( 1,-1,-1)),
     normalize(vec3(-1, 1,-1)),
     normalize(vec3(-1,-1, 1)),
-    normalize(vec3(-1,-1,-1))
+    normalize(vec3(-1,-1,-1)),
+    v0, v0, v0, v0, v0, v0
 );
 
-const vec3 dodeca[12] = vec3[12](
+const vec3 dodeca[32] = vec3[32](
     normalize(vec3(0, 1, PHI)),
     normalize(vec3(0,-1, PHI)),
     normalize(vec3(0,-1,-PHI)),
@@ -585,10 +587,50 @@ const vec3 dodeca[12] = vec3[12](
     normalize(vec3( PHI, 0,  1)),
     normalize(vec3( PHI, 0, -1)),
     normalize(vec3(-PHI, 0, -1)),
-    normalize(vec3(-PHI, 0,  1))
+    normalize(vec3(-PHI, 0,  1)),
+    v0, v0, v0, v0, v0, v0, v0,
+    v0, v0, v0, v0, v0, v0, v0,
+    v0, v0, v0, v0, v0, v0
 );
 
-const vec3 icosa[20] = vec3[20](
+const vec3 icosa[32] = vec3[32](
+    normalize(vec3( 1, 1,-1)),
+    normalize(vec3( 1, 1, 1)),
+    normalize(vec3( 1,-1,-1)),
+    normalize(vec3( 1,-1, 1)),
+    normalize(vec3(-1, 1,-1)),
+    normalize(vec3(-1, 1, 1)),
+    normalize(vec3(-1,-1,-1)),
+    normalize(vec3(-1,-1, 1)),
+    normalize(vec3(0, PHI,  1.0/PHI)),
+    normalize(vec3(0, PHI, -1.0/PHI)),
+    normalize(vec3(0,-PHI, -1.0/PHI)),
+    normalize(vec3(0,-PHI,  1.0/PHI)),
+    normalize(vec3( PHI,  1.0/PHI, 0)),
+    normalize(vec3( PHI, -1.0/PHI, 0)),
+    normalize(vec3(-PHI, -1.0/PHI, 0)),
+    normalize(vec3(-PHI,  1.0/PHI, 0)),
+    normalize(vec3( 1.0/PHI, 0, PHI)),
+    normalize(vec3(-1.0/PHI, 0, PHI)),
+    normalize(vec3(-1.0/PHI, 0,-PHI)),
+    normalize(vec3( 1.0/PHI, 0,-PHI)),
+    v0, v0, v0, v0, v0, v0,
+    v0, v0, v0, v0, v0, v0
+);
+
+const vec3 dodecaicosa[32] = vec3[32](
+    normalize(vec3(0, 1, PHI)),
+    normalize(vec3(0,-1, PHI)),
+    normalize(vec3(0,-1,-PHI)),
+    normalize(vec3(0, 1,-PHI)),
+    normalize(vec3( 1, PHI,0)),
+    normalize(vec3(-1, PHI,0)),
+    normalize(vec3(-1,-PHI,0)),
+    normalize(vec3( 1,-PHI,0)),
+    normalize(vec3( PHI, 0,  1)),
+    normalize(vec3( PHI, 0, -1)),
+    normalize(vec3(-PHI, 0, -1)),
+    normalize(vec3(-PHI, 0,  1)),
     normalize(vec3( 1, 1,-1)),
     normalize(vec3( 1, 1, 1)),
     normalize(vec3( 1,-1,-1)),
@@ -611,98 +653,57 @@ const vec3 icosa[20] = vec3[20](
     normalize(vec3( 1.0/PHI, 0,-PHI))
 );
 
-vec4 v26(vec3 p)
+const vec3 weirdo[32] = vec3[32](
+    normalize(vec3( 0,  1, 0)),
+    normalize(vec3( 1, -1, 0.5)),
+    normalize(vec3(-1, -1, 0.5)),
+    normalize(vec3( 0, -1, -1)),
+    normalize(vec3( 0, -0.9, 1)),
+    normalize(vec3( 1, -0.9, -0.5)),
+    normalize(vec3(-1, -0.9, -0.5)),
+    normalize(vec3(-0.4, 0.5, 1)),
+    normalize(vec3( 0.4, 0.5, 1)),
+    normalize(vec3( 0,  0.2, -1)),
+    normalize(vec3( 0.5,  0.5, -0.7)),
+    normalize(vec3(-0.5,  0.5, -0.7)),
+    v0, v0, v0, v0, v0, v0, v0,
+    v0, v0, v0, v0, v0, v0, v0,
+    v0, v0, v0, v0, v0, v0
+);
+
+struct VecMap {
+    vec3[32] vecs;
+    int num;
+};
+
+VecMap[5] vecMap = VecMap[5](
+    VecMap(cubo,   26),
+    VecMap(dodeca, 12),
+    VecMap(icosa,  20),
+    VecMap(weirdo, 12),
+    VecMap(dodecaicosa, 32)
+);
+
+vec4 choose(vec3 p, int mapIndex)
 {
     float d = 0.0;
     int id = -1;
     vec3 n = normalize(p);
-    for (int i = 0; i < 26; i++)
+    for (int i = gl.zero; i < vecMap[mapIndex].num; i++)
     {
-        float dt = dot(n,cubo[i]);
+        float dt = dot(n,vecMap[mapIndex].vecs[i]);
         if (dt > d)
         {
             d = dt;
             id = i;
         }
     }
-    return vec4(cubo[id], float(id));
+    return vec4(vecMap[mapIndex].vecs[id], float(id));
 }
 
-vec4 v20(vec3 p)
+vec4 chooseMap(vec3 p, int mapIndex)
 {
-    float d = 0.0;
-    int id = -1;
-    vec3 n = normalize(p);
-    for (int i = 0; i < 20; i++)
-    {
-        float dt = dot(n,icosa[i]);
-        if (dt > d)
-        {
-            d = dt;
-            id = i;
-        }
-    }
-    return vec4(icosa[id], float(id));
-}
-
-vec4 v12(vec3 p)
-{
-    float d = 0.0;
-    int id = -1;
-    vec3 n = normalize(p);
-    for (int i = 0; i < 12; i++)
-    {
-        float dt = dot(n,dodeca[i]);
-        if (dt > d)
-        {
-            d = dt;
-            id = i;
-        }
-    }
-    return vec4(dodeca[id], float(id));
-}
-
-vec4 v32(vec3 p)
-{
-    vec3  n = normalize(p);
-    vec4  m1 = v12(p);
-    vec4  m2 = v20(p);
-    float d1 = dot(n,m1.xyz);
-    float d2 = dot(n,m2.xyz);
-    if (d1 > d2) return m1;
-    return m2;
-}
-
-vec4 map12(vec3 p)
-{
-    vec4 m = v12(p);
-    vec3 q = p-m.xyz;
-    vec3 r, f;
-    basis(m.xyz,r,f);
-    return vec4(dot(r,q),dot(m.xyz,q),dot(f,q), m.w);
-}
-
-vec4 map20(vec3 p)
-{
-    vec4 m = v20(p);
-    vec3 q = p-m.xyz;
-    vec3 r, f;
-    basis(m.xyz,r,f);
-    return vec4(dot(r,q),dot(m.xyz,q),dot(f,q), m.w);
-}
-
-vec4 map26(vec3 p)
-{
-    vec4 m = v26(p);
-    vec3 q = p-m.xyz;
-    vec3 r, f;
-    basis(m.xyz,r,f);
-    return vec4(dot(r,q),dot(m.xyz,q),dot(f,q),m.w);
-}
-
-vec4 map32(vec3 p)
-{
-    vec4 m = v32(p);
+    vec4 m = choose(p, mapIndex);
     vec3 q = p-m.xyz;
     vec3 r, f;
     basis(m.xyz,r,f);

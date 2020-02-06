@@ -8,22 +8,21 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 
 #define ZERO min(iFrame,0)
 #define MAX_STEPS  128
-#define MIN_DIST   0.002
-#define MAX_DIST   40.0
+#define MIN_DIST   0.01
+#define MAX_DIST   60.0
 #define SHADOW     0.2
-#define FLOOR      0.0
 
 #define NONE 0
 #define SKIN 1
 #define BULB 2
 #define PUPL 3
 
-#define EYE_RADIUS  0.8
 #define CORE_RADIUS 1.2
 #define CAM_DIST    30.0
 
 vec3 BG_COLOR;
 
+float EYE_RADIUS = 0.8;
 float heartBeat;
 float bgH, bgS, bgL;
 
@@ -34,6 +33,9 @@ vec3 camTgt;
 vec3 camDir;
 
 int  AA = 2;
+int  shape;
+float[5] eyeRadii = float[5](0.8, 1.2, 0.9, 0.7, 0.7);
+float[5] stalkLen = float[5](1.0, 0.8, 0.9, 1.0, 1.0);
 
 //  0000000   000   000  000  00     00  
 // 000   000  0000  000  000  000   000  
@@ -51,9 +53,9 @@ void calcAnim()
     if (anim)
     {
         heartBeat = smoothstep(1.0, 0.8, sin(1.5*iTime*TAU)*0.5+0.5);
-        bgH = iFade(0.666,1.0,0.1);
-        bgS = iFade(0.75,1.0,0.1);
-        bgL = iFade(0.15,0.06,0.1);
+        bgH = iFade(0.66,0.67,0.1);
+        bgS = iFade(0.75,0.8,0.1);
+        bgL = iFade(0.15,0.05,0.1);
     }
     else
     {
@@ -62,6 +64,9 @@ void calcAnim()
         bgS = 0.75;
         bgL = 0.15;
     }
+    
+    shape = int(mod(iTime*0.08,5.0));
+    EYE_RADIUS = eyeRadii[shape];
 
     BG_COLOR = hsl(bgH, bgS, bgL);
     
@@ -115,34 +120,28 @@ void eye(float id, vec3 pos)
 
 float map(vec3 p)
 {
-    vec4 m;
-    
-    switch (gl.option) {
-        case 1:  m = map12(p); break;
-        case 2:  m = map20(p); break;
-        case 3:  m = map32(p); break;
-        default: m = map26(p); break;
-    }
+    vec4 m = chooseMap(p, shape);
     
     p  = m.xyz;
     float id = m.w;
+    float time = anim ? iTime : 0.0;
     
-    gl.sdf = SDF(1000.0, p, NONE);
+    gl.sdf = SDF(MAX_DIST, p, NONE);
     
-    float d = sdSphere(v0, CORE_RADIUS*(1.0-0.1*heartBeat));
+    float d = sdSphere(v0, CORE_RADIUS*(1.2-0.4*heartBeat));
 
-    float l;
-    if (anim)
-        l = 4.0 + sin(iTime*(1.0+(id/4.0)));
-    else
-        l = 4.0 + sin(1.0+(id/4.0));
-    //float l = 4.0 + sin(iTime*1.0);
-    vec3 pos = vy * l;
+    float blink = smoothstep(0.9999, 0.9980, sin(id+time*1.1)*0.5+0.5);
+    bool  actve = fract(id/12.0+time/30.0) < 0.5;
+    float open = actve ? blink : 0.0;
     
-    float open = smoothstep(0.9999, 0.9980, sin(iTime*1.1)*0.5+0.5);
-    open = (mod(id, 2.0) == 0.0) ? 0.0 : open;
-
-    d = opUnion(d, stalk(open, pos), 0.3);
+    float jmp = actve ?
+        0.15*smoothstep(0.5, 0.6, sin(id+time*1.3)) : 
+        0.15*sin(id+time*3.0);
+    float len = 4.0 - jmp + 0.7*sin(time*0.5);
+        
+    vec3 pos = vy * len * stalkLen[shape];
+    
+    d = opUnion(d, stalk(open, pos), 0.05+0.3*heartBeat);
     
     if (d < gl.sdf.dist) { gl.sdf.mat = SKIN; gl.sdf.dist = d; }
 
@@ -290,16 +289,16 @@ vec3 getLight(vec3 p, vec3 n, int mat)
     else if (mat == SKIN)
     {
         dif = mix(pow(dif, 2.0), dif, 0.2);
+        
+        float df = smoothstep(3.0*CORE_RADIUS, CORE_RADIUS*1.5, length(p));
+        col = mix(col, vec3(0.8,0.4,0), df*(1.0-heartBeat));
     }
     
     if (mat == SKIN || mat == BULB)
     {
         dif *= softShadow(p, gl.light, 6.0);        
     }
-    
-    float df = smoothstep(3.0*CORE_RADIUS, CORE_RADIUS*1.5, length(p));
-    col = mix(col, vec3(0.8,0.4,0), df*(1.0-heartBeat));
-    
+        
     if (light) col = gray(col);
     
     col *= clamp(dif, ambient, 1.0);
@@ -329,16 +328,17 @@ vec3 getLight(vec3 p, vec3 n, int mat)
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
     initGlobal(fragCoord, iResolution, iMouse, iTime);
+    gl.zero = ZERO;
     for (int i = KEY_1; i <= KEY_9; i++) { if (keyDown(i)) { gl.option = i-KEY_1+1; break; } }
     
-    soft   = !keyState(KEY_DOWN);
-    light  = !keyState(KEY_LEFT);
-    anim   = !keyState(KEY_RIGHT);
+    rotate =  keyState(KEY_R);
+    anim   =  keyState(KEY_RIGHT);
     occl   =  keyState(KEY_UP);
     dither =  keyState(KEY_D);
-    rotate = !keyState(KEY_R);
     normal = !keyState(KEY_N);
     depthb = !keyState(KEY_Z);
+    light  = !keyState(KEY_LEFT);
+    soft   = !keyState(KEY_DOWN);
     
     calcAnim();
     
@@ -355,8 +355,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     if (rotate) 
     {
-        mx += sin(iTime*0.15);
-        my += sin(iTime*0.05);
+        mx += 0.15*iTime;
+        my += 0.15*sin(iTime*0.6);
     }
         
     camTgt = v0; 
@@ -373,8 +373,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     float fov = 4.0;
     if (gl.option > 3) fov += float(gl.option);
     
-    for( int am=ZERO; am<AA; am++ )
-    for( int an=ZERO; an<AA; an++ )
+    for (int am=ZERO; am<AA; am++)
+    for (int an=ZERO; an<AA; an++)
     {
         if (AA > 1) ao = vec2(float(am),float(an))/float(AA)-0.5;
 
