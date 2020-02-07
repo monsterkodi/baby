@@ -132,7 +132,7 @@ float map(vec3 p)
 
     float blink = smoothstep(0.9999, 0.9980, sin(id+time*1.1)*0.5+0.5);
     bool  actve = fract(id/12.0+time/30.0) < 0.5;
-    float open = actve ? blink : 0.0;
+    float open  = actve ? blink : 0.0;
     
     float jmp = actve ?
         0.15*smoothstep(0.5, 0.6, sin(id+time*1.3)) : 

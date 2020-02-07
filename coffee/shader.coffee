@@ -34,9 +34,11 @@ class Shader
             void main(void) { gl_Position = worldViewProjection * vec4(position, 1.0); }
             """
         
-        fragSource    = slash.readText "#{__dirname}/../shader/veyerus.frag"
+        fragSource    = slash.readText "#{__dirname}/../shader/test.frag"
+        # fragSource    = slash.readText "#{__dirname}/../shader/krap.frag"
         if @buffer then bufferSource = slash.readText "#{__dirname}/../shader/eye_buffer.frag"
-        @commonSource = slash.readText "#{__dirname}/../shader/veyerus_common.frag"
+        @commonSource = slash.readText "#{__dirname}/../shader/common.frag"
+        # @commonSource = ""
         
         Effect.ShadersStore.mainVertexShader   = @vertexShader
         Effect.ShadersStore.mainFragmentShader = @shaderCode fragSource 
@@ -97,7 +99,7 @@ class Shader
             
             @iDelta = new Vector2(@world.camera.mouse.delta.x, @world.camera.mouse.delta.y) 
             
-            if (@world.camera.mouse.buttons)
+            if @world.camera.mouse.buttons
                 @iMouse = new Vector4(
                     @world.camera.mouse.pos.x * (window.devicePixelRatio ? 0)
                     @iResolution.y - (@world.camera.mouse.pos.y * (window.devicePixelRatio ? @iResolution.y))
@@ -110,8 +112,8 @@ class Shader
                     (@world.camera.mouse.buttons and 1 or -1) * @world.camera.mouse.down.x * (window.devicePixelRatio ? 0)
                     (@world.camera.mouse.buttons and 1 or -1) * (@iResolution.y - (@world.camera.mouse.down.y * (window.devicePixelRatio ? @iResolution.y))))
                     
-            @iCenter = new Vector3 @world.camera.center.x, @world.camera.center.y, @world.camera.center.z
-            @iCamera = new Vector3 @world.camera.position.x, @world.camera.position.y, @world.camera.position.z
+            @iCenter = new Vector3 -@world.camera.center.x, @world.camera.center.y, @world.camera.center.z
+            @iCamera = new Vector3 -@world.camera.position.x, @world.camera.position.y, @world.camera.position.z
                
             @iTime      = performance.now()/1000
             @iTimeDelta = @world.engine.getDeltaTime()/1000

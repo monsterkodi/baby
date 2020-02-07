@@ -1,9 +1,10 @@
 // #define TOY
-#define PI  3.141592653589
-#define TAU 6.283185307178
-#define E   2.718281828459
-#define EPS 0.000000000001
-#define PHI 1.618033988750
+#define PI   3.141592653589
+#define TAU  6.283185307178
+#define E    2.718281828459
+#define EPS  0.000000000001
+#define PHI  1.618033988750
+#define EPS1 1.00001
 
 #define KEY_LEFT  37
 #define KEY_UP    38
@@ -16,6 +17,7 @@
 #define KEY_C     67
 #define KEY_D     68
 #define KEY_E     69
+#define KEY_F     70
 #define KEY_N     78
 #define KEY_Q     81
 #define KEY_R     82
@@ -34,6 +36,8 @@ const vec3 green = vec3(0.0,0.5,0.0);
 const vec3 blue  = vec3(0.2,0.2,1.0);
 const vec3 white = vec3(1.0,1.0,1.0);
 const vec3 black = vec3(0.0,0.0,0.0);
+
+#define sdMat(m,d)  if (d < gl.sdf.dist) { gl.sdf.dist = d; gl.sdf.mat = m; }
     
 //  0000000   000       0000000   0000000     0000000   000      
 // 000        000      000   000  000   000  000   000  000      
@@ -62,10 +66,32 @@ struct _gl {
     vec4  color;
     int   option;
     float time;
-    vec3  light;
+    vec3  light1;
+    vec3  light2;
+    float ambient;
+    float shadow;
     int   zero;
     SDF   sdf;
 } gl;
+
+struct _cam {
+    vec3  tgt;
+    vec3  pos;
+    vec3  pos2tgt;
+    vec3  dir;
+    vec3  up;
+    vec3  x;
+    float dist;
+    float fov;
+} cam;
+
+struct Mat {
+    float hue;
+    float sat;
+    float lum;
+    float shiny;
+    float glossy;
+};
 
 uniform sampler2D fontChannel;
 
@@ -78,23 +104,27 @@ void initGlobal(vec2 fragCoord, vec3 resolution, vec4 mouse, float time)
     if (mouse.z < 1.0)
     {
         if (mouse.z > -1.0)
-        	gl.mouse = resolution.xy*0.5;
-       	else
+            gl.mouse = resolution.xy*0.5;
+        else
             gl.mouse = mouse.xy;
     }
     else gl.mouse = mouse.xy;
     
-	gl.mp = (2.0*abs(gl.mouse)-vec2(resolution.xy))/resolution.y;    
+    gl.mp = (2.0*abs(gl.mouse)-vec2(resolution.xy))/resolution.y;    
 
     gl.aspect = resolution.x / resolution.y;
     gl.frag   = fragCoord;
     gl.ifrag  = ivec2(fragCoord);
     gl.uv     = (fragCoord+fragCoord-resolution.xy)/resolution.y;
+    
+    gl.ambient = 0.1;
+    gl.shadow  = 0.75;
 }
 
 float powi(int a, int b) { return pow(float(a), float(b)); }
 float log10(float a) { return log(a)/log(10.0); }
 float clamp01(float v) { return clamp(v, 0.0, 1.0); }
+vec3  clamp01(vec3 v) { return clamp(v, 0.0, 1.0); }
 
 // 00000000   00000000   000  000   000  000000000  
 // 000   000  000   000  000  0000  000     000     
@@ -259,10 +289,10 @@ mat3 alignMatrix(vec3 dir)
 float rad2deg(float r) { return 180.0 * r / PI; }
 float deg2rad(float d) { return PI * d / 180.0; }
 
-vec3 rad2deg(vec3 v) { return 180.0 * v / PI; }
-vec3 deg2rad(vec3 v) { return PI * v / 180.0; }
+vec3  rad2deg(vec3 v) { return 180.0 * v / PI; }
+vec3  deg2rad(vec3 v) { return PI * v / 180.0; }
 
-mat3 rotMat(vec3 u, float angle)
+mat3  rotMat(vec3 u, float angle)
 {
     float s = sin(deg2rad(angle));
     float c = cos(deg2rad(angle));
@@ -419,7 +449,7 @@ float opUnion(float d1, float d2, float k)
 float opDiff(float d1, float d2, float k) 
 {
     float h = clamp(0.5 - 0.5*(d2+d1)/k, 0.0, 1.0);
-    return mix(d1, -d2, h) - k*h*(1.0-h);
+    return mix(d1, -d2, h) + k*h*(1.0-h);
 }
 
 float opInter(float d1, float d2, float k) 
@@ -437,7 +467,6 @@ float opInter(float d1, float d2) { return opInter(d1, d2, 0.2); }
 // 0000000   000   000  
 //      000  000   000  
 // 0000000   0000000    
-
 
 float sdSphere(vec3 a, float r)
 {
@@ -462,6 +491,12 @@ float sdPlane(vec3 n)
     return dot(n, gl.sdf.pos);
 }
 
+float sdBox(vec3 a, vec3 b, float r)
+{
+  vec3 q = abs(gl.sdf.pos-a)-b;
+  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0) - r;
+}
+
 float sdEllipsoid(vec3 a, vec3 r)
 {
     vec3 p = gl.sdf.pos-a;
@@ -480,10 +515,10 @@ float sdCone(vec3 a, vec3 b, float r1, float r2)
     return length(gl.sdf.pos-c)-(t*r2+(1.0-t)*r1);      
 }
 
-float sdLine(vec3 a, vec3 d, float r)
+float sdLine(vec3 a, vec3 n, float r)
 {
     vec3 p = gl.sdf.pos-a;
-    return length(p.xz-d.xy)-r;
+    return length(p-n*dot(p,n))-r;
 }
 
 float sdCapsule(vec3 a, vec3 b, float r)
@@ -496,7 +531,7 @@ float sdCapsule(vec3 a, vec3 b, float r)
     return length(gl.sdf.pos-c)-r;        
 }
 
-float sdCylinder(vec3 a, vec3 b, float r)
+float sdCylinder(vec3 a, vec3 b, float r, float cr)
 {
   vec3  ba = b - a;
   vec3  pa = gl.sdf.pos - a;
@@ -507,7 +542,7 @@ float sdCylinder(vec3 a, vec3 b, float r)
   float x2 = x*x;
   float y2 = y*y*baba;
   float d = (max(x,y)<0.0)?-min(x2,y2):(((x>0.0)?x2:0.0)+((y>0.0)?y2:0.0));
-  return sign(d)*sqrt(abs(d))/baba;
+  return sign(d)*sqrt(abs(d))/baba - cr;
 }
 
 vec3 posOnPlane(vec3 p, vec3 n)
@@ -542,224 +577,42 @@ void basis(vec3 n, out vec3 right, out vec3 front)
         front = vec3(b,-n.z,1.0-n.z*n.z*a);
     }
 }
-// 00     00   0000000   00000000     
-// 000   000  000   000  000   000    
-// 000000000  000000000  00000000     
-// 000 0 000  000   000  000          
-// 000   000  000   000  000          
 
-const vec3 cubo[32] = vec3[32](
-    normalize(vec3( 0, 0, 1)),
-    normalize(vec3( 0, 0,-1)),
-    normalize(vec3( 0, 1, 0)),
-    normalize(vec3( 0,-1, 0)),
-    normalize(vec3( 1, 0, 0)),
+//  0000000   0000000   00     00  
+// 000       000   000  000   000  
+// 000       000000000  000000000  
+// 000       000   000  000 0 000  
+//  0000000  000   000  000   000  
 
-    normalize(vec3(-1, 0, 0)),
-    normalize(vec3( 1, 1, 0)),
-    normalize(vec3( 1,-1, 0)),
-    normalize(vec3(-1, 1, 0)),
-    normalize(vec3(-1,-1, 0)),
-    normalize(vec3( 1, 0, 1)),
-    normalize(vec3( 1, 0,-1)),
-    normalize(vec3(-1, 0, 1)),
-    normalize(vec3(-1, 0,-1)),
-    normalize(vec3( 0, 1, 1)),
-    normalize(vec3( 0, 1,-1)),
-    normalize(vec3( 0,-1, 1)),
-    normalize(vec3( 0,-1,-1)),
-    
-    normalize(vec3( 1, 1, 1)),
-    normalize(vec3( 1, 1,-1)),
-    normalize(vec3( 1,-1, 1)),
-    normalize(vec3(-1, 1, 1)),
-    normalize(vec3( 1,-1,-1)),
-    normalize(vec3(-1, 1,-1)),
-    normalize(vec3(-1,-1, 1)),
-    normalize(vec3(-1,-1,-1)),
-    v0, v0, v0, v0, v0, v0
-);
+void lookAtFrom(vec3 tgt, vec3 pos) 
+{ 
+    cam.tgt     = tgt;
+    cam.pos     = pos;
+    cam.pos2tgt = cam.tgt-cam.pos;
+    cam.dir     = normalize(cam.pos2tgt);
+    cam.x       = normalize(cross(cam.dir, vy));
+    cam.up      = normalize(cross(cam.x,cam.dir));
+    cam.dist    = length(cam.pos2tgt);
+}
+void lookAt  (vec3 tgt) { lookAtFrom(tgt, cam.pos); }
+void lookFrom(vec3 pos) { lookAtFrom(cam.tgt, pos); }
 
-const vec3 dodeca[32] = vec3[32](
-    normalize(vec3(0, 1, PHI)),
-    normalize(vec3(0,-1, PHI)),
-    normalize(vec3(0,-1,-PHI)),
-    normalize(vec3(0, 1,-PHI)),
-    normalize(vec3( 1, PHI,0)),
-    normalize(vec3(-1, PHI,0)),
-    normalize(vec3(-1,-PHI,0)),
-    normalize(vec3( 1,-PHI,0)),
-    normalize(vec3( PHI, 0,  1)),
-    normalize(vec3( PHI, 0, -1)),
-    normalize(vec3(-PHI, 0, -1)),
-    normalize(vec3(-PHI, 0,  1)),
-    v0, v0, v0, v0, v0, v0, v0,
-    v0, v0, v0, v0, v0, v0, v0,
-    v0, v0, v0, v0, v0, v0
-);
-
-const vec3 icosa[32] = vec3[32](
-    normalize(vec3( 1, 1,-1)),
-    normalize(vec3( 1, 1, 1)),
-    normalize(vec3( 1,-1,-1)),
-    normalize(vec3( 1,-1, 1)),
-    normalize(vec3(-1, 1,-1)),
-    normalize(vec3(-1, 1, 1)),
-    normalize(vec3(-1,-1,-1)),
-    normalize(vec3(-1,-1, 1)),
-    normalize(vec3(0, PHI,  1.0/PHI)),
-    normalize(vec3(0, PHI, -1.0/PHI)),
-    normalize(vec3(0,-PHI, -1.0/PHI)),
-    normalize(vec3(0,-PHI,  1.0/PHI)),
-    normalize(vec3( PHI,  1.0/PHI, 0)),
-    normalize(vec3( PHI, -1.0/PHI, 0)),
-    normalize(vec3(-PHI, -1.0/PHI, 0)),
-    normalize(vec3(-PHI,  1.0/PHI, 0)),
-    normalize(vec3( 1.0/PHI, 0, PHI)),
-    normalize(vec3(-1.0/PHI, 0, PHI)),
-    normalize(vec3(-1.0/PHI, 0,-PHI)),
-    normalize(vec3( 1.0/PHI, 0,-PHI)),
-    v0, v0, v0, v0, v0, v0,
-    v0, v0, v0, v0, v0, v0
-);
-
-const vec3 dodecaicosa[32] = vec3[32](
-    normalize(vec3(0, 1, PHI)),
-    normalize(vec3(0,-1, PHI)),
-    normalize(vec3(0,-1,-PHI)),
-    normalize(vec3(0, 1,-PHI)),
-    normalize(vec3( 1, PHI,0)),
-    normalize(vec3(-1, PHI,0)),
-    normalize(vec3(-1,-PHI,0)),
-    normalize(vec3( 1,-PHI,0)),
-    normalize(vec3( PHI, 0,  1)),
-    normalize(vec3( PHI, 0, -1)),
-    normalize(vec3(-PHI, 0, -1)),
-    normalize(vec3(-PHI, 0,  1)),
-    normalize(vec3( 1, 1,-1)),
-    normalize(vec3( 1, 1, 1)),
-    normalize(vec3( 1,-1,-1)),
-    normalize(vec3( 1,-1, 1)),
-    normalize(vec3(-1, 1,-1)),
-    normalize(vec3(-1, 1, 1)),
-    normalize(vec3(-1,-1,-1)),
-    normalize(vec3(-1,-1, 1)),
-    normalize(vec3(0, PHI,  1.0/PHI)),
-    normalize(vec3(0, PHI, -1.0/PHI)),
-    normalize(vec3(0,-PHI, -1.0/PHI)),
-    normalize(vec3(0,-PHI,  1.0/PHI)),
-    normalize(vec3( PHI,  1.0/PHI, 0)),
-    normalize(vec3( PHI, -1.0/PHI, 0)),
-    normalize(vec3(-PHI, -1.0/PHI, 0)),
-    normalize(vec3(-PHI,  1.0/PHI, 0)),
-    normalize(vec3( 1.0/PHI, 0, PHI)),
-    normalize(vec3(-1.0/PHI, 0, PHI)),
-    normalize(vec3(-1.0/PHI, 0,-PHI)),
-    normalize(vec3( 1.0/PHI, 0,-PHI))
-);
-
-const vec3 weirdo[32] = vec3[32](
-    normalize(vec3( 0,  1, 0)),
-    normalize(vec3( 1, -1, 0.5)),
-    normalize(vec3(-1, -1, 0.5)),
-    normalize(vec3( 0, -1, -1)),
-    normalize(vec3( 0, -0.9, 1)),
-    normalize(vec3( 1, -0.9, -0.5)),
-    normalize(vec3(-1, -0.9, -0.5)),
-    normalize(vec3(-0.4, 0.5, 1)),
-    normalize(vec3( 0.4, 0.5, 1)),
-    normalize(vec3( 0,  0.2, -1)),
-    normalize(vec3( 0.5,  0.5, -0.7)),
-    normalize(vec3(-0.5,  0.5, -0.7)),
-    v0, v0, v0, v0, v0, v0, v0,
-    v0, v0, v0, v0, v0, v0, v0,
-    v0, v0, v0, v0, v0, v0
-);
-
-struct VecMap {
-    vec3[32] vecs;
-    int num;
-};
-
-VecMap[5] vecMap = VecMap[5](
-    VecMap(cubo,   26),
-    VecMap(dodeca, 12),
-    VecMap(icosa,  20),
-    VecMap(weirdo, 12),
-    VecMap(dodecaicosa, 32)
-);
-
-vec4 choose(vec3 p, int mapIndex)
+void initCam(float dist, vec2 rot)
 {
-    float d = 0.0;
-    int id = -1;
-    vec3 n = normalize(p);
-    for (int i = gl.zero; i < vecMap[mapIndex].num; i++)
-    {
-        float dt = dot(n,vecMap[mapIndex].vecs[i]);
-        if (dt > d)
-        {
-            d = dt;
-            id = i;
-        }
-    }
-    return vec4(vecMap[mapIndex].vecs[id], float(id));
+    lookAtFrom(v0, rotAxisAngle(rotAxisAngle(vec3(0,0,-dist), -vx, 89.0*rot.y), vy, -90.0*rot.x));
+    cam.fov = 4.0;
 }
 
-vec4 chooseMap(vec3 p, int mapIndex)
-{
-    vec4 m = choose(p, mapIndex);
-    vec3 q = p-m.xyz;
-    vec3 r, f;
-    basis(m.xyz,r,f);
-    return vec4(dot(r,q),dot(m.xyz,q),dot(f,q), m.w);
-}
+// 00000000    0000000    0000000  000000000  
+// 000   000  000   000  000          000     
+// 00000000   000   000  0000000      000     
+// 000        000   000       000     000     
+// 000         0000000   0000000      000     
 
-// 00000000  000  0000000    
-// 000       000  000   000  
-// 000000    000  0000000    
-// 000       000  000   000  
-// 000       000  0000000    
-
-vec4 sphericalFibonacci(vec3 p, float num)
+vec4 postProc(vec3 col, bool dither, bool gamma, bool vignette)
 {
-    float m   = 1.0-1.0/num;
-    float phi = min(atan(p.y,p.x),PI);
-    float k   = max(2.0, floor(log(num*PI*sqrt(5.0)*(1.0-p.z*p.z))/log(PHI+1.0)));
-    float Fk  = pow(PHI,k)/sqrt(5.0);
-    vec2  F   = vec2(round(Fk), round(Fk*PHI));
-    vec2  ka  = 2.0*F/num;
-    vec2  kb  = 2.0*PI*(fract((F+1.0)*PHI)-(PHI-1.0));    
-    mat2  iB  = mat2(ka.y,-ka.x, kb.y,-kb.x)/(ka.y*kb.x-ka.x*kb.y);
-    
-    vec2  c   = floor(iB*vec2(phi, p.z-m));
-    float d   = 0.0;
-    vec4  res = vec4(0);
-    
-    for (int s=0; s<4; s++)
-    {
-        vec2  uv  = vec2(s&1,s>>1);
-        float i   = dot(F,uv+c); 
-        float phi = 2.0*PI*fract(i*PHI);
-        float cot = m-2.0*i/num; 
-        float sit = sqrt(1.0-cot*cot); 
-        vec3  q   = vec3(cos(phi)*sit, sin(phi)*sit, cot);
-        float d1  = dot(p,q);
-        if (d1 > d)
-        {
-            d   = d1;
-            res = vec4(q,i);
-        }
-    }
-    return res;
-}
-
-vec4 mapFib(vec3 p, int num)
-{
-    vec4 fib = sphericalFibonacci(normalize(p),float(num));
-    vec3 q = p-fib.xyz;
-    vec3 n = normalize(fib.xyz);
-    vec3 r,f;
-    basis(n,r,f);
-    return vec4(dot(r,q),dot(n,q),dot(f,q), fib.w);
+    if (dither)   col -= vec3(gradientNoise(gl.frag)/256.0); 
+    if (gamma)    col  = pow(col, vec3(1.0/2.2));
+    if (vignette) col *= vec3(smoothstep(1.8, 0.5, length(gl.uv)/max(gl.aspect,1.0)));
+    return vec4(col, 1.0);
 }

@@ -42,12 +42,13 @@ class Camera extends UniversalCamera
         @rotate     = values.rotate
         @dist       = values.dist
         @minDist    = 1
-        @maxDist    = 20
+        @maxDist    = 50
         @moveDist   = 0.1
         @wheelInert = 0
         @moveX      = 0
         @moveY      = 0
         @moveZ      = 0
+        @moveSpeed  = 6.0
         @quat       = quat()
         
         @mouse = 
@@ -89,7 +90,7 @@ class Camera extends UniversalCamera
     reset: ->
         @center = vec()
         @degree = 90
-        @rotate = 0
+        @rotate = 180
         @dist   = 12
         @navigate()
         
@@ -165,22 +166,23 @@ class Camera extends UniversalCamera
         @mouse.moved   = false
         @mouse.buttons = event.buttons
         @mouse.pos     = vec event.clientX-br.left, event.clientY-br.top 
-        @mouse.down    = @mouse.pos 
+        @mouse.down    = vec @mouse.pos 
         
     onMouseUp: (event) => 
     
         @mouse.buttons = 0
-        @mouse.up      = @mouse.pos
+        @mouse.up      = vec @mouse.pos
 
     onMouseDrag: (event) =>
 
         br = @canvas.getBoundingClientRect()
         
-        @mouse.delta = vec(event.clientX, event.clientY).minus @mouse.pos
-        @mouse.pos   = vec event.clientX-br.left, event.clientY-br.top
+        newPos = vec(event.clientX-br.left, event.clientY-br.top)
+        @mouse.delta = newPos.minus @mouse.pos
+        @mouse.pos   = newPos
         
-        if @downPos?.dist(vec @mouseX, @mouseY) > 60
-            @mouseMoved = true
+        if @mouse.down.dist(@mouse.pos) > 60
+            @mouse.moved = true
         
         if event.buttons & 4
             s = @speedFactor * 4
@@ -197,7 +199,7 @@ class Camera extends UniversalCamera
     # 000        000      0       0000000      000     
     
     pivot: (x,y) ->
-         
+        
         @rotate += 0.1*x
         @degree += 0.1*y
                  
@@ -295,15 +297,15 @@ class Camera extends UniversalCamera
         
         return if not @moving
         
-        @moveRelative(deltaSeconds *     (@moveX or @moveFade.x)
-                      deltaSeconds *     (@moveY or @moveFade.y)
-                      deltaSeconds * 2 * (@moveZ or @moveFade.z))
+        @moveRelative(deltaSeconds *     (@moveSpeed*@moveX or @moveFade.x)
+                      deltaSeconds *     (@moveSpeed*@moveY or @moveFade.y)
+                      deltaSeconds * 2 * (@moveSpeed*@moveZ or @moveFade.z))
         
         @navigate()
                 
-        @moveFade.x = @moveX or reduce @moveFade.x, deltaSeconds
-        @moveFade.y = @moveY or reduce @moveFade.y, deltaSeconds
-        @moveFade.z = @moveZ or reduce @moveFade.z, deltaSeconds
+        @moveFade.x = @moveSpeed*@moveX or reduce @moveFade.x, @moveSpeed*deltaSeconds
+        @moveFade.y = @moveSpeed*@moveY or reduce @moveFade.y, @moveSpeed*deltaSeconds
+        @moveFade.z = @moveSpeed*@moveZ or reduce @moveFade.z, @moveSpeed*deltaSeconds
         
         if @moveFade.length() > 0.001
             animate @moveCenter
