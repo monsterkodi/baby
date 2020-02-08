@@ -5,19 +5,19 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 #define ZERO min(iFrame,0)
 #define CAM_DIST   25.0
 #define MAX_STEPS  256
-#define MIN_DIST   0.0001
+#define MIN_DIST   0.001
 #define MAX_DIST   260.0
 
-#define NONE  0
-#define PLANE 1
-#define SKIN  2
-#define TOP1  3
-#define BOT1  4
-#define BLACK 5
+#define NONE 0
+#define FLOR 1
+#define SKIN 2
+#define DBLU 3
+#define LBLU 4
+#define BLCK 5
 
 Mat[5] material = Mat[5](
     //  hue   sat  lum    shiny  glossy
-    Mat(0.5,  0.0, 0.005, 0.0,   0.0 ), // PLANE
+    Mat(0.5,  0.0, 0.005, 0.0,   0.0 ), // FLOR
     Mat(0.05, 1.0, 1.0,   0.3,   0.5 ), // SKIN
     
     Mat(0.67, 0.5, 0.25,  0.1,   0.0 ), 
@@ -42,9 +42,8 @@ vec3 grid(vec3 bg)
 
 void dummy(vec2 id)
 {
-    int top = BOT1, bot = TOP1;
     vec3 bp = -vz*0.3 + sin(iTime*5.0)*0.2*vy;
-    vec3 hp = bp+1.8*vz+vy*(1.8+0.2*smoothstep(-0.2, 0.3, sin(id.x*0.08+0.07*id.y+iTime*4.0)));
+    vec3 hp = bp+1.8*vz+vy*(1.8+0.2*sin(id.x*0.08+0.07*id.y+iTime*4.0));
     
     float boxDist = sdBox(bp, vec3(1), 0.5);
     if (gl.sdf.dist < boxDist - 1.5) { return; }
@@ -52,29 +51,29 @@ void dummy(vec2 id)
     float d = sdCapsule (hp-0.5*vy, hp+0.5*vy, 1.0);          // head
     d = opDiff(d, sdLine(hp+vz*0.6+vy*0.5, vx, 0.32), 0.2);   // eyes
     sdMat(SKIN, d);                                           // head
-    sdMat(SKIN, sdCylinder(bp-vx*1.5+vy, bp+vx*1.5+vy,  0.6, 0.5)); // arms
-    sdMat(top,  sdCylinder(bp-vx+vy,     bp+vx+vy,     1.0, 0.5));  // shoulder
-    sdMat(bot,  boxDist);                // body
+    sdMat(LBLU, sdCylinder(bp-vx*1.5+vy, bp+vx*1.5+vy,  0.6, 0.5)); // shoulder
+    sdMat(LBLU, sdCylinder(bp-vx+vy,     bp+vx+vy,     1.0, 0.5));  // neck
+    sdMat(DBLU, boxDist);                // body
     
     vec3 lap = bp+1.25*vy-1.75*vx -smoothstep(-0.6, 0.6, cos(iTime*5.0+PI))*0.1*vy;
     vec3 rap = bp+1.25*vy+1.75*vx -smoothstep(-0.6, 0.6, cos(iTime*5.0))*0.1*vy;
     
-    sdMat(top,  sdCylinder(lap,lap-1.6*vy, 0.4, 0.35)); // larm
-    sdMat(top,  sdCylinder(rap,rap-1.6*vy, 0.4, 0.35)); // rarm
+    sdMat(LBLU, sdCylinder(lap,lap-1.6*vy, 0.4, 0.35)); // larm
+    sdMat(LBLU, sdCylinder(rap,rap-1.6*vy, 0.4, 0.35)); // rarm
     sdMat(SKIN, sdSphere  (lap-2.25*vy, 0.75)); // lhand
     sdMat(SKIN, sdSphere  (rap-2.25*vy, 0.75)); // rhand
     
-    sdMat(BLACK, sdCapsule(lap-2.25*vy-0.25*vx, lap-2.25*vy-0.25*vx+3.0*vz, 0.25)); // baton
+    sdMat(BLCK, sdCapsule(lap-2.25*vy-0.2*vx, lap-(2.25+0.25*smoothstep(-0.2, 0.3, sin(id.x*0.08+0.07*id.y+iTime*4.0)))*vy-0.2*vx+2.9*vz, 0.25)); // baton
         
     vec3 llp = bp-(1.0-0.4*max(0.0,sin(iTime*5.0)))*vy-0.75*vx -cos(iTime*5.0)*0.2*vz;
     vec3 rlp = bp-(1.0-0.4*max(0.0,sin(iTime*5.0+PI)))*vy+0.75*vx -cos(iTime*5.0+PI)*0.2*vz;
     
-    sdMat(top,  sdCylinder(llp,    llp-vy,     0.5, 0.25));  // leg
-    sdMat(top,  sdCylinder(rlp,    rlp-vy,     0.5, 0.25));  // leg
-    sdMat(bot,  sdBox     (llp-1.5*vy+vz*0.25, vec3(0.35,0.25,0.70), 0.5));                // foot
-    sdMat(bot,  sdBox     (rlp-1.5*vy+vz*0.25, vec3(0.35,0.25,0.70), 0.5));                // foot
+    sdMat(LBLU,  sdCylinder(llp,    llp-vy,     0.5, 0.25)); // leg
+    sdMat(LBLU,  sdCylinder(rlp,    rlp-vy,     0.5, 0.25)); // leg
+    sdMat(DBLU,  sdBox     (llp-1.5*vy+vz*0.25, vec3(0.35,0.25,0.70), 0.5)); // foot
+    sdMat(DBLU,  sdBox     (rlp-1.5*vy+vz*0.25, vec3(0.35,0.25,0.70), 0.5)); // foot
         
-    sdMat(BLACK, sdBox(bp+1.5*vy-1.75*vz, vec3(0.75,0.75,0.1), 0.5)); // rucksack
+    sdMat(BLCK, sdBox(bp+1.5*vy-1.75*vz, vec3(0.75,0.75,0.1), 0.5)); // rucksack
 }
 
 float map(vec3 p)
@@ -85,7 +84,7 @@ float map(vec3 p)
 
     gl.sdf = SDF(MAX_DIST, q, NONE);
     
-    if (cam.pos.y > -3.25) sdMat(PLANE, sdPlane(-3.25*vy, vy));
+    if (cam.pos.y > -3.25) sdMat(FLOR, sdPlane(-3.25*vy, vy));
     
     dummy(id);
     
@@ -239,17 +238,14 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     vec2 ao = vec2(0);
             
-    // initCam(CAM_DIST, -2.0*gl.mp+(rotate?vec2(0.15*iTime, 0.15*sin(iTime*0.6)):vec2(0)));
     initCam(CAM_DIST+(rotate ? CAM_DIST*(sin(iTime*0.15)*0.5+0.5) : 0.0), 
-            rotate ? vec2(2.0+0.5*cos(iTime*0.15), 0.25+0.0625*sin(iTime*0.3)) : -2.0*gl.mp);
+            (iMouse.z > 0.0 ? -gl.mp : (rotate ? vec2(2.0+0.5*cos(iTime*0.15), 0.25+0.0625*sin(iTime*0.3)) : -gl.mp)));
     
     #ifndef TOY
     if (space) lookAtFrom(iCenter, iCamera);
     #endif
     
     gl.light1 = cam.pos + 5.0*vy - 3.0*vx;
-    // gl.light2 = rotAxisAngle(vec3(0,CAM_DIST,CAM_DIST), vy, 0.11*iTime*360.0);
-    //gl.light1 = vec3(0.0, 10.0, -240.0*fract(iTime*0.25+0.5)+120.0);
     gl.light2 = vec3(0.0, 20.0, -10.0+60.0*(sin(iTime*0.3)*0.5+0.5));
     
     if (gl.option > 3) cam.fov += float(gl.option);
@@ -286,7 +282,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     #ifndef TOY
     col += vec3(print(0,0,iFrameRate));
-    col += vec3(print(0,1,cam.dist));
     #endif    
     
     fragColor = postProc(col, dither, true, true);
