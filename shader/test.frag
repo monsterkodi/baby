@@ -13,14 +13,16 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 #define SKIN  2
 #define TOP1  3
 #define BOT1  4
+#define BLACK 5
 
-Mat[4] material = Mat[4](
+Mat[5] material = Mat[5](
     //  hue   sat  lum    shiny  glossy
-    Mat(0.5,  1.0, 1.0,   0.0,   0.0 ), // PLANE
-    Mat(0.05, 1.0, 1.0,   0.2,   1.0 ), // SKIN
+    Mat(0.5,  0.0, 0.005, 0.0,   0.0 ), // PLANE
+    Mat(0.05, 1.0, 1.0,   0.3,   0.5 ), // SKIN
     
-    Mat(1.00, 1.0, 0.5,   0.3,   0.6 ), // TOP1
-    Mat(0.5, 1.0, 0.25,   0.3,   0.6 )  // BOT1
+    Mat(0.67, 0.5, 0.25,  0.1,   0.0 ), 
+    Mat(0.67, 1.0, 0.75,  0.3,   0.6 ),
+    Mat(0.5,  0.0, 0.01,  0.0,   0.0 )
 );
 
 bool space, anim, soft, occl, light, dither, foggy, rotate, normal, depthb;
@@ -38,28 +40,59 @@ vec3 grid(vec3 bg)
 // 000 0 000  000   000  000        
 // 000   000  000   000  000        
 
-void dummy(vec3 p, int top, int bot)
+void dummy(vec2 id)
 {
-    float ad = 1.5;
-    vec3 hp = p+vz*1.5+vy*(1.8+0.2*sin(iTime*4.0));
-    float d = sdCapsule (hp-0.5*vy, hp+0.5*vy, 1.0);
-    d = opDiff(d, sdLine(hp+vz*0.6+vy*0.5, vx, 0.32), 0.2);
-    sdMat(SKIN, d);         // head
-    sdMat(SKIN,  sdCylinder(p -vx*ad+vy, p+vx*ad+vy,  0.6, 0.5));    // arms
-    sdMat(top,  sdCylinder(p -vx+vy,    p+vx+vy,     1.0, 0.5));    // shoulder
-    sdMat(bot,  sdBox     (p, vec3(1), 0.5));                       // body
+    int top = BOT1, bot = TOP1;
+    vec3 bp = -vz*0.3 + sin(iTime*5.0)*0.2*vy;
+    vec3 hp = bp+1.8*vz+vy*(1.8+0.2*smoothstep(-0.2, 0.3, sin(id.x*0.08+0.07*id.y+iTime*4.0)));
+    
+    float boxDist = sdBox(bp, vec3(1), 0.5);
+    if (gl.sdf.dist < boxDist - 1.5) { return; }
+    
+    float d = sdCapsule (hp-0.5*vy, hp+0.5*vy, 1.0);          // head
+    d = opDiff(d, sdLine(hp+vz*0.6+vy*0.5, vx, 0.32), 0.2);   // eyes
+    sdMat(SKIN, d);                                           // head
+    sdMat(SKIN, sdCylinder(bp-vx*1.5+vy, bp+vx*1.5+vy,  0.6, 0.5)); // arms
+    sdMat(top,  sdCylinder(bp-vx+vy,     bp+vx+vy,     1.0, 0.5));  // shoulder
+    sdMat(bot,  boxDist);                // body
+    
+    vec3 lap = bp+1.25*vy-1.75*vx -smoothstep(-0.6, 0.6, cos(iTime*5.0+PI))*0.1*vy;
+    vec3 rap = bp+1.25*vy+1.75*vx -smoothstep(-0.6, 0.6, cos(iTime*5.0))*0.1*vy;
+    
+    sdMat(top,  sdCylinder(lap,lap-1.6*vy, 0.4, 0.35)); // larm
+    sdMat(top,  sdCylinder(rap,rap-1.6*vy, 0.4, 0.35)); // rarm
+    sdMat(SKIN, sdSphere  (lap-2.25*vy, 0.75)); // lhand
+    sdMat(SKIN, sdSphere  (rap-2.25*vy, 0.75)); // rhand
+    
+    sdMat(BLACK, sdCapsule(lap-2.25*vy-0.25*vx, lap-2.25*vy-0.25*vx+3.0*vz, 0.25)); // baton
+        
+    vec3 llp = bp-(1.0-0.4*max(0.0,sin(iTime*5.0)))*vy-0.75*vx -cos(iTime*5.0)*0.2*vz;
+    vec3 rlp = bp-(1.0-0.4*max(0.0,sin(iTime*5.0+PI)))*vy+0.75*vx -cos(iTime*5.0+PI)*0.2*vz;
+    
+    sdMat(top,  sdCylinder(llp,    llp-vy,     0.5, 0.25));  // leg
+    sdMat(top,  sdCylinder(rlp,    rlp-vy,     0.5, 0.25));  // leg
+    sdMat(bot,  sdBox     (llp-1.5*vy+vz*0.25, vec3(0.35,0.25,0.70), 0.5));                // foot
+    sdMat(bot,  sdBox     (rlp-1.5*vy+vz*0.25, vec3(0.35,0.25,0.70), 0.5));                // foot
+        
+    sdMat(BLACK, sdBox(bp+1.5*vy-1.75*vz, vec3(0.75,0.75,0.1), 0.5)); // rucksack
 }
 
 float map(vec3 p)
 {
-    gl.sdf = SDF(MAX_DIST, p, NONE);
+    float rep = 10.0;
+    vec2 id = vec2(round(p.x/rep)*rep, round(p.z/rep)*rep);
+    vec3 q = p-vec3(id.x, 0, id.y);
+
+    gl.sdf = SDF(MAX_DIST, q, NONE);
     
-    if (cam.pos.y > 2.5) sdMat(PLANE, sdPlane(-vy*2.5, vy));
+    if (cam.pos.y > -3.25) sdMat(PLANE, sdPlane(-3.25*vy, vy));
     
-    int num = 5;
-    for (int i = 0; i < num; i++)
-        dummy(-vx*5.0*(floor(float(num)/2.0)) +vx*float(i)*5.0, TOP1, BOT1);
-        
+    dummy(id);
+    
+    // id.y -= rep;
+    // gl.sdf.pos = p-vec3(id.x, 0, id.y);
+    // dummy(id);
+       
     return gl.sdf.dist;
 }
 
@@ -78,15 +111,6 @@ vec3 getNormal(vec3 p)
         n += e*map(p+e*0.0001);
     }
     return normalize(n);
-}
-
-vec3 getNormal2(vec3 p)
-{
-    vec3 eps=vec3(0.001,0,0);
-    
-    return normalize(vec3(map(p+eps.xyz)-map(p-eps.xyz),
-                          map(p+eps.yxz)-map(p-eps.yxz),
-                          map(p+eps.yzx)-map(p-eps.yzx)));
 }
 
 // 00     00   0000000   00000000    0000000  000   000  
@@ -124,14 +148,13 @@ float softShadow(vec3 ro, vec3 lp, float k)
     float end = max(length(rd), MIN_DIST);
     float stepDist = end/25.0;
     rd /= end;
-    for (int i=0; i<25; i++)
+    for (int i = ZERO; i < 25; i++)
     {
         float h = map(ro+rd*dist);
         shade = min(shade, k*h/dist);
         dist += clamp(h, 0.02, stepDist*2.0);
         if (h < 0.0 || dist > end) break; 
     }
-
     return min(max(shade, 0.0)+gl.shadow, 1.0); 
 }
 
@@ -167,18 +190,21 @@ vec3 getLight(vec3 p, vec3 n, int mat)
     if (mat == NONE) return black;
     
     Mat m = material[mat-1];
+
+    vec3 fakeL2 = vec3(p.x, gl.light2.yz);
     
     vec3  col = hsl(m.hue, m.sat, m.lum);
     float dl1 = dot(n,normalize(gl.light1-p));
-    float dl2 = dot(n,normalize(gl.light2-p));
+    float dl2 = dot(n,normalize(fakeL2-p));
     float dnl = max(dl1, dl2);
     
     col  = (light) ? gray(col) : col;
     
     col *=  clamp(pow(dnl, 1.0+m.shiny*20.0), gl.ambient, 1.0) * 
             softShadow(p, gl.light1, 6.0) * 
-            softShadow(p, gl.light2, 6.0) * 
+            softShadow(p, fakeL2, 6.0) * 
             getOcclusion(p, n);
+            
     col += pow(m.glossy, 3.0)*vec3(pow(smoothstep(0.0+m.glossy*0.9, 1.0, dnl), 1.0+40.0*m.glossy));
     
     return clamp01(col);
@@ -196,7 +222,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     gl.zero = ZERO;
     for (int i = KEY_1; i <= KEY_9; i++) { if (keyDown(i)) { gl.option = i-KEY_1+1; break; } }
     
-    rotate = !keyState(KEY_R);
+    rotate =  keyState(KEY_R);
     anim   =  keyState(KEY_RIGHT);
     occl   =  keyState(KEY_UP);
     dither =  keyState(KEY_D);
@@ -204,7 +230,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     depthb = !keyState(KEY_Z);
     light  = !keyState(KEY_LEFT);
     soft   = !keyState(KEY_DOWN);
-    space  =  keyState(KEY_SPACE);
+    space  = !keyState(KEY_SPACE);
     foggy  =  keyState(KEY_F);
     
     vec3 cols = v0, col = v0;
@@ -213,14 +239,18 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     
     vec2 ao = vec2(0);
             
-    initCam(CAM_DIST, -2.0*gl.mp+(rotate?vec2(0.15*iTime, 0.15*sin(iTime*0.6)):vec2(0)));
+    // initCam(CAM_DIST, -2.0*gl.mp+(rotate?vec2(0.15*iTime, 0.15*sin(iTime*0.6)):vec2(0)));
+    initCam(CAM_DIST+(rotate ? CAM_DIST*(sin(iTime*0.15)*0.5+0.5) : 0.0), 
+            rotate ? vec2(2.0+0.5*cos(iTime*0.15), 0.25+0.0625*sin(iTime*0.3)) : -2.0*gl.mp);
     
     #ifndef TOY
     if (space) lookAtFrom(iCenter, iCamera);
     #endif
     
     gl.light1 = cam.pos + 5.0*vy - 3.0*vx;
-    gl.light2 = rotAxisAngle(vec3(0,CAM_DIST,CAM_DIST), vy, 0.11*iTime*360.0);
+    // gl.light2 = rotAxisAngle(vec3(0,CAM_DIST,CAM_DIST), vy, 0.11*iTime*360.0);
+    //gl.light1 = vec3(0.0, 10.0, -240.0*fract(iTime*0.25+0.5)+120.0);
+    gl.light2 = vec3(0.0, 20.0, -10.0+60.0*(sin(iTime*0.3)*0.5+0.5));
     
     if (gl.option > 3) cam.fov += float(gl.option);
     
@@ -247,7 +277,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         else
         {
             col = getLight(p, n, mat);
-            if (foggy) col = mix(col, vec3(0.25), smoothstep(MAX_DIST*0.4, MAX_DIST*0.5, d));
+            if (foggy) col = mix(col, vec3(0.005), smoothstep(MAX_DIST*0.1, MAX_DIST*0.5, d));
         }
 
         cols += col;

@@ -117,8 +117,8 @@ void initGlobal(vec2 fragCoord, vec3 resolution, vec4 mouse, float time)
     gl.ifrag  = ivec2(fragCoord);
     gl.uv     = (fragCoord+fragCoord-resolution.xy)/resolution.y;
     
-    gl.ambient = 0.1;
-    gl.shadow  = 0.75;
+    gl.ambient = 0.03;
+    gl.shadow  = 0.25;
 }
 
 float powi(int a, int b) { return pow(float(a), float(b)); }
