@@ -72,6 +72,7 @@ struct _gl {
     float ambient;
     float shadow;
     int   zero;
+    bool  march;
     SDF   sdf;
 } gl;
 

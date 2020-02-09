@@ -10,11 +10,17 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 #define MIN_DIST   0.001
 #define MAX_DIST   60.0
 
+#define NONE 0
+#define GYRO 1
+#define HEAD 2
+#define TAIL 3
+
 bool space, anim, soft, occl, light, dither, foggy, rotate, normal, depthb;
 
 float hash(float n) { return fract(cos(n)*45758.5453); }
 mat2  rot2(float a) { vec2 v = sin(vec2(1.570796, 0) + a); return mat2(v, -v.y, v.x); }
 
+float at;
 int screen;
 
 float noise3D(in vec3 p)
@@ -45,6 +51,40 @@ float cellTile(in vec3 p)
     return min(d.x, d.y)*2.66;
 }
 
+void gyroid()
+{
+    vec3 p = gl.sdf.pos;
+    float d = dot(cos(p*PI2), sin(p.yzx*PI2)) + 1.25; // gyroid
+
+    sdMat(GYRO, d); 
+}
+
+vec3 tailPos(float t) 
+{
+    t += at;
+    return vec3(-t,0,0)+vz*(2.5+0.4*(1.35 + cos(1.7+t*PI2)))+vy*(0.35-0.5*(sin(-PI2+t*PI2)));
+}
+
+void flyer()
+{
+    vec3 loff = vz*0.4*cos(at*PI2)+vy*0.5*(sin(at*PI2));
+    vec3 tp = tailPos(-0.5/8.0);
+    vec3 hp = tailPos( 1.0/8.0);
+    float d = sdSphere(tp, 0.13);
+    d = opUnion(d, sdCapsule(hp, tp, 0.05), 0.1);
+    sdMat(HEAD, d); 
+    
+    float id = floor((gl.light1.x-gl.sdf.pos.x)*8.0);
+    gl.sdf.pos.x = fract((gl.sdf.pos.x-gl.light1.x)*8.0);
+    if (id < -1.0 && id > -30.0) 
+    {
+        tp = tailPos(id/8.0);
+        d = min(d, sdEllipsoid(vec3(0.5,tp.yz), vec3(8.0,1,1)*(0.06*(1.0+id/30.0))));
+    }
+        
+    sdMat(TAIL, d); 
+}
+
 // 00     00   0000000   00000000   
 // 000   000  000   000  000   000  
 // 000000000  000000000  00000000   
@@ -54,21 +94,19 @@ float cellTile(in vec3 p)
 float map(vec3 p)
 {
     float t = sin(iTime)*0.5+0.5;
-    // p += sin(p.zxy*0.3) + sin(p.yzx*0.3); //  * (sin(iTime*0.5)*0.5+0.5); // space perturbance
-    if (anim)
-        p *= rotMat(normalize(cam.x), 0.6*length((p-cam.pos).yz));
-    float d1 = dot(cos(p*PI2), sin(p.yzx*PI2)) + 1.0; // gyroid lattice
-    // float d2 = dot(cos(p*PI2), sin(p.xzy*PI2*1.0001)) + 1.1; // vertical struts
-    float d2 = MAX_DIST;
-    // float d3 = dot(cos(p*PI2), cos(p.xzy*PI2)) + 1.1; // bobbles
-    float d3 = MAX_DIST; // bobbles
-    float d = opUnion(opUnion(d1, d2), d3);
-    // return d + sin(iTime*0.5)*.05; 
-    // d = d1;
+    vec3 q = p;
+    if (anim) q *= rotMat(normalize(cam.x), 0.6*length((p-cam.pos).yz));
+
+    gl.sdf = SDF(MAX_DIST, q, NONE);
     
-    d = min(d, length(p-gl.light1+vec3(0,0.4,0))-0.4);
+    gyroid();
     
-    return d + 0.25; // +sin(iTime*0.5)*.05; 
+    if (gl.march) 
+    {
+        flyer();
+    }
+    
+    return gl.sdf.dist;
 }
 
 // 0000000    000   000  00     00  00000000   
@@ -172,31 +210,62 @@ float calculateAO( in vec3 p, in vec3 n )
 vec3 getLight(vec3 p, vec3 n, vec3 rd, float d)
 {
     vec3 col = v0;
+    vec3 frc = v0;
     
-    n = doBumpMap(p, n, 0.008);
+    float ff;
+    
+    vec3 p2l = gl.light1-p;
+    
+    int mat = gl.sdf.mat;
+    
+    switch (mat)
+    {
+        case GYRO: 
+            col = vec3(1,0,0); 
+            frc = vec3(0.8, 0.5, 0);
+            n = doBumpMap(p, n, 0.008);
+            ff = 2.0;
+            break;
+        case HEAD: 
+        case TAIL: 
+            col = vec3(1,0.5,0); 
+            frc = vec3(1,0.5,0);
+            ff = mat == HEAD ? 100.0 : 18.0;
+            p2l -= cam.dir*0.2;
+            break;
+    }
     
     float ao = occl ? calculateAO(p, n) : 1.0;
     
-    vec3 ld = gl.light1-p;
-
-    float distlpsp = max(length(ld), 0.001);
+    float lightDist = length(p2l);
     
-    ld /= distlpsp;
+    vec3 ln = normalize(p2l);
     
-    float atten = 1.0/(1.0 + distlpsp*0.25);
-    float ambience = 0.1;
-    float diff = max(dot(n, ld), 0.0);
-    float spec = pow(max(dot(reflect(-ld, n), -rd), 0.0), 32.0);
+    float atten = pow(max(0.0, 1.0-lightDist/40.0), 6.0);
+    float ambience = 0.01;
+    float diff = max(dot(n, ln), 0.0);
+    float spec = pow(max(dot(reflect(-ln, n), -rd), 0.0), 32.0);
     float fre  = pow(clamp(dot(n, rd) + 1.0, 0.0, 1.0), 1.0);
     
-    float shading = softShadow(p, ld, 0.05, distlpsp, 8.0);
+    float shading = softShadow(p, ln, 0.05, lightDist, 8.0);
     
-    col = vec3(1,0,0)*(diff + ambience + spec);
-    col += vec3(0.8, 0.5, 0)*pow(fre, 4.0)*2.0;
-    col *= atten*shading*ao;
+    if (mat == GYRO) 
+    {
+        col *= diff + ambience + spec;
+        col += frc*pow(fre,4.0)*ff;
+        col *= atten*shading*ao;
+    }
+    else if (mat == TAIL) 
+    {
+        col = col * (0.5 + diff + spec) + frc*pow(fre,4.0)*ff;
+    }
+    else
+    {
+        col += frc*pow(fre,4.0)*ff;
+    }
     
-    if (light) col = vec3(ao);
-    else if (foggy) col = mix(vec3(0.02,0.0,0.0), col, 1.0/(1.0+4.0*d*d/(MAX_DIST/2.0)));
+    if (light) col = vec3(atten*shading*ao*(diff + ambience + spec +pow(fre,4.0)*ff));
+    else if (foggy) col = mix(vec3(0.001,0.0,0.0), col, 1.0/(1.0+d*d/MAX_DIST));
     
     return col;
 }
@@ -223,7 +292,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     space  = !keyState(KEY_SPACE);
     foggy  =  keyState(KEY_F);
 	
-    float t = 0.5*iTime;
+    at = 0.5*iTime;
     
     initCam(CAM_DIST, (iMouse.z > 0.0 ? -gl.mp : (rotate 
         // ? vec2(0.2*cos(iTime*0.15), -0.2+0.4*sin(iTime*0.3)) 
@@ -233,8 +302,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     if (iMouse.z < 1.0 && rotate) 
     {
         lookAtFrom(vec3(0,0,2.5), vec3(0,0,0));
-        lookPan(vec3(-t,0,0));
-        orbit(sin(t*1.0)*10.0, sin(t*0.5)*5.0);
+        lookPan(vec3(-at,0,0));
+        orbit(sin(at*1.0)*10.0, sin(at*0.5)*5.0);
     }
         
     #ifndef TOY
@@ -244,17 +313,14 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     gl.uv = (2.0*fragCoord-iResolution.xy)/iResolution.y;
     vec3 rd = normalize(gl.uv.x*cam.x + gl.uv.y*cam.up + cam.fov*cam.dir);
     
-    // gl.light1 = cam.pos+cam.dir*3.5 - sin(-PI2+iTime*PI2)*cam.up;
+    gl.light1 = vec3(-at,0,0)+vz*(2.5+0.4*(1.35 + cos(1.7+at*PI2)))+vy*(0.35-0.5*(sin(-PI2+at*PI2)));
     
-    vec3 cd = vz;
-    vec3 cu = vy;
-    vec3 lp = vec3(-t,0,0);
-    gl.light1 = lp+cd*(2.5+0.4*(1.35 + cos(1.7+t*PI2))) + cu*(0.35-0.5*(sin(-PI2+t*PI2)));
-    
+    gl.march = true;
     float d = march(cam.pos, rd);
     vec3  p = cam.pos + d * rd;
     vec3  n = getNormal(p);
     vec3  col = v0;
+    gl.march = false;
            
     if (normal || depthb)
     {
