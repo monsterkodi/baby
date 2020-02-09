@@ -144,7 +144,7 @@ float print(ivec2 pos, float v)
 {
     float c = 0.0; ivec2 a = text.adv; 
     float fv = fract(v);
-    v = (fv > 0.995 || fv < 0.005) ? floor(v) : v;
+    v = (fv > 0.995 || fv < 0.005) ? round(v) : v;
     float f = abs(v);
     int i = (fv == 0.0) ? 1 : fract(v*10.0) == 0.0 ? -1 : -2;
     int ch, u = max(1,int(log10(f))+1);
@@ -597,11 +597,37 @@ void lookAtFrom(vec3 tgt, vec3 pos)
 }
 void lookAt  (vec3 tgt) { lookAtFrom(tgt, cam.pos); }
 void lookFrom(vec3 pos) { lookAtFrom(cam.tgt, pos); }
+void lookPan (vec3 pan) { lookAtFrom(cam.tgt+pan, cam.pos+pan); }
+void lookPitch(float ang) { 
+    cam.pos2tgt = rotAxisAngle(cam.pos2tgt, cam.x, ang); 
+    cam.tgt     = cam.pos + cam.pos2tgt;
+    cam.dir     = normalize(cam.pos2tgt);
+    cam.up      = normalize(cross(cam.x,cam.dir));
+}
+void orbitPitch(float pitch)
+{
+    cam.pos2tgt = rotAxisAngle(cam.pos2tgt, cam.x, pitch); 
+    cam.pos     = cam.tgt - cam.pos2tgt;
+    cam.dir     = normalize(cam.pos2tgt);
+    cam.up      = normalize(cross(cam.x,cam.dir));
+}
+void orbitYaw(float yaw)
+{
+    cam.pos2tgt = rotAxisAngle(cam.pos2tgt, cam.up, yaw); 
+    cam.pos     = cam.tgt - cam.pos2tgt;
+    cam.dir     = normalize(cam.pos2tgt);
+    cam.up      = normalize(cross(cam.x,cam.dir));
+}
+void orbit(float pitch, float yaw) 
+{
+    orbitYaw(yaw);
+    orbitPitch(pitch);
+}
 
 void initCam(float dist, vec2 rot)
 {
     lookAtFrom(v0, rotAxisAngle(rotAxisAngle(vec3(0,0,-dist), -vx, 89.0*rot.y), vy, -90.0*rot.x));
-    cam.fov = 4.0;
+    cam.fov = PI2; // 4.0;
 }
 
 // 00000000    0000000    0000000  000000000  

@@ -27,13 +27,6 @@ Mat[5] material = Mat[5](
 
 bool space, anim, soft, occl, light, dither, foggy, rotate, normal, depthb;
 
-vec3 grid(vec3 bg)
-{
-    vec2 guv = gl.frag.xy - iResolution.xy / 2.;
-    float grid = dot(step(mod(guv.xyxy, vec4(10,10,100,100)), vec4(1)), vec4(.5, .5, 1., 1.));
-    return mix(bg, vec3(0.02,0.02,0.1), grid);
-}
-
 // 00     00   0000000   00000000   
 // 000   000  000   000  000   000  
 // 000000000  000000000  00000000   
@@ -88,10 +81,6 @@ float map(vec3 p)
     
     dummy(id);
     
-    // id.y -= rep;
-    // gl.sdf.pos = p-vec3(id.x, 0, id.y);
-    // dummy(id);
-       
     return gl.sdf.dist;
 }
 

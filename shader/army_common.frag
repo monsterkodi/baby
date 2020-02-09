@@ -596,6 +596,7 @@ void lookAtFrom(vec3 tgt, vec3 pos)
 }
 void lookAt  (vec3 tgt) { lookAtFrom(tgt, cam.pos); }
 void lookFrom(vec3 pos) { lookAtFrom(cam.tgt, pos); }
+void lookPan (vec3 off) { lookAtFrom(cam.tgt+off, pos+off); }
 
 void initCam(float dist, vec2 rot)
 {
