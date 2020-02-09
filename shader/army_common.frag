@@ -1,6 +1,5 @@
 // #define TOY
 #define PI   3.141592653589
-#define PI2  1.570796326795
 #define TAU  6.283185307178
 #define E    2.718281828459
 #define EPS  0.000000000001
