@@ -547,6 +547,22 @@ float sdCylinder(vec3 a, vec3 b, float r, float cr)
   return sign(d)*sqrt(abs(d))/baba - cr;
 }
 
+float sdHexagon(vec3 p, vec3 a, vec3 r) // r: (radius, height, bevel)
+{
+    vec3 k = vec3(-0.8660254, 0.5, 0.57735);
+    p = abs(p - a);
+    p.xz -= 2.0*min(dot(k.xy, p.xz), 0.0)*k.xy;
+    float hr = r.x-r.z;
+    float hh = r.y-r.z;
+    vec2 d = vec2(length(p.xz-vec2(clamp(p.x,-k.z*hr,k.z*hr), hr))*sign(p.z-hr),p.y-hh);
+    return min(max(d.x,d.y),0.0) + length(max(d,0.0)) - r.z;
+}
+
+float sdHexagon(vec3 a, vec3 r) // r: (radius, height, bevel)
+{
+    return sdHexagon(gl.sdf.pos, a, r);
+}
+
 vec3 posOnPlane(vec3 p, vec3 n)
 {
     return p-dot(p,n)*n;
