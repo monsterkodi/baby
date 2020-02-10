@@ -51,27 +51,39 @@ float cellTile(in vec3 p)
     return min(d.x, d.y)*2.66;
 }
 
-void gyroid()
+//  0000000   000   000  00000000    0000000   
+// 000         000 000   000   000  000   000  
+// 000  0000    00000    0000000    000   000  
+// 000   000     000     000   000  000   000  
+//  0000000      000     000   000   0000000   
+
+void gyro()
 {
     vec3 p = gl.sdf.pos;
-    float d = dot(cos(p*PI2), sin(p.yzx*PI2)) + 1.25; // gyroid
+    float d = dot(cos(p*PI2), sin(p.yzx*PI2)) + 1.25;
 
     sdMat(GYRO, d); 
 }
 
+// 00000000  000      000   000  00000000  00000000   
+// 000       000       000 000   000       000   000  
+// 000000    000        00000    0000000   0000000    
+// 000       000         000     000       000   000  
+// 000       0000000     000     00000000  000   000  
+
 vec3 tailPos(float t) 
 {
     t += at;
-    return vec3(-t,0,0)+vz*(2.5+0.4*(1.35 + cos(1.7+t*PI2)))+vy*(0.35-0.5*(sin(-PI2+t*PI2)));
+    return vec3(-t,0,0)+vz*(2.5+0.4*(1.35 + cos(1.7+t*PI2)))+vy*(0.05-0.5*(sin(-PI2+t*PI2)));
 }
 
 void flyer()
 {
-    vec3 loff = vz*0.4*cos(at*PI2)+vy*0.5*(sin(at*PI2));
     vec3 tp = tailPos(-0.5/8.0);
     vec3 hp = tailPos( 1.0/8.0);
     float d = sdSphere(tp, 0.13);
     d = opUnion(d, sdCapsule(hp, tp, 0.05), 0.1);
+    
     sdMat(HEAD, d); 
     
     float id = floor((gl.light1.x-gl.sdf.pos.x)*8.0);
@@ -91,20 +103,23 @@ void flyer()
 // 000 0 000  000   000  000        
 // 000   000  000   000  000        
 
+void distort(inout vec3 p) 
+{
+    if (iMouse.z < 1.0)
+    p *= rotMat(normalize(cam.x), 0.6*length((p-cam.pos).yz));
+}
+
 float map(vec3 p)
 {
     float t = sin(iTime)*0.5+0.5;
-    vec3 q = p;
-    if (anim) q *= rotMat(normalize(cam.x), 0.6*length((p-cam.pos).yz));
+    
+    distort(p);
 
-    gl.sdf = SDF(MAX_DIST, q, NONE);
+    gl.sdf = SDF(MAX_DIST, p, NONE);
     
-    gyroid();
+    gyro();
     
-    if (gl.march) 
-    {
-        flyer();
-    }
+    if (gl.march) flyer(); 
     
     return gl.sdf.dist;
 }
@@ -117,13 +132,12 @@ float map(vec3 p)
 
 float bumpSurf( in vec3 p)
 {
-    return cellTile(p*10.0) + 0.2*noise3D(p*96.0);
+    return cellTile(p*8.0)*2.0 + 0.1*noise3D(p*150.0);
 }
 
 vec3 doBumpMap(in vec3 p, in vec3 nor, float factor)
 {
-    if (anim)
-        p *= rotMat(normalize(cam.x), 0.6*length((p-cam.pos).yz));
+    distort(p);
     
     const vec2 e = vec2(0.001, 0);
     float ref = bumpSurf(p);                 
@@ -131,7 +145,7 @@ vec3 doBumpMap(in vec3 p, in vec3 nor, float factor)
                       bumpSurf(p - e.yxy),
                       bumpSurf(p - e.yyx))-ref)/e.x;                     
     grad -= nor*dot(nor, grad);          
-    return normalize( nor + grad*factor );
+    return normalize(nor + grad*factor);
 }
 
 // 00     00   0000000   00000000    0000000  000   000  
@@ -215,7 +229,9 @@ vec3 getLight(vec3 p, vec3 n, vec3 rd, float d)
     float ff;
     
     vec3 p2l = gl.light1-p;
-    
+    float lightDist = length(p2l);
+    float atten = pow(max(0.0, 1.0-lightDist/40.0), 6.0);
+        
     int mat = gl.sdf.mat;
     
     switch (mat)
@@ -223,8 +239,8 @@ vec3 getLight(vec3 p, vec3 n, vec3 rd, float d)
         case GYRO: 
             col = vec3(1,0,0); 
             frc = vec3(0.8, 0.5, 0);
-            n = doBumpMap(p, n, 0.008);
-            ff = 2.0;
+            n = doBumpMap(p, n, dither ? 0.006 : 0.008);
+            ff = 32.0 * atten * atten * atten;
             break;
         case HEAD: 
         case TAIL: 
@@ -236,12 +252,9 @@ vec3 getLight(vec3 p, vec3 n, vec3 rd, float d)
     }
     
     float ao = occl ? calculateAO(p, n) : 1.0;
-    
-    float lightDist = length(p2l);
-    
+        
     vec3 ln = normalize(p2l);
     
-    float atten = pow(max(0.0, 1.0-lightDist/40.0), 6.0);
     float ambience = 0.01;
     float diff = max(dot(n, ln), 0.0);
     float spec = pow(max(dot(reflect(-ln, n), -rd), 0.0), 32.0);
@@ -251,8 +264,8 @@ vec3 getLight(vec3 p, vec3 n, vec3 rd, float d)
     
     if (mat == GYRO) 
     {
-        col *= diff + ambience + spec;
-        col += frc*pow(fre,4.0)*ff;
+        col *= diff + ambience + spec + frc*pow(fre,4.0)*ff;
+        // col += frc*pow(fre,4.0)*ff;
         col *= atten*shading*ao;
     }
     else if (mat == TAIL) 
@@ -288,23 +301,21 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     normal = !keyState(KEY_X);
     depthb = !keyState(KEY_Z);
     light  = !keyState(KEY_LEFT);
-    soft   = !keyState(KEY_DOWN);
     space  = !keyState(KEY_SPACE);
     foggy  =  keyState(KEY_F);
 	
-    at = 0.5*iTime;
+    if (anim)
+        at = 0.5*iTime;
     
-    initCam(CAM_DIST, (iMouse.z > 0.0 ? -gl.mp : (rotate 
-        // ? vec2(0.2*cos(iTime*0.15), -0.2+0.4*sin(iTime*0.3)) 
-        ? vec2(0,0) 
-        : -gl.mp)));
+    initCam(CAM_DIST, vec2(0));
     
-    if (iMouse.z < 1.0 && rotate) 
-    {
-        lookAtFrom(vec3(0,0,2.5), vec3(0,0,0));
-        lookPan(vec3(-at,0,0));
+    lookAtFrom(vec3(0,0,2.5), vec3(0,0,0));
+    lookPan(vec3(-at,0,0));
+    if (rotate)
         orbit(sin(at*1.0)*10.0, sin(at*0.5)*5.0);
-    }
+            
+    if (iMouse.z > 0.0)
+        lookAtFrom(vec3(-at,0,2.5), vec3(-at,0,2.5) + rotAxisAngle(vec3(0,0,-2.5-1.5*gl.mp.y), vy, gl.mp.x*90.0));
         
     #ifndef TOY
     if (space) lookAtFrom(iCenter, iCamera);
