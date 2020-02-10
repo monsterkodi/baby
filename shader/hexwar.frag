@@ -6,13 +6,24 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 
 #define ZERO min(iFrame,0)
 #define CAM_DIST   1.0
-#define MAX_STEPS  128
+#define MAX_STEPS  72
 #define MIN_DIST   0.001
-#define MAX_DIST   160.0
+#define MAX_DIST   50.0
 
 #define NONE 0
 #define HEXA 1
 #define TANK 2
+#define GLOW 3
+
+Mat[5] material = Mat[5](
+    //  hue   sat  lum    shiny  glossy
+    Mat(0.67, 1.0, 0.6,   0.0,   0.9 ), // HEXA
+    Mat(0.05, 1.0, 1.0,   0.3,   0.5 ), // TANK
+    
+    Mat(0.33, 1.0, 0.5,   0.1,   1.0 ), 
+    Mat(0.67, 1.0, 0.75,  0.3,   0.6 ),
+    Mat(0.5,  0.0, 0.01,  0.0,   0.0 )
+);
 
 bool space, anim, soft, occl, light, dither, foggy, rotate, normal, depthb;
 
@@ -36,27 +47,38 @@ void hexa()
 
 float hexHeight(vec2 p)
 {
-    return dot(sin(p*2.0 - cos(p.yx*1.4)), vec2(0.25)) + 0.5;
+    return dot(sin(p*2.0 - cos(p.yx*1.4)), vec2(0.25)) + 1.0;
 }
  
 void field()
 {
     vec3 a = gl.sdf.pos;
     vec2 p = a.xz;
-    const float r = 0.25;
-    const vec2 s = vec2(0.866025, 1);
-    vec4 c1 = floor(vec4(p, p - vec2(0,0.5))/s.xyxy) + vec4(0,0,0,0.5);
-    vec4 c2 = floor(vec4(p - vec2(0.5,0.25), p - vec2(0.5,0.75))/s.xyxy) + vec4(0.5,0.25,0.5,0.75);
     
-    vec4 h1 = vec4(p - (c1.xy + 0.5)*s, p - (c1.zw + 0.5)*s);
-    vec4 h2 = vec4(p - (c2.xy + 0.5)*s, p - (c2.zw + 0.5)*s);
+    float s1 = 0.25;
+    vec2 s = vec2(0.866025, 1);
+
+    vec2  c1 = floor(p/s);
+    vec2  c2 = floor((p-vec2(0.0,0.50))/s)+vec2(0.0,0.50);
+    vec2  c3 = floor((p-vec2(0.5,0.25))/s)+vec2(0.5,0.25);
+    vec2  c4 = floor((p-vec2(0.5,0.75))/s)+vec2(0.5,0.75);
+          
+    vec2  r1 = p - (c1 + 0.5)*s;
+    vec2  r2 = p - (c2 + 0.5)*s;
+    vec2  r3 = p - (c3 + 0.5)*s;
+    vec2  r4 = p - (c4 + 0.5)*s;
+          
+    float h1 = hexHeight(c1);
+    float h2 = hexHeight(c2);
+    float h3 = hexHeight(c3);
+    float h4 = hexHeight(c4);
     
-    vec4 obj = vec4(sdHexagon(vec3(h1.x,a.y,h1.y), v0, vec3(r,hexHeight(c1.xy),0.05)),
-                    sdHexagon(vec3(h1.z,a.y,h1.w), v0, vec3(r,hexHeight(c1.zw),0.05)),
-                    sdHexagon(vec3(h2.x,a.y,h2.y), v0, vec3(r,hexHeight(c2.xy),0.05)),
-                    sdHexagon(vec3(h2.z,a.y,h2.w), v0, vec3(r,hexHeight(c2.zw),0.05)));
+    float d1 = sdHexagon(vec3(r1.x,a.y,r1.y), vec3(0,h1,0), vec3(s1,h1,0.05));
+    float d2 = sdHexagon(vec3(r2.x,a.y,r2.y), vec3(0,h2,0), vec3(s1,h2,0.05));
+    float d3 = sdHexagon(vec3(r3.x,a.y,r3.y), vec3(0,h3,0), vec3(s1,h3,0.05));
+    float d4 = sdHexagon(vec3(r4.x,a.y,r4.y), vec3(0,h4,0), vec3(s1,h4,0.05));
                     
-    float d = min(min(obj.x, obj.y), min(obj.z, obj.w));
+    float d = min(min(d1, d2), min(d3, d4));
 
     sdMat(HEXA, d);
 }
@@ -77,6 +99,9 @@ float map(vec3 p)
     
     field();
     
+    if (gl.march)
+        sdMat(GLOW, sdSphere(gl.light2, 0.2));
+    
     return gl.sdf.dist;
 }
 
@@ -89,19 +114,22 @@ float map(vec3 p)
 float march(in vec3 ro, in vec3 rd)
 {
     float t = 0.0, h;
-    for(int i = 0; i < 72; i++)
+    for(int i = ZERO; i < MAX_STEPS; i++)
     {
         h = map(ro+rd*t);
-        if (abs(h)<0.001*max(t*.25, 1.) || t>MAX_DIST) break;        
+        if (abs(h) < MIN_DIST * max(t*.25, 1.) || t>MAX_DIST) break;        
         t += step(h, 1.)*h*.2 + h*.5;
     }
     return min(t, MAX_DIST);
 }
 
-vec3 getNormal(in vec3 p) 
+vec3 getNormal(vec3 p)
 {
-	const vec2 e = vec2(0.002, 0);
-	return normalize(vec3(map(p + e.xyy) - map(p - e.xyy), map(p + e.yxy) - map(p - e.yxy),	map(p + e.yyx) - map(p - e.yyx)));
+    vec3 n = v0;
+    for (int i=ZERO; i<4; i++) {
+        vec3 e = 0.5773*(2.0*vec3((((i+3)>>1)&1),((i>>1)&1),(i&1))-1.0);
+        n += e*map(p+e*0.0001); }
+    return normalize(n);
 }
 
 //  0000000  000   000   0000000   0000000     0000000   000   000  
@@ -110,21 +138,21 @@ vec3 getNormal(in vec3 p)
 //      000  000   000  000   000  000   000  000   000  000   000  
 // 0000000   000   000  000   000  0000000     0000000   00     00  
 
-float softShadow(vec3 ro, vec3 rd, float start, float end, float k)
+float hardShadow(vec3 ro, vec3 n, vec3 lp)
 {
-    float shade = 1.0;
-    float dist = start;
-
-    for (int i=0; i<16; i++)
+    ro += 3.0*MIN_DIST*n;
+    vec3 rd = normalize(lp-ro);
+    float end = max(length(lp-ro), MIN_DIST);
+    for (float t=float(ZERO); t<end;)
     {
-        float h = map(ro + rd*dist);
-        shade = min(shade, k*h/dist);
-
-        dist += clamp(h, 0.01, 0.25);
-        
-        if (h<0.001 || dist > end) break; 
+        float d = map(ro+rd*t);
+        if (d < MIN_DIST)
+        {
+            return gl.shadow;
+        }
+        t += d;
     }
-    return min(max(shade, 0.) + 0.1, 1.0); 
+    return 1.0;
 }
 
 //  0000000   00     00  0000000    000  00000000  000   000  000000000    
@@ -133,17 +161,19 @@ float softShadow(vec3 ro, vec3 rd, float start, float end, float k)
 // 000   000  000 0 000  000   000  000  000       000  0000     000       
 // 000   000  000   000  0000000    000  00000000  000   000     000       
 
-float calculateAO( in vec3 p, in vec3 n )
+float getOcclusion(vec3 p, vec3 n)
 {
-	float ao = 0.0, l;
-    const float maxDist = 3.;
-    const float nbIte = 1.0;
-    for( float i=1.; i< nbIte+.5; i++ )
+    if (!occl) return 1.0;
+    float a = 0.0;
+    float weight = 1.0;
+    for (int i = ZERO; i <= 6; i++)
     {
-        l = (i + hash(i))*.5/nbIte*maxDist;
-        ao += (l - map( p + n*l ))/(1.+ l); 
+        float d = (float(i) / 6.0) * 0.3;
+        a += weight * (d - map(p + n*d));
+        weight *= 0.8;
     }
-    return clamp(1.- ao/nbIte, 0., 1.);
+    float f = clamp01(1.0-a);
+    return f*f;
 }
 
 // 000      000   0000000   000   000  000000000  
@@ -152,7 +182,33 @@ float calculateAO( in vec3 p, in vec3 n )
 // 000      000  000   000  000   000     000     
 // 0000000  000   0000000   000   000     000     
 
-vec3 getLight(vec3 p, vec3 n, vec3 rd, float d)
+vec3 getLight(vec3 p, vec3 n, int mat, float d)
+{
+    if (mat == NONE) return black;
+    
+    Mat m = material[mat-1];
+
+    vec3  col = hsl(m.hue, m.sat, m.lum);
+    float dl1 = dot(n,normalize(gl.light1-p));
+    float dl2 = dot(n,normalize(gl.light2-p));
+    float dnl = max(dl1, dl2);
+    
+    col  = (light) ? gray(col) : col;
+    
+    col *=  clamp(pow(dnl, 1.0+m.shiny*20.0), gl.ambient, 1.0) * 
+            hardShadow(p, n, gl.light2) * 
+            getOcclusion(p, n);
+            
+    col += pow(m.glossy, 3.0)*vec3(pow(smoothstep(0.0+m.glossy*0.9, 1.0, dnl), 1.0+40.0*m.glossy));
+    
+    if (light) col = vec3(hardShadow(p, n, gl.light2));
+    else if (foggy) col = mix(vec3(0.001,0.0,0.0), col, 1.0/(1.0+d*d/MAX_DIST));
+    
+    return clamp01(col);
+}
+
+/*
+vec3 getLight2(vec3 p, vec3 n, vec3 rd, float d)
 {
     vec3 col = v0;
     vec3 frc = v0;
@@ -175,7 +231,7 @@ vec3 getLight(vec3 p, vec3 n, vec3 rd, float d)
             break;
     }
     
-    float ao = occl ? calculateAO(p, n) : 1.0;
+    float ao = occl ? getOcclusion(p, n) : 1.0;
         
     vec3 ln = normalize(p2l);
     
@@ -197,6 +253,7 @@ vec3 getLight(vec3 p, vec3 n, vec3 rd, float d)
     
     return col;
 }
+*/
 // 00     00   0000000   000  000   000  
 // 000   000  000   000  000  0000  000  
 // 000000000  000000000  000  000 0 000  
@@ -207,6 +264,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
     initGlobal(fragCoord, iResolution, iMouse, iTime);
     gl.zero = ZERO;
+    gl.shadow = 0.5;
     for (int i = KEY_1; i <= KEY_9; i++) { if (keyDown(i)) { gl.option = i-KEY_1+1; break; } }
     
     rotate =  keyState(KEY_R);
@@ -239,10 +297,13 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     gl.uv = (2.0*fragCoord-iResolution.xy)/iResolution.y;
     vec3 rd = normalize(gl.uv.x*cam.x + gl.uv.y*cam.up + cam.fov*cam.dir);
     
-    gl.light1 = cam.pos + 2.0*cam.up - 1.0*cam.x;
+    gl.light1 = cam.pos + 1.0*vy;
+    gl.light2 = vec3(cam.pos.x + 2.0*cam.dir.x, cam.pos.y, cam.pos.z+2.0*cam.dir.z);
+    gl.light2 = vy*6.0+sin(iTime*0.2)*vy*4.0;
     
     gl.march = true;
     float d = march(cam.pos, rd);
+    int mat = gl.sdf.mat;
     vec3  p = cam.pos + d * rd;
     vec3  n = getNormal(p);
     vec3  col = v0;
@@ -256,7 +317,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     }
     else
     {
-        col = getLight(p, n, rd, d);
+        // col = getLight(p, n, rd, d);
+        col = getLight(p, n, mat, d);
     }
         
     #ifndef TOY

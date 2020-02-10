@@ -196,25 +196,6 @@ float softShadow(vec3 ro, vec3 rd, float start, float end, float k)
     return min(max(shade, 0.) + 0.1, 1.0); 
 }
 
-//  0000000   00     00  0000000    000  00000000  000   000  000000000    
-// 000   000  000   000  000   000  000  000       0000  000     000       
-// 000000000  000000000  0000000    000  0000000   000 0 000     000       
-// 000   000  000 0 000  000   000  000  000       000  0000     000       
-// 000   000  000   000  0000000    000  00000000  000   000     000       
-
-float calculateAO( in vec3 p, in vec3 n )
-{
-	float ao = 0.0, l;
-    const float maxDist = 3.;
-    const float nbIte = 1.0;
-    for( float i=1.; i< nbIte+.5; i++ )
-    {
-        l = (i + hash(i))*.5/nbIte*maxDist;
-        ao += (l - map( p + n*l ))/(1.+ l); 
-    }
-    return clamp(1.- ao/nbIte, 0., 1.);
-}
-
 // 000      000   0000000   000   000  000000000  
 // 000      000  000        000   000     000     
 // 000      000  000  0000  000000000     000     
@@ -251,8 +232,6 @@ vec3 getLight(vec3 p, vec3 n, vec3 rd, float d)
             break;
     }
     
-    float ao = occl ? calculateAO(p, n) : 1.0;
-        
     vec3 ln = normalize(p2l);
     
     float ambience = 0.01;
@@ -265,8 +244,7 @@ vec3 getLight(vec3 p, vec3 n, vec3 rd, float d)
     if (mat == GYRO) 
     {
         col *= diff + ambience + spec + frc*pow(fre,4.0)*ff;
-        // col += frc*pow(fre,4.0)*ff;
-        col *= atten*shading*ao;
+        col *= atten*shading;
     }
     else if (mat == TAIL) 
     {
@@ -277,7 +255,7 @@ vec3 getLight(vec3 p, vec3 n, vec3 rd, float d)
         col += frc*pow(fre,4.0)*ff;
     }
     
-    if (light) col = vec3(atten*shading*ao*(diff + ambience + spec +pow(fre,4.0)*ff));
+    if (light) col = vec3(atten*shading*(diff + ambience + spec +pow(fre,4.0)*ff));
     else if (foggy) col = mix(vec3(0.001,0.0,0.0), col, 1.0/(1.0+d*d/MAX_DIST));
     
     return col;
