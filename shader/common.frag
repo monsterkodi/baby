@@ -523,6 +523,12 @@ float sdLine(vec3 a, vec3 n, float r)
     return length(p-n*dot(p,n))-r;
 }
 
+float sdLine(vec2 p, vec2 a, vec2 b)
+{
+    vec2 n = b-a;
+    return length((p-a)-n*dot(p-a,n)/dot(n,n));
+}
+
 float sdCapsule(vec3 a, vec3 b, float r)
 {
     vec3 ab = b-a;

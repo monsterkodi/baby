@@ -5,10 +5,11 @@ bool keyState(int key) { return keys(key, 2).x < 0.5; }
 bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 
 #define ZERO min(iFrame,0)
-#define CAM_DIST   1.0
+#define CAM_DIST   3.0
 #define MAX_STEPS  256
-#define MIN_DIST   0.001
-#define MAX_DIST   10.0
+#define MIN_DIST   0.002
+#define MAX_DIST   20.0
+#define HEX_DIST   8.0
 
 #define NONE 0
 #define HEXA 1
@@ -25,12 +26,18 @@ Mat[5] material = Mat[5](
     Mat(0.5,  0.0, 0.01,  0.0,   0.0 )
 );
 
+float spark(float x, float y, float r)
+{
+    return pow(r/length(gl.uv-vec2(x,y)), 3.0);
+}
+
 bool space, anim, soft, occl, light, dither, foggy, rotate, normal, depthb;
 
 float hash(float n) { return fract(cos(n)*45758.5453); }
 mat2  rot2(float a) { vec2 v = sin(vec2(1.570796, 0) + a); return mat2(v, -v.y, v.x); }
 
 float at;
+vec2 hexid;
 int screen;
 
 // 000   000  00000000  000   000   0000000   
@@ -44,7 +51,7 @@ float hexHeight(vec2 p)
     float t = iTime*2.0;
     if (length(p-vec2(0.5,-0.5)) > 2.6) return 0.08 + sin(t+p.x)*0.02 + cos(t+p.y)*0.02;
     
-    return 0.07+0.5*dot(cos(p.xy), cos(p.xy));
+    return 0.1+0.5*dot(cos(p.xy), cos(p.xy));
 }
  
 // 00000000  000  00000000  000      0000000    
@@ -58,10 +65,11 @@ void field()
     vec3 a = gl.sdf.pos;
     vec2 p = a.xz;
     
-    float s1 = 0.25;
+    float s1 = 0.26;
     vec2 s = vec2(0.866025, 1);
 
-    // if (length(p) > 2.0) return;
+    float hd = sdHexagon(a, v0, vec3(HEX_DIST,1000,1));
+    if (hd > 0.0) return;
     
     vec2  c1 = floor(p/s);    
     vec2  c2 = floor((p-vec2(0.0,0.50))/s)+vec2(0.0,0.50);
@@ -82,9 +90,17 @@ void field()
     float d2 = sdHexagon(vec3(r2.x,a.y,r2.y), vec3(0,h2,0), vec3(s1,h2,0.05));
     float d3 = sdHexagon(vec3(r3.x,a.y,r3.y), vec3(0,h3,0), vec3(s1,h3,0.05));
     float d4 = sdHexagon(vec3(r4.x,a.y,r4.y), vec3(0,h4,0), vec3(s1,h4,0.05));
-                    
+
     float d = min(min(d1, d2), min(d3, d4));
 
+    if (gl.march)
+    {
+        if      (d1 == d) hexid = c1;
+        else if (d2 == d) hexid = c2;
+        else if (d3 == d) hexid = c3;
+        else if (d4 == d) hexid = c4;
+    }
+    
     sdMat(HEXA, d);
 }
 
@@ -102,7 +118,7 @@ float map(vec3 p)
     
     field();
     
-    if (gl.march) sdMat(GLOW, sdSphere(gl.light2, 0.2));
+    if (gl.march) sdMat(GLOW, sdSphere(gl.light2, 0.1));
     
     return gl.sdf.dist;
 }
@@ -115,12 +131,12 @@ float map(vec3 p)
 
 float march(in vec3 ro, in vec3 rd)
 {
-    float t = 0.0, h;
+    float t = 0.0, d;
     for(int i = ZERO; i < MAX_STEPS; i++)
     {
-        h = map(ro+rd*t);
-        if (abs(h) < MIN_DIST * max(t*.25, 1.)) return t;
-        t += step(h, 1.)*h*.2 + h*.5;
+        d = map(ro+rd*t);
+        t += min(d, 0.125);
+        if (d < MIN_DIST) return t;
     }
     gl.sdf.mat = NONE;
     return min(t, MAX_DIST);
@@ -143,17 +159,17 @@ vec3 getNormal(vec3 p)
 
 float hardShadow(vec3 ro, vec3 n, vec3 lp)
 {
-    ro += 3.0*MIN_DIST*n;
+    ro += 1.2*MIN_DIST*n;
     vec3 rd = normalize(lp-ro);
     float end = max(length(lp-ro), MIN_DIST);
     for (float t=float(ZERO); t<end;)
     {
         float d = map(ro+rd*t);
-        if (d < MIN_DIST)
+        if (d < MIN_DIST*0.5)
         {
             return 0.0;
         }
-        t += d;
+        t += min(d, 0.125);
     }
     return 1.0;
 }
@@ -188,27 +204,42 @@ float getOcclusion(vec3 p, vec3 n)
 vec3 getLight(vec3 p, vec3 n, int mat, float d)
 {
     if (mat == NONE) return black;
+    if (mat == GLOW) return white;
     
     Mat m = material[mat-1];
 
     float shadow2 = hardShadow(p, n, gl.light2);
     
     vec3 bn = dither ? bumpMap(p, n, 0.003) : n;
+
+    if (p.y > 0.25)
+    {
+        float h = 0.07+0.5*dot(cos(hexid), cos(hexid));
+        m.lum = 0.6+pow(h*1.0, 3.0);
+    }
     
     vec3  col = hsl(m.hue, m.sat, m.lum);
+    
     float dl1 = dot(bn,normalize(gl.light1-p));
     float dl2 = dot(bn,normalize(gl.light2-p)) * shadow2;
-    float dnl = max(dl1, dl2);
+    float dnl = foggy ? max(dl1*0.85, dl2) : max(dl1, dl2);
     
     col  = (light) ? gray(col) : col;
     
-    col += pow(m.glossy, 3.0)*vec3(pow(smoothstep(0.0+m.glossy*0.9, 1.0, dnl), 1.0+40.0*m.glossy));
+    col += pow(m.glossy, 3.0)*vec3(pow(smoothstep(0.0+m.glossy*0.9, 1.0, max(dl1, dl2)), 1.0+40.0*m.glossy));
     col *= clamp(pow(dnl, 1.0+m.shiny*20.0), gl.ambient, 1.0) * 
            max(gl.shadow, shadow2) *
            getOcclusion(p, n);
-            
-    if (foggy) col = mix(col, black, pow(min(d, length(p.xz-cam.pos.xz))/MAX_DIST, 2.0));
-    
+
+    if (p.y < 0.25)
+    {
+        vec2  p2 = abs(hexid+vec2(0.5,0.5));
+        float d1 = sdLine(p2, vec2(-100,HEX_DIST), vec2(100,HEX_DIST))/HEX_DIST;
+        float d2 = sdLine(p2, vec2(HEX_DIST*1.315,0), vec2(0.5*HEX_DIST*1.29,HEX_DIST))/HEX_DIST;
+        col *= smoothstep(0.04, 0.3, min(d1, d2));
+        col *= clamp01(pow(p.y*4.0, 1.5));
+    }
+        
     return clamp01(col);
 }
 
@@ -303,15 +334,16 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec3 rd = normalize(gl.uv.x*cam.x + gl.uv.y*cam.up + cam.fov*cam.dir);
     
     gl.light1 = cam.pos + 1.0*vy;
-    gl.light2 = vy*(2.4+1.5*(sin(iTime*0.2)*0.5+0.5));
+    gl.light2 = 1.0*vy*(2.4+1.5*(sin(iTime*0.2)*0.5+0.5)) - 1.0*vx;
     
+    hexid = vec2(0);
     gl.march = true;
     float d = march(cam.pos, rd);
+    gl.march = false;
     int mat = gl.sdf.mat;
     vec3  p = cam.pos + d * rd;
     vec3  n = getNormal(p);
     vec3  col = v0;
-    gl.march = false;
            
     if (normal || depthb)
     {
