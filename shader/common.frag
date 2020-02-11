@@ -574,6 +574,60 @@ float sdTorus(vec3 p, vec3 a, vec3 n, float rl, float rs)
     return length(vec2(length(posOnPlane(q, n))-rl,abs(dot(n, q))))-rs;
 }
 
+// 000   000   0000000   000   0000000  00000000  
+// 0000  000  000   000  000  000       000       
+// 000 0 000  000   000  000  0000000   0000000   
+// 000  0000  000   000  000       000  000       
+// 000   000   0000000   000  0000000   00000000  
+
+float noise3D(in vec3 p)
+{
+    const vec3 s = vec3(7, 157, 113);
+    vec3 ip = floor(p); p -= ip; 
+    vec4 h = vec4(0., s.yz, s.y + s.z) + dot(ip, s);
+    p = p*p*(3. - 2.*p); 
+    h = mix(fract(sin(h)*43758.5453), fract(sin(h + s.x)*43758.5453), p.x);
+    h.xy = mix(h.xz, h.yw, p.y);
+    return mix(h.x, h.y, p.z);
+}
+
+// 0000000    000   000  00     00  00000000   
+// 000   000  000   000  000   000  000   000  
+// 0000000    000   000  000000000  00000000   
+// 000   000  000   000  000 0 000  000        
+// 0000000     0000000   000   000  000        
+
+float drawSphere(in vec3 p)
+{
+    p = fract(p)-.5; return dot(p, p);
+}
+
+float cellTile(in vec3 p)
+{
+    vec4 d; 
+    d.x = drawSphere(p - vec3(.81, .62, .53)); p.xy = vec2(p.y-p.x, p.y + p.x)*.7071;
+    d.y = drawSphere(p - vec3(.39, .2,  .11)); p.yz = vec2(p.z-p.y, p.z + p.y)*.7071;
+    d.z = drawSphere(p - vec3(.62, .24, .06)); p.xz = vec2(p.z-p.x, p.z + p.x)*.7071;
+    d.w = drawSphere(p - vec3(.2,  .82, .64));
+    d.xy = min(d.xz, d.yw);
+    return min(d.x, d.y)*2.66;
+}
+
+float bumpSurf(vec3 p)
+{
+    return 0.2*noise3D(p*15.0) - 0.05*noise3D(p*120.0);
+}
+
+vec3 bumpMap(vec3 p, vec3 nor, float factor)
+{
+    const vec2 e = vec2(0.001, 0);
+    vec3 grad = (vec3(bumpSurf(p - e.xyy),
+                      bumpSurf(p - e.yxy),
+                      bumpSurf(p - e.yyx))-bumpSurf(p))/e.x;                     
+    grad -= nor*dot(nor, grad);          
+    return normalize(nor - grad*factor);
+}
+
 // 0000000     0000000    0000000  000   0000000  
 // 000   000  000   000  000       000  000       
 // 0000000    000000000  0000000   000  0000000   

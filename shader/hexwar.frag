@@ -6,9 +6,9 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 
 #define ZERO min(iFrame,0)
 #define CAM_DIST   1.0
-#define MAX_STEPS  72
+#define MAX_STEPS  256
 #define MIN_DIST   0.001
-#define MAX_DIST   50.0
+#define MAX_DIST   10.0
 
 #define NONE 0
 #define HEXA 1
@@ -17,7 +17,7 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 
 Mat[5] material = Mat[5](
     //  hue   sat  lum    shiny  glossy
-    Mat(0.67, 1.0, 0.6,   0.0,   0.9 ), // HEXA
+    Mat(0.67, 1.0, 0.6,   0.3,   0.9 ), // HEXA
     Mat(0.05, 1.0, 1.0,   0.3,   0.5 ), // TANK
     
     Mat(0.33, 1.0, 0.5,   0.1,   1.0 ), 
@@ -39,17 +39,20 @@ int screen;
 // 000   000  000        000 000   000   000  
 // 000   000  00000000  000   000  000   000  
 
-void hexa()
-{
-    sdMat(HEXA, sdHexagon(v0, vec3(1,1,0.1))); 
-    sdMat(TANK, sdSphere(v0, 1.001)); 
-}
-
 float hexHeight(vec2 p)
 {
-    return dot(sin(p*2.0 - cos(p.yx*1.4)), vec2(0.25)) + 1.0;
+    float t = iTime*2.0;
+    if (length(p-vec2(0.5,-0.5)) > 2.6) return 0.08 + sin(t+p.x)*0.02 + cos(t+p.y)*0.02;
+    
+    return 0.07+0.5*dot(cos(p.xy), cos(p.xy));
 }
  
+// 00000000  000  00000000  000      0000000    
+// 000       000  000       000      000   000  
+// 000000    000  0000000   000      000   000  
+// 000       000  000       000      000   000  
+// 000       000  00000000  0000000  0000000    
+
 void field()
 {
     vec3 a = gl.sdf.pos;
@@ -58,7 +61,9 @@ void field()
     float s1 = 0.25;
     vec2 s = vec2(0.866025, 1);
 
-    vec2  c1 = floor(p/s);
+    // if (length(p) > 2.0) return;
+    
+    vec2  c1 = floor(p/s);    
     vec2  c2 = floor((p-vec2(0.0,0.50))/s)+vec2(0.0,0.50);
     vec2  c3 = floor((p-vec2(0.5,0.25))/s)+vec2(0.5,0.25);
     vec2  c4 = floor((p-vec2(0.5,0.75))/s)+vec2(0.5,0.75);
@@ -95,12 +100,9 @@ float map(vec3 p)
     
     gl.sdf = SDF(MAX_DIST, p, NONE);
     
-    // hexa();
-    
     field();
     
-    if (gl.march)
-        sdMat(GLOW, sdSphere(gl.light2, 0.2));
+    if (gl.march) sdMat(GLOW, sdSphere(gl.light2, 0.2));
     
     return gl.sdf.dist;
 }
@@ -117,9 +119,10 @@ float march(in vec3 ro, in vec3 rd)
     for(int i = ZERO; i < MAX_STEPS; i++)
     {
         h = map(ro+rd*t);
-        if (abs(h) < MIN_DIST * max(t*.25, 1.) || t>MAX_DIST) break;        
+        if (abs(h) < MIN_DIST * max(t*.25, 1.)) return t;
         t += step(h, 1.)*h*.2 + h*.5;
     }
+    gl.sdf.mat = NONE;
     return min(t, MAX_DIST);
 }
 
@@ -148,7 +151,7 @@ float hardShadow(vec3 ro, vec3 n, vec3 lp)
         float d = map(ro+rd*t);
         if (d < MIN_DIST)
         {
-            return gl.shadow;
+            return 0.0;
         }
         t += d;
     }
@@ -188,21 +191,23 @@ vec3 getLight(vec3 p, vec3 n, int mat, float d)
     
     Mat m = material[mat-1];
 
+    float shadow2 = hardShadow(p, n, gl.light2);
+    
+    vec3 bn = dither ? bumpMap(p, n, 0.003) : n;
+    
     vec3  col = hsl(m.hue, m.sat, m.lum);
-    float dl1 = dot(n,normalize(gl.light1-p));
-    float dl2 = dot(n,normalize(gl.light2-p));
+    float dl1 = dot(bn,normalize(gl.light1-p));
+    float dl2 = dot(bn,normalize(gl.light2-p)) * shadow2;
     float dnl = max(dl1, dl2);
     
     col  = (light) ? gray(col) : col;
     
-    col *=  clamp(pow(dnl, 1.0+m.shiny*20.0), gl.ambient, 1.0) * 
-            hardShadow(p, n, gl.light2) * 
-            getOcclusion(p, n);
-            
     col += pow(m.glossy, 3.0)*vec3(pow(smoothstep(0.0+m.glossy*0.9, 1.0, dnl), 1.0+40.0*m.glossy));
-    
-    if (light) col = vec3(hardShadow(p, n, gl.light2));
-    else if (foggy) col = mix(vec3(0.001,0.0,0.0), col, 1.0/(1.0+d*d/MAX_DIST));
+    col *= clamp(pow(dnl, 1.0+m.shiny*20.0), gl.ambient, 1.0) * 
+           max(gl.shadow, shadow2) *
+           getOcclusion(p, n);
+            
+    if (foggy) col = mix(col, black, pow(min(d, length(p.xz-cam.pos.xz))/MAX_DIST, 2.0));
     
     return clamp01(col);
 }
@@ -298,8 +303,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec3 rd = normalize(gl.uv.x*cam.x + gl.uv.y*cam.up + cam.fov*cam.dir);
     
     gl.light1 = cam.pos + 1.0*vy;
-    gl.light2 = vec3(cam.pos.x + 2.0*cam.dir.x, cam.pos.y, cam.pos.z+2.0*cam.dir.z);
-    gl.light2 = vy*6.0+sin(iTime*0.2)*vy*4.0;
+    gl.light2 = vy*(2.4+1.5*(sin(iTime*0.2)*0.5+0.5));
     
     gl.march = true;
     float d = march(cam.pos, rd);
