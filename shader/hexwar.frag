@@ -1,36 +1,23 @@
-// https://www.shadertoy.com/view/4lyGzR 'Biomine' by Shane
-
 #define keys(x,y)  texelFetch(iChannel0, ivec2(x,y), 0)
 bool keyState(int key) { return keys(key, 2).x < 0.5; }
 bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 
 #define ZERO min(iFrame,0)
 #define CAM_DIST   6.0
-#define MAX_STEPS  400
+#define MAX_STEPS  256
 #define MIN_DIST   0.001
 #define MAX_DIST   20.0
 #define HEX_DIST   5.0
 
 #define NONE 0
 #define HEXA 1
-#define TANK 2
-#define GLOW 3
-#define BBOX 9
+#define GLOW 2
 
-Mat[5] material = Mat[5](
+Mat[2] material = Mat[2](
     //  hue   sat  lum    shiny  glossy
-    Mat(0.67, 1.0, 0.6,   0.3,   0.9 ), // HEXA
-    Mat(0.05, 1.0, 1.0,   0.3,   0.5 ), // TANK
-    
-    Mat(0.33, 1.0, 0.5,   0.1,   1.0 ), 
-    Mat(0.67, 1.0, 0.75,  0.3,   0.6 ),
-    Mat(0.5,  0.0, 0.01,  0.0,   0.0 )
+    Mat(0.67, 1.0, 0.6,   0.3,   0.9 ),
+    Mat(0.33, 1.0, 0.5,   0.1,   1.0 )
 );
-
-float spark(float x, float y, float r)
-{
-    return pow(r/length(gl.uv-vec2(x,y)), 3.0);
-}
 
 bool space, anim, soft, occl, light, dither, foggy, rotate, normal, depthb;
 
@@ -39,7 +26,6 @@ mat2  rot2(float a) { vec2 v = sin(vec2(1.570796, 0) + a); return mat2(v, -v.y, 
 
 float at;
 vec2 hexid;
-int screen;
 
 // 000   000  00000000  000   000   0000000   
 // 000   000  000        000 000   000   000  
@@ -49,22 +35,23 @@ int screen;
 
 float shoreDist(vec3 p)
 {
-    float ll = length(p.xz-vec2(0.5,-0.5));
+    float ll = length(p.xz);
     return max(0.03+0.06*clamp01(p.y-3.0), ll-2.8);
 }
 
 float mountain(vec2 p)
 {
-    return 0.1+0.6*dot(cos(p), cos(p))*(1.2-length(p-vec2(0.5,-0.5))/2.6);
+    vec2 po = p-vec2(-0.5,0.5);
+    return 0.1+0.6*dot(cos(po), cos(po))*(1.2-length(p)/2.6);
 }
 
 float hexHeight(vec2 p)
 {
     float t = iTime*2.0;
-    float shore = length(p-vec2(0.5,-0.5));
+    float shore = length(p);
     if (shore > 2.6) return 0.08 + sin(t+p.x)*0.02 + cos(t+p.y)*0.02;
-    
-    return 0.15+(sin(iTime*1.2+PI/(2.0+length(p)))*0.5+0.75)*0.6*dot(cos(p.xy), cos(p.xy))*(1.2-shore/2.6);
+    vec2 po = p-vec2(-0.5,0.5);
+    return 0.15+(sin(iTime*1.2+PI/(2.0+length(p)))*0.5+0.75)*0.6*dot(cos(po), cos(po))*(1.2-shore/2.6);
 }
  
 // 00000000  000  00000000  000      0000000    
@@ -81,10 +68,6 @@ void field()
     float rd = 0.25;
     vec2 s = vec2(0.8660254, 1);
 
-    /*
-    float hd = sdSphere(v0, 1.0);
-    if (hd > HEX_DIST) { gl.sdf.dist = gl.sdf.pos.y; return; }
-    */
         
     float fy = 0.8660254;
     float ry = fy*rd;
@@ -272,9 +255,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     normal = !keyState(KEY_X);
     depthb = !keyState(KEY_Z);
     light  = !keyState(KEY_LEFT);
-    space  = !keyState(KEY_SPACE);
+    space  =  keyState(KEY_SPACE);
     foggy  =  keyState(KEY_F);
-	
+    
     if (anim) at = 0.5*iTime;
     
     initCam(CAM_DIST, vec2(0));
@@ -293,9 +276,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     gl.uv = (2.0*fragCoord-iResolution.xy)/iResolution.y;
     vec3 rd = normalize(gl.uv.x*cam.x + gl.uv.y*cam.up + cam.fov*cam.dir);
     
-    gl.light1 = vy*(1.5+0.7*(sin(iTime*1.2+PI/1.0))) - 1.50*vx - 1.74*vz;
-    gl.light2 = vy*(1.5+0.7*(sin(iTime*1.2+PI/2.0))) - 1.74*vz + 1.50*vx;
-    gl.light3 = vy*(1.5+0.7*(sin(iTime*1.2+PI/3.0))) + 1.50*vx + 1.74*vz;
+    gl.light1 = vy*(1.5+0.7*(sin(iTime*1.2+PI/1.0))) - 2.25*vx - 1.3*vz;
+    gl.light2 = vy*(1.5+0.7*(sin(iTime*1.2+PI/2.0))) + 1.14*vx - 1.08*vz;
+    gl.light3 = vy*(1.5+0.7*(sin(iTime*1.2+PI/3.0))) + 1.14*vx + 1.98*vz;
     
     hexid = vec2(0);
     gl.march = true;
@@ -314,7 +297,6 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     }
     else
     {
-        // col = getLight(p, n, rd, d);
         col = getLight(p, n, mat, d);
     }
         

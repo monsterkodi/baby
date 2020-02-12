@@ -1,4 +1,4 @@
-// #define TOY
+#define TOY
 #define PI   3.141592653589
 #define PI2  1.570796326795
 #define TAU  6.283185307178
@@ -457,7 +457,8 @@ float opDiff(float d1, float d2, float k)
 }
 
 float opInter(float d1, float d2, float k) 
-{    
+{
+    
     float h = clamp(0.5 - 0.5*(d2-d1)/k, 0.0, 1.0);
     return mix(d2, d1, h) + k*h*(1.0-h);
 }
@@ -569,7 +570,8 @@ float sdHexagon(vec3 p, vec3 a, vec3 r) // r: (radius, height, bevel)
     p.xz -= 2.0*min(dot(k.xy, p.xz), 0.0)*k.xy;
     float hr = r.x-r.z;
     float hh = r.y-r.z;
-    vec2 d = vec2(length(p.xz-vec2(clamp(p.x,-k.z*hr,k.z*hr), hr))*sign(p.z-hr),p.y-hh);
+    vec2 d = vec2(length(p.xz-vec2(clamp(p.x,-k.z*hr,k.z*hr), hr))*sign(p.z-hr),
+p.y-hh);
     return min(max(d.x,d.y),0.0) + length(max(d,0.0)) - r.z;
 }
 
