@@ -6,8 +6,8 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 
 #define ZERO min(iFrame,0)
 #define CAM_DIST   3.0
-#define MAX_STEPS  256
-#define MIN_DIST   0.002
+#define MAX_STEPS  150
+#define MIN_DIST   0.001
 #define MAX_DIST   20.0
 #define HEX_DIST   8.0
 
@@ -15,6 +15,7 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 #define HEXA 1
 #define TANK 2
 #define GLOW 3
+#define BBOX 9
 
 Mat[5] material = Mat[5](
     //  hue   sat  lum    shiny  glossy
@@ -46,12 +47,23 @@ int screen;
 // 000   000  000        000 000   000   000  
 // 000   000  00000000  000   000  000   000  
 
+float shoreDist(vec3 p)
+{
+    return max(0.0, length(p.xz-vec2(0.5,-0.5))-3.6);
+}
+
+float mountain(vec2 p)
+{
+    return 0.1+0.6*dot(cos(p), cos(p))*(1.2-length(p-vec2(0.5,-0.5))/2.6);
+}
+
 float hexHeight(vec2 p)
 {
     float t = iTime*2.0;
-    if (length(p-vec2(0.5,-0.5)) > 2.6) return 0.08 + sin(t+p.x)*0.02 + cos(t+p.y)*0.02;
+    float shore = length(p-vec2(0.5,-0.5));
+    if (shore > 2.6) return 0.08 + sin(t+p.x)*0.02 + cos(t+p.y)*0.02;
     
-    return 0.1+0.5*dot(cos(p.xy), cos(p.xy));
+    return 0.15+0.6*dot(cos(p.xy), cos(p.xy))*(1.2-shore/2.6);
 }
  
 // 00000000  000  00000000  000      0000000    
@@ -65,40 +77,57 @@ void field()
     vec3 a = gl.sdf.pos;
     vec2 p = a.xz;
     
-    float s1 = 0.26;
-    vec2 s = vec2(0.866025, 1);
+    float rd = 0.25;
+    vec2 s = vec2(0.8660254, 1);
 
-    float hd = sdHexagon(a, v0, vec3(HEX_DIST,1000,1));
-    if (hd > 0.0) return;
+    /*
+    float hd = sdSphere(v0, 1.0);
+    if (hd > HEX_DIST) { gl.sdf.dist = gl.sdf.pos.y; return; }
+    */
+        
+    float fy = 0.8660254;
+    float ry = fy*rd;
+    float rx = rd*1.5;
+    float dy = ry*2.0;
+    s = vec2(rd*1.5, dy);
     
-    vec2  c1 = floor(p/s);    
-    vec2  c2 = floor((p-vec2(0.0,0.50))/s)+vec2(0.0,0.50);
-    vec2  c3 = floor((p-vec2(0.5,0.25))/s)+vec2(0.5,0.25);
-    vec2  c4 = floor((p-vec2(0.5,0.75))/s)+vec2(0.5,0.75);
+    vec2 c1, c2, c3;
+    vec2 fps = floor(p/s);
+    bool odd = mod(fps.x,2.0) >= 1.0;
+    if (odd) fps.y += 0.5;
+    
+    c1 = fps*s; 
+    
+    if (odd)
+    {
+        c2 = c1+vec2(rx,-ry);
+        c3 = c1+vec2(rx, ry);
+    }
+    else
+    {
+        c2 = c1+vec2( 0, dy);
+        c3 = c1+vec2(rx, ry);
+    }
           
-    vec2  r1 = p - (c1 + 0.5)*s;
-    vec2  r2 = p - (c2 + 0.5)*s;
-    vec2  r3 = p - (c3 + 0.5)*s;
-    vec2  r4 = p - (c4 + 0.5)*s;
+    vec2  r1 = p - c1;
+    vec2  r2 = p - c2;
+    vec2  r3 = p - c3;
           
     float h1 = hexHeight(c1);
     float h2 = hexHeight(c2);
     float h3 = hexHeight(c3);
-    float h4 = hexHeight(c4);
     
-    float d1 = sdHexagon(vec3(r1.x,a.y,r1.y), vec3(0,h1,0), vec3(s1,h1,0.05));
-    float d2 = sdHexagon(vec3(r2.x,a.y,r2.y), vec3(0,h2,0), vec3(s1,h2,0.05));
-    float d3 = sdHexagon(vec3(r3.x,a.y,r3.y), vec3(0,h3,0), vec3(s1,h3,0.05));
-    float d4 = sdHexagon(vec3(r4.x,a.y,r4.y), vec3(0,h4,0), vec3(s1,h4,0.05));
+    float d1 = sdHexagon(vec3(r1.x,a.y-h1,r1.y), v0, vec3(rd*fy,h1,0.05));
+    float d2 = sdHexagon(vec3(r2.x,a.y-h2,r2.y), v0, vec3(rd*fy,h2,0.05));
+    float d3 = sdHexagon(vec3(r3.x,a.y-h3,r3.y), v0, vec3(rd*fy,h3,0.05));
 
-    float d = min(min(d1, d2), min(d3, d4));
+    float d = min(min(d1,d2), d3);
 
     if (gl.march)
     {
         if      (d1 == d) hexid = c1;
         else if (d2 == d) hexid = c2;
         else if (d3 == d) hexid = c3;
-        else if (d4 == d) hexid = c4;
     }
     
     sdMat(HEXA, d);
@@ -134,9 +163,11 @@ float march(in vec3 ro, in vec3 rd)
     float t = 0.0, d;
     for(int i = ZERO; i < MAX_STEPS; i++)
     {
-        d = map(ro+rd*t);
-        t += min(d, 0.125);
+        vec3 p = ro+rd*t;
+        d = map(p);
+        t += min(d, max(0.0625,shoreDist(p)));
         if (d < MIN_DIST) return t;
+        if (t > MAX_DIST) break;
     }
     gl.sdf.mat = NONE;
     return min(t, MAX_DIST);
@@ -164,12 +195,13 @@ float hardShadow(vec3 ro, vec3 n, vec3 lp)
     float end = max(length(lp-ro), MIN_DIST);
     for (float t=float(ZERO); t<end;)
     {
-        float d = map(ro+rd*t);
+        vec3 p = ro+rd*t;
+        float d = map(p);
         if (d < MIN_DIST*0.5)
         {
             return 0.0;
         }
-        t += min(d, 0.125);
+        t += min(d, max(0.06,shoreDist(p)));
     }
     return 1.0;
 }
@@ -208,14 +240,14 @@ vec3 getLight(vec3 p, vec3 n, int mat, float d)
     
     Mat m = material[mat-1];
 
-    float shadow2 = hardShadow(p, n, gl.light2);
+    float shadow2 = dither ? 1.0 : hardShadow(p, n, gl.light2);
     
     vec3 bn = dither ? bumpMap(p, n, 0.003) : n;
 
     if (p.y > 0.25)
     {
-        float h = 0.07+0.5*dot(cos(hexid), cos(hexid));
-        m.lum = 0.6+pow(h*1.0, 3.0);
+        m.lum = 0.6+pow(mountain(hexid)*1.4, 2.0);
+        // m.hue = sin(iTime*0.2)*0.5+0.5;
     }
     
     vec3  col = hsl(m.hue, m.sat, m.lum);
@@ -234,7 +266,7 @@ vec3 getLight(vec3 p, vec3 n, int mat, float d)
     if (p.y < 0.25)
     {
         vec2  p2 = abs(hexid+vec2(0.5,0.5));
-        float d1 = sdLine(p2, vec2(-100,HEX_DIST), vec2(100,HEX_DIST))/HEX_DIST;
+        float d1 = sdLine(p2, vec2(100,HEX_DIST), vec2(-100,HEX_DIST))/HEX_DIST;
         float d2 = sdLine(p2, vec2(HEX_DIST*1.315,0), vec2(0.5*HEX_DIST*1.29,HEX_DIST))/HEX_DIST;
         col *= smoothstep(0.04, 0.3, min(d1, d2));
         col *= clamp01(pow(p.y*4.0, 1.5));
@@ -334,7 +366,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec3 rd = normalize(gl.uv.x*cam.x + gl.uv.y*cam.up + cam.fov*cam.dir);
     
     gl.light1 = cam.pos + 1.0*vy;
-    gl.light2 = 1.0*vy*(2.4+1.5*(sin(iTime*0.2)*0.5+0.5)) - 1.0*vx;
+    gl.light2 = 2.0*vy*(2.4+1.5*(sin(iTime*0.2)*0.5+0.5)); //  - 1.0*vx;
     
     hexid = vec2(0);
     gl.march = true;

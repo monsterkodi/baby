@@ -526,6 +526,13 @@ float sdLine(vec3 a, vec3 n, float r)
 float sdLine(vec2 p, vec2 a, vec2 b)
 {
     vec2 n = b-a;
+    vec2 nc = n.yx; nc.x *= -1.0;
+    return dot(p-a,nc) <= 0.0 ? 0.0 : length((p-a)-n*dot(p-a,n)/dot(n,n));
+}
+
+float sdLine2(vec2 p, vec2 a, vec2 b)
+{
+    vec2 n = b-a;
     return length((p-a)-n*dot(p-a,n)/dot(n,n));
 }
 
