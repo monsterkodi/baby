@@ -69,6 +69,8 @@ struct _gl {
     float time;
     vec3  light1;
     vec3  light2;
+    vec3  light3;
+    vec3  rd;
     float ambient;
     float shadow;
     int   zero;
@@ -697,9 +699,10 @@ void orbitPitch(float pitch)
 }
 void orbitYaw(float yaw)
 {
-    cam.pos2tgt = rotAxisAngle(cam.pos2tgt, cam.up, yaw); 
+    cam.pos2tgt = rotAxisAngle(cam.pos2tgt, vy, yaw); 
     cam.pos     = cam.tgt - cam.pos2tgt;
     cam.dir     = normalize(cam.pos2tgt);
+    cam.x       = normalize(cross(cam.dir, vy));
     cam.up      = normalize(cross(cam.x,cam.dir));
 }
 void orbit(float pitch, float yaw) 
