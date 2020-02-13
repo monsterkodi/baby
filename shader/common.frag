@@ -38,7 +38,7 @@ const vec3 blue  = vec3(0.2,0.2,1.0);
 const vec3 white = vec3(1.0,1.0,1.0);
 const vec3 black = vec3(0.0,0.0,0.0);
 
-#define sdMat(m,d)  if (d < gl.sdf.dist) { gl.sdf.dist = d; gl.sdf.mat = m; }
+#define sdMat(m,d)  if (d < sdf.dist) { sdf.dist = d; sdf.mat = m; }
     
 //  0000000   000       0000000   0000000     0000000   000      
 // 000        000      000   000  000   000  000   000  000      
@@ -55,7 +55,7 @@ struct SDF {
     float dist;
     vec3  pos;
     int   mat;
-};
+} sdf;
 
 struct _gl {
     vec2  uv;
@@ -75,7 +75,6 @@ struct _gl {
     float shadow;
     int   zero;
     bool  march;
-    SDF   sdf;
 } gl;
 
 struct _cam {
@@ -240,15 +239,15 @@ float gradientNoise(vec2 v)
 // 000   000       000  000      
 // 000   000  0000000   0000000  
 
-vec3 hsl2rgb( in vec3 c )
+vec3 hsl2rgb(vec3 c)
 {
-    vec3 rgb = clamp( abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0 );
+    vec3 rgb = clamp(abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0);
     return c.z + c.y * (rgb-0.5)*(1.0-abs(2.0*c.z-1.0));
 }
 
 vec3 hsl(float h, float s, float l) { return hsl2rgb(vec3(h,s,l)); }
 
-vec3 rgb2hsl( vec3 col )
+vec3 rgb2hsl(vec3 col)
 {
     float minc = min( col.r, min(col.g, col.b) );
     float maxc = max( col.r, max(col.g, col.b) );
@@ -475,12 +474,12 @@ float opInter(float d1, float d2) { return opInter(d1, d2, 0.2); }
 
 float sdSphere(vec3 a, float r)
 {
-    return length(gl.sdf.pos-a)-r;
+    return length(sdf.pos-a)-r;
 }
 
 float sdPill(vec3 a, float r, vec3 n)
 {
-    vec3 p = gl.sdf.pos-a;
+    vec3 p = sdf.pos-a;
     float d = abs(dot(normalize(n),normalize(p)));
     float f = smoothstep(0.0, 1.3, d);
     return length(p) - r + f * length(n);
@@ -488,23 +487,28 @@ float sdPill(vec3 a, float r, vec3 n)
 
 float sdPlane(vec3 a, vec3 n)
 {   
-    return dot(n, gl.sdf.pos-a);
+    return dot(n, sdf.pos-a);
 }
 
 float sdPlane(vec3 n)
 {   
-    return dot(n, gl.sdf.pos);
+    return dot(n, sdf.pos);
+}
+
+float sdHalfSphere(vec3 a, vec3 n, float r, float k)
+{
+    return opInter(sdPlane(a, -n), sdSphere(a, r), k);
 }
 
 float sdBox(vec3 a, vec3 b, float r)
 {
-  vec3 q = abs(gl.sdf.pos-a)-b;
+  vec3 q = abs(sdf.pos-a)-b;
   return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0) - r;
 }
 
 float sdEllipsoid(vec3 a, vec3 r)
 {
-    vec3 p = gl.sdf.pos-a;
+    vec3 p = sdf.pos-a;
     float k0 = length(p/r);
     float k1 = length(p/(r*r));
     return k0*(k0-1.0)/k1;
@@ -513,16 +517,16 @@ float sdEllipsoid(vec3 a, vec3 r)
 float sdCone(vec3 a, vec3 b, float r1, float r2)
 {
     vec3 ab = b-a;
-    vec3 ap = gl.sdf.pos-a;
+    vec3 ap = sdf.pos-a;
     float t = dot(ab,ap) / dot(ab,ab);
     t = clamp(t, 0.0, 1.0);
     vec3 c = a + t*ab;
-    return length(gl.sdf.pos-c)-(t*r2+(1.0-t)*r1);      
+    return length(sdf.pos-c)-(t*r2+(1.0-t)*r1);      
 }
 
 float sdLine(vec3 a, vec3 n, float r)
 {
-    vec3 p = gl.sdf.pos-a;
+    vec3 p = sdf.pos-a;
     return length(p-n*dot(p,n))-r;
 }
 
@@ -542,17 +546,17 @@ float sdLine2(vec2 p, vec2 a, vec2 b)
 float sdCapsule(vec3 a, vec3 b, float r)
 {
     vec3 ab = b-a;
-    vec3 ap = gl.sdf.pos-a;
+    vec3 ap = sdf.pos-a;
     float t = dot(ab,ap) / dot(ab,ab);
     t = clamp(t, 0.0, 1.0);
     vec3 c = a + t*ab;
-    return length(gl.sdf.pos-c)-r;        
+    return length(sdf.pos-c)-r;        
 }
 
 float sdCylinder(vec3 a, vec3 b, float r, float cr)
 {
   vec3  ba = b - a;
-  vec3  pa = gl.sdf.pos - a;
+  vec3  pa = sdf.pos - a;
   float baba = dot(ba,ba);
   float paba = dot(pa,ba);
   float x = length(pa*baba-ba*paba) - r*baba;
@@ -570,14 +574,13 @@ float sdHexagon(vec3 p, vec3 a, vec3 r) // r: (radius, height, bevel)
     p.xz -= 2.0*min(dot(k.xy, p.xz), 0.0)*k.xy;
     float hr = r.x-r.z;
     float hh = r.y-r.z;
-    vec2 d = vec2(length(p.xz-vec2(clamp(p.x,-k.z*hr,k.z*hr), hr))*sign(p.z-hr),
-p.y-hh);
+    vec2 d = vec2(length(p.xz-vec2(clamp(p.x,-k.z*hr,k.z*hr), hr))*sign(p.z-hr), p.y-hh);
     return min(max(d.x,d.y),0.0) + length(max(d,0.0)) - r.z;
 }
 
 float sdHexagon(vec3 a, vec3 r) // r: (radius, height, bevel)
 {
-    return sdHexagon(gl.sdf.pos, a, r);
+    return sdHexagon(sdf.pos, a, r);
 }
 
 vec3 posOnPlane(vec3 p, vec3 n)
@@ -589,6 +592,24 @@ float sdTorus(vec3 p, vec3 a, vec3 n, float rl, float rs)
 {
     vec3 q = p-a;
     return length(vec2(length(posOnPlane(q, n))-rl,abs(dot(n, q))))-rs;
+}
+
+float sdLink(vec3 p, float le, float r1, float r2)
+{
+    vec3 q = vec3(p.x, max(abs(p.y)-le,0.0), p.z);
+    return length(vec2(length(q.xy)-r1,q.z)) - r2;
+}
+
+float sdLink(vec3 a, vec3 b, vec3 n, vec3 r)
+{
+    vec3 p = sdf.pos - (b+a)*0.5;
+    p -= n*clamp(p,-r.y, r.y);
+    
+    // float le = length(a-b);
+    // vec3 q = vec3( p.x, max(abs(p.y)-le,0.0), p.z );
+    vec3 lv = a-b;
+    vec3 q = max(abs(p)-lv*0.5, 0.0); 
+    return length(vec2(length(q.xy)-r.x,q.z)) - r.z;
 }
 
 // 000   000   0000000   000   0000000  00000000  

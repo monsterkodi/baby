@@ -34,7 +34,7 @@ class Shader
             void main(void) { gl_Position = worldViewProjection * vec4(position, 1.0); }
             """
         
-        fragSource = slash.readText "#{__dirname}/../shader/hexwar.frag"
+        fragSource = slash.readText "#{__dirname}/../shader/tank.frag"
         # fragSource    = slash.readText "#{__dirname}/../shader/krap.frag"
         if @buffer then bufferSource = slash.readText "#{__dirname}/../shader/eye_buffer.frag"
         @commonSource = slash.readText "#{__dirname}/../shader/common.frag"
