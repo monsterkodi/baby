@@ -40,6 +40,7 @@ float at;
 //    000     000   000  000   000  000   000  
 
 Tank[2] tanks;
+Bullet[2] bullets;
 
 Tank loadTank(int id)
 {
@@ -51,6 +52,15 @@ Tank loadTank(int id)
     t.turret = load2(id, 5).xyz;
     t.track  = load2(id, 6).xy;
     return t;
+}
+
+Bullet loadBullet(int i)
+{
+    Bullet b;
+    b.mat    = int(load2(i+2, 0).x);
+    b.pos    = load2(i+2, 1).xyz;
+    b.dir    = load2(i+2, 2).xyz;
+    return b;
 }
 
 void tank(int i)
@@ -139,6 +149,9 @@ float map(vec3 p)
         sdMat(GLOW, sdSphere(gl.light2, 0.1));
         sdMat(GLOW, sdSphere(gl.light1, 0.1));
     }
+    
+    sdMat(GLOW, sdSphere(bullets[0].pos, 0.1));
+    sdMat(GLOW, sdSphere(bullets[1].pos, 0.1));
     
     return sdf.dist;
 }
@@ -280,7 +293,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     normal = !keyState(KEY_X);
     depthb = !keyState(KEY_Z);
     light  = !keyState(KEY_L);
-    space  =  keyState(KEY_SPACE);
+    space  =  keyState(KEY_Z);
     foggy  =  keyState(KEY_F);
     
     if (anim) at = 0.9*iTime;
@@ -301,20 +314,19 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     gl.uv = (2.0*fragCoord-iResolution.xy)/iResolution.y;
     vec3 rd = normalize(gl.uv.x*cam.x + gl.uv.y*cam.up + cam.fov*cam.dir);
     
-    int num = int(load(0).x);
-    
-    // t2 -= floorHeight(t2, t2n)*vy;
-    
-    for (int i = ZERO; i < num; i++)
+    for (int i = ZERO; i < 2; i++)
     {
         tanks[i] = loadTank(i+1);
         tanks[i].mat = TANK1+i*2;
         tanks[i].turret = normalize(tanks[i].dir*0.1+normalize(tanks[i].vel))*clamp(length(tanks[i].vel), 0.75, 1.0); 
+        
+        bullets[i] = loadBullet(i+1);
+        
     }
 
     gl.light1 = tanks[0].pos+15.0*vy;
     gl.light2 = tanks[1].pos+15.0*vy;
-    gl.light3 = vy*20.0;
+    gl.light3 = loadBullet(1).mat != NONE ? loadBullet(1).pos : -vy*10.0;
     
     gl.march = true;
     float d = march(cam.pos, rd);
@@ -338,9 +350,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     }
         
     #ifndef TOY
-    col += vec3(print(0,0,vec3(iFrameRate, iTime, float(num))));
-    // col += vec3(print(0,2,tanks[0].pos));
-    // col += vec3(print(0,1,tanks[1].pos));
+    col += vec3(print(0,0,vec3(iFrameRate, iTime, loadBullet(1).mat)));
+    col += vec3(print(0,2,loadBullet(1).pos));
+    col += vec3(print(0,1,loadBullet(1).mat));
     #endif    
 
     fragColor = postProc(col, dither, true, true);

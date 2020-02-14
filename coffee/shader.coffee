@@ -37,7 +37,7 @@ class Shader
         fragSource = slash.readText "#{__dirname}/../shader/tank.frag"
         # fragSource    = slash.readText "#{__dirname}/../shader/voronoy.frag"
         if @buffer then bufferSource = slash.readText "#{__dirname}/../shader/tank_buffer.frag"
-        @commonSource = slash.readText "#{__dirname}/../shader/common.frag"
+        @commonSource = slash.readText "#{__dirname}/../shader/tank_common.frag"
         # @commonSource = slash.readText "#{__dirname}/../shader/voronoy_common.frag"
         # @commonSource = ""
         

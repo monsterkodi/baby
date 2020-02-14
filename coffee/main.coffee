@@ -6,7 +6,7 @@
 000   000  000   000  000  000   000
 ###
 
-{ app } = require 'kxk'
+{ app, args } = require 'kxk'
 
 class Main extends app
 
@@ -24,5 +24,8 @@ class Main extends app
             height:         768
             minWidth:       300
             minHeight:      300
+            
+        args.watch    = true
+        args.devtools = true
                                 
 new Main
