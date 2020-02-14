@@ -19,7 +19,10 @@
 #define KEY_D     68
 #define KEY_E     69
 #define KEY_F     70
+#define KEY_L     76
 #define KEY_N     78
+#define KEY_O     79
+#define KEY_P     80
 #define KEY_Q     81
 #define KEY_R     82
 #define KEY_S     83
@@ -45,6 +48,16 @@ const vec3 black = vec3(0.0,0.0,0.0);
 // 000  0000  000      000   000  0000000    000000000  000      
 // 000   000  000      000   000  000   000  000   000  000      
 //  0000000   0000000   0000000   0000000    000   000  0000000  
+
+struct Tank {
+    int mat;
+    vec3 pos;
+    vec3 up;
+    vec3 dir;
+    vec3 vel;
+    vec3 turret;
+    vec2 track;
+};
 
 struct Text {
     ivec2 size;

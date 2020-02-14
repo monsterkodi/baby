@@ -18,7 +18,7 @@ class Shader
         @bufferSize = width:512, height:16
         @frameRates = []
 
-        @buffer = false
+        @buffer = true
             
         @textures = 
             keys:   RawTexture.CreateRTexture @world.keys, 256, 3, @scene, false
@@ -36,7 +36,7 @@ class Shader
         
         fragSource = slash.readText "#{__dirname}/../shader/tank.frag"
         # fragSource    = slash.readText "#{__dirname}/../shader/voronoy.frag"
-        if @buffer then bufferSource = slash.readText "#{__dirname}/../shader/eye_buffer.frag"
+        if @buffer then bufferSource = slash.readText "#{__dirname}/../shader/tank_buffer.frag"
         @commonSource = slash.readText "#{__dirname}/../shader/common.frag"
         # @commonSource = slash.readText "#{__dirname}/../shader/voronoy_common.frag"
         # @commonSource = ""
@@ -56,13 +56,13 @@ class Shader
         # 000 0 000  000   000     000     000       000   000  000  000   000  000      
         # 000   000  000   000     000     00000000  000   000  000  000   000  0000000  
         
-        @shaderMaterial = @shaderMaterial 'main'
+        @shaderMaterial = @material 'main'
         @shaderMaterial.onCompiled = => 
             @compileTime = parseInt performance.now()-@shaderStart
             klog "shader compileTime #{@compileTime/1000}s" 
 
         if @buffer
-            @bufferMaterial = @shaderMaterial 'buffer'
+            @bufferMaterial = @material 'buffer'
             @bufferMaterial.onCompiled = => 
                 compileTime = parseInt performance.now()-@shaderStart
                 klog "buffer compileTime #{compileTime/1000}s" 
@@ -187,7 +187,7 @@ class Shader
     #      000  000   000  000   000  000   000  000       000   000  
     # 0000000   000   000  000   000  0000000    00000000  000   000  
     
-    shaderMaterial: (key) ->
+    material: (key) ->
         
         new ShaderMaterial "#{key}Shader", @scene,  
                 vertex:   key

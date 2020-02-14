@@ -1,4 +1,6 @@
 #define keys(x,y)  texelFetch(iChannel0, ivec2(x,y), 0)
+#define load(x)    texelFetch(iChannel1, ivec2(x,0), 0)
+#define load2(x,y) texelFetch(iChannel1, ivec2(x,y), 0)
 bool keyState(int key) { return keys(key, 2).x < 0.5; }
 bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 
@@ -37,31 +39,84 @@ float at;
 //    000     000   000  000  0000  000  000   
 //    000     000   000  000   000  000   000  
 
-struct Tank {
-    int mat;
-    vec3 pos;
-    vec3 up;
-    vec3 dir;
-    vec3 turret;
-    vec2 track;
-};
-
 Tank[2] tanks;
+
+Tank loadTank(int id)
+{
+    Tank t;
+    t.pos    = load2(id, 1).xyz;
+    t.up     = load2(id, 2).xyz;
+    t.dir    = load2(id, 3).xyz;
+    t.vel    = load2(id, 4).xyz;
+    t.turret = load2(id, 5).xyz;
+    t.track  = load2(id, 6).xy;
+    return t;
+}
 
 void tank(int i)
 {
     Tank t = tanks[i];
     vec3 p = t.pos + 1.39*t.up;
+    vec3 tr = normalize(cross(t.up, t.dir));
+    vec3 td = normalize(cross(t.up, tr));
+    
     float d = sdHalfSphere(p, t.up, 1.5, 0.4);
+    
+    if (d > sdf.dist+1.5) return;
+    
     p += 0.7*t.up;
-    d = opUnion(d, sdCapsule(p, p+t.turret*2.5, 0.3), 0.02);
-    d = opUnion(d, sdHalfSphere(p+t.turret*2.8, -t.turret, 0.7, 0.1), 0.1);
-    d = opDiff (d, sdCapsule(p+t.turret, p+t.turret*3.5, 0.15), 0.2);
+    vec3 tt = t.turret;
+    if (dot(tt, t.up) < 0.0) tt = normalize(posOnPlane(p+tt, p, t.up)-p);
+    d = opUnion(d, sdCapsule(p, p+tt*2.5, 0.3), 0.02);
+    d = opUnion(d, sdHalfSphere(p+tt*2.8, -tt, 0.7, 0.1), 0.1);
+    d = opDiff (d, sdCapsule(p+tt, p+tt*3.5, 0.15), 0.2);
     sdMat(t.mat, d);
     
-    vec3 tr = cross(t.up, t.dir);
-    sdMat(t.mat+1, sdLink(t.pos-t.dir*0.5+0.9*t.up+1.3*tr, t.pos+t.dir*0.5+0.9*t.up+1.3*tr, tr, vec3(0.7, 0.3, 0.2), -1.0));
-    sdMat(t.mat+1, sdLink(t.pos-t.dir*0.5+0.9*t.up-1.3*tr, t.pos+t.dir*0.5+0.9*t.up-1.3*tr, tr, vec3(0.7, 0.3, 0.2),  1.0));
+    sdMat(t.mat+1, sdLink(t.pos-td*0.5+0.9*t.up+1.3*tr, t.pos+td*0.5+0.9*t.up+1.3*tr, tr, vec3(0.7, 0.3, 0.2), -1.0));
+    sdMat(t.mat+1, sdLink(t.pos-td*0.5+0.9*t.up-1.3*tr, t.pos+td*0.5+0.9*t.up-1.3*tr, tr, vec3(0.7, 0.3, 0.2),  1.0));
+}
+
+// 00000000  000       0000000    0000000   00000000   
+// 000       000      000   000  000   000  000   000  
+// 000000    000      000   000  000   000  0000000    
+// 000       000      000   000  000   000  000   000  
+// 000       0000000   0000000    0000000   000   000  
+
+float floorDist()
+{
+    float d = sdPlane(vec3(0,0,0), vy);
+    d = opDiff(d, sdSphere(vx*2.0+vy*2.0, 4.0), 1.5);
+    if (cam.pos.y > 0.0) sdMat(FLOOR, d);
+    return d;
+}
+
+vec3 floorNormal(vec3 p)
+{
+    vec3 n = v0;
+    for (int i=ZERO; i<4; i++) {
+        vec3 e = 0.5773*(2.0*vec3((((i+3)>>1)&1),((i>>1)&1),(i&1))-1.0);
+        sdf.pos = p+e*0.0001;
+        n += e*floorDist(); }
+    return normalize(n);
+}
+
+float floorHeight(vec3 p, out vec3 n)
+{
+    float t = 0.0, d;
+    sdf = SDF(MAX_DIST, p, NONE);
+    for (int i = ZERO; i < MAX_STEPS; i++)
+    {
+        sdf.pos = p-vy*t;
+        d = floorDist();
+        t += d;
+        if (d < MIN_DIST) 
+        {
+            n = floorNormal(sdf.pos);
+            return t;
+        }
+        if (t > MAX_DIST) break;
+    }
+    return min(t, MAX_DIST);
 }
 
 // 00     00   0000000   00000000   
@@ -74,7 +129,7 @@ float map(vec3 p)
 {
     sdf = SDF(MAX_DIST, p, NONE);
     
-    if (cam.pos.y > 0.0) sdMat(FLOOR, sdPlane(vec3(0,0,0), vy));
+    floorDist();
         
     for (int i = ZERO; i < 2; i++)
         tank(i);
@@ -191,10 +246,11 @@ vec3 getLight(vec3 p, vec3 n, int mat, float d)
     float dl2 = dot(bn,normalize(gl.light2-p));
     float dl3 = dot(bn,normalize(gl.light3-p));
     float dnl = max(max(dl1, dl2), dl3);
+    float dsl = mix(dnl, clamp01(dl1 + dl2 + dl3), 0.85);
     
     col  = (light) ? gray(col) : col;
     
-    col += pow(m.glossy, 3.0)*vec3(pow(smoothstep(0.0+m.glossy*0.9, 1.0, dnl), 1.0+40.0*m.glossy));
+    col += pow(m.glossy, 3.0)*vec3(pow(smoothstep(0.0+m.glossy*0.9, 1.0, dsl), 1.0+40.0*m.glossy));
     col *= clamp(pow(dnl, 1.0+m.shiny*20.0), gl.ambient, 1.0) * getOcclusion(p, n);
     col *= softShadow(p, gl.light1, 2.0); 
     col *= softShadow(p, gl.light2, 2.0); 
@@ -218,16 +274,16 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     for (int i = KEY_1; i <= KEY_9; i++) { if (keyDown(i)) { gl.option = i-KEY_1+1; break; } }
     
     rotate =  keyState(KEY_R);
-    anim   =  keyState(KEY_RIGHT);
-    occl   =  keyState(KEY_UP);
+    anim   =  keyState(KEY_P);
+    occl   =  keyState(KEY_O);
     dither =  keyState(KEY_D);
     normal = !keyState(KEY_X);
     depthb = !keyState(KEY_Z);
-    light  = !keyState(KEY_LEFT);
+    light  = !keyState(KEY_L);
     space  =  keyState(KEY_SPACE);
     foggy  =  keyState(KEY_F);
     
-    if (anim) at = 0.5*iTime;
+    if (anim) at = 0.9*iTime;
     
     initCam(CAM_DIST, vec2(0));
     
@@ -245,15 +301,28 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     gl.uv = (2.0*fragCoord-iResolution.xy)/iResolution.y;
     vec3 rd = normalize(gl.uv.x*cam.x + gl.uv.y*cam.up + cam.fov*cam.dir);
     
-    vec3 t1 = sin(at)*vx*8.0+cos(at)*vz*8.0;
-    vec3 t2 = 2.0*sin(at)*vz;
-    tanks = Tank[2](
-        Tank(TANK1, t1, vy, -cross(normalize(t1),vy), -cross(normalize(t1),vy), vec2(25,15)),
-        Tank(TANK2, t2, vy, vz, normalize(cos(at)*vz+sin(at)*vx+(sin(at)*0.5+0.5)*vy), vec2(sin(at),sin(at)))
-        ); 
+    int num = int(load(0).x);
+    vec3 t1, t2;
+    t1 = sin(at)*vx*8.0+cos(at)*vz*8.0;
+    t2 = 6.0*sin(at)*vz;
+    vec3 t2n;
+    t2 -= floorHeight(t2, t2n)*vy;
     
-    gl.light1 = t1+15.0*vy; // vy*(7.0+4.0*(sin(at))) + 5.0*vx;
-    gl.light2 = t2+15.0*vy; // vy*(7.0+4.0*(sin(at))) + 5.0*vy;
+    tanks[0] = loadTank(1);
+    tanks[0].mat     = TANK1; 
+    tanks[0].up      = vy; 
+    tanks[0].dir     = -cross(normalize(t1),vy); 
+    tanks[0].turret  = -cross(normalize(t1),vy); 
+    
+    tanks[1] = loadTank(2);
+    tanks[1].pos = t2;
+    tanks[1].mat     = TANK2;
+    tanks[1].up      = t2n; 
+    tanks[1].dir     = vz; 
+    tanks[1].turret  = normalize(cos(at)*vz+sin(at)*vx+(sin(at)*0.5+0.5)*vy); 
+
+    gl.light1 = t1+15.0*vy;
+    gl.light2 = t2+15.0*vy;
     gl.light3 = vy*20.0;
     
     gl.march = true;
@@ -278,7 +347,9 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     }
         
     #ifndef TOY
-    col += vec3(print(0,0,vec2(iFrameRate, iTime)));
+    col += vec3(print(0,0,vec3(iFrameRate, iTime, float(num))));
+    col += vec3(print(0,2,tanks[0].pos));
+    col += vec3(print(0,1,tanks[1].pos));
     #endif    
 
     fragColor = postProc(col, dither, true, true);
