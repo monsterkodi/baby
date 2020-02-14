@@ -10,23 +10,18 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 
 #define NONE   0
 #define FLOOR  1
-#define TANK   2
+#define TANK1  2
 #define TANK2  4
-#define TANK3  6
-#define TANK4  8
-#define GLOW   9
+#define NMAT   5
+#define GLOW   100
 
-Mat[9] material = Mat[9](
+Mat[NMAT] material = Mat[NMAT](
     //  hue   sat  lum    shiny  glossy
     Mat(0.5,  1.0,  1.0,   0.0,   0.0 ),
-    Mat(0.0,  1.0,  0.6,   0.1,   0.7 ),
-    Mat(0.0,  0.75, 0.05,  0.0,   0.8 ),
-    Mat(0.6,  1.0,  0.6,   0.1,   0.7 ),
-    Mat(0.6,  0.75, 0.05,  0.0,   0.8 ),
-    Mat(0.2,  1.0,  0.6,   0.1,   0.7 ),
-    Mat(0.2,  0.75, 0.05,  0.0,   0.8 ),
-    Mat(0.4,  1.0,  0.6,   0.1,   0.7 ),
-    Mat(0.4,  0.75, 0.05,  0.0,   0.8 )
+    Mat(0.0,  1.0,  0.6,   0.1,   0.7 ), // TANK1
+    Mat(0.0,  1.0,  0.6,   0.1,   0.2 ),
+    Mat(0.6,  1.0,  0.6,   0.1,   0.7 ), // TANK2
+    Mat(0.6,  1.0,  0.6,   0.1,   0.2 )
 );
 
 bool space, anim, soft, occl, light, dither, foggy, rotate, normal, depthb;
@@ -48,10 +43,14 @@ struct Tank {
     vec3 up;
     vec3 dir;
     vec3 turret;
+    vec2 track;
 };
 
-void tank(Tank t)
+Tank[2] tanks;
+
+void tank(int i)
 {
+    Tank t = tanks[i];
     vec3 p = t.pos + 1.39*t.up;
     float d = sdHalfSphere(p, t.up, 1.5, 0.4);
     p += 0.7*t.up;
@@ -61,8 +60,8 @@ void tank(Tank t)
     sdMat(t.mat, d);
     
     vec3 tr = cross(t.up, t.dir);
-    sdMat(t.mat+1, sdLink(t.pos-t.dir+0.9*t.up+1.3*tr, t.pos+t.dir+0.9*t.up+1.3*tr, tr, vec3(0.7, 0.4, 0.2)));
-    sdMat(t.mat+1, sdLink(t.pos-t.dir+0.9*t.up-1.3*tr, t.pos+t.dir+0.9*t.up-1.3*tr, tr, vec3(0.7, 0.4, 0.2)));
+    sdMat(t.mat+1, sdLink(t.pos-t.dir*0.5+0.9*t.up+1.3*tr, t.pos+t.dir*0.5+0.9*t.up+1.3*tr, tr, vec3(0.7, 0.3, 0.2), -1.0));
+    sdMat(t.mat+1, sdLink(t.pos-t.dir*0.5+0.9*t.up-1.3*tr, t.pos+t.dir*0.5+0.9*t.up-1.3*tr, tr, vec3(0.7, 0.3, 0.2),  1.0));
 }
 
 // 00     00   0000000   00000000   
@@ -77,15 +76,8 @@ float map(vec3 p)
     
     if (cam.pos.y > 0.0) sdMat(FLOOR, sdPlane(vec3(0,0,0), vy));
         
-    Tank[4] tanks = Tank[4](
-        Tank(TANK,  vec3(sin( at),0, 0), vy, -vx, normalize(cos(at)*vz+sin(at)*vx+(sin(at)*0.5+0.5)*vy)),
-        Tank(TANK2, vec3(sin(-at),0, 4), vy, -vx, normalize(cos(at)*vz+sin(at)*vx+(sin(at)*0.5+0.5)*vy)),
-        Tank(TANK3, vec3(sin( at),0, 8), vy, -vx, normalize(cos(at)*vz+sin(at)*vx+(sin(at)*0.5+0.5)*vy)),
-        Tank(TANK4, vec3(sin(-at),0,12), vy, -vx, normalize(cos(at)*vz+sin(at)*vx+(sin(at)*0.5+0.5)*vy))
-        ); 
-
-    for (int i = 2; i < 4; i++)
-        tank(tanks[i]);
+    for (int i = ZERO; i < 2; i++)
+        tank(i);
         
     if (gl.march) { 
         sdMat(GLOW, sdSphere(gl.light3, 0.1));
@@ -185,9 +177,15 @@ vec3 getLight(vec3 p, vec3 n, int mat, float d)
     
     Mat m = material[mat-1];
 
-    vec3 bn = dither ? bumpMap(p, n, 0.003) : n;
+    vec3 bn = dither ? bumpMap(p, n, 0.005) : n;
 
     vec3  col = hsl(m.hue, m.sat, m.lum);
+    
+    if (mat == TANK2+1 || mat == TANK1+1) 
+    {
+        float s = tanks[mat/2-1].track[gl.tuv.z > 0.0 ? 0 : 1];
+        bn = normalize(bn+vec3(sin(TAU*gl.tuv.x*3.0+fract(at)*s*TAU)*gl.tuv.y,0,0));
+    }
     
     float dl1 = dot(bn,normalize(gl.light1-p));
     float dl2 = dot(bn,normalize(gl.light2-p));
@@ -198,9 +196,9 @@ vec3 getLight(vec3 p, vec3 n, int mat, float d)
     
     col += pow(m.glossy, 3.0)*vec3(pow(smoothstep(0.0+m.glossy*0.9, 1.0, dnl), 1.0+40.0*m.glossy));
     col *= clamp(pow(dnl, 1.0+m.shiny*20.0), gl.ambient, 1.0) * getOcclusion(p, n);
-    col *= softShadow(p, gl.light1, 1.0); 
-    col *= softShadow(p, gl.light2, 1.0); 
-    col *= softShadow(p, gl.light3, 1.0); 
+    col *= softShadow(p, gl.light1, 2.0); 
+    col *= softShadow(p, gl.light2, 2.0); 
+    col *= softShadow(p, gl.light3, 5.0); 
 
     return clamp01(col);
 }
@@ -222,7 +220,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     rotate =  keyState(KEY_R);
     anim   =  keyState(KEY_RIGHT);
     occl   =  keyState(KEY_UP);
-    dither = !keyState(KEY_D);
+    dither =  keyState(KEY_D);
     normal = !keyState(KEY_X);
     depthb = !keyState(KEY_Z);
     light  = !keyState(KEY_LEFT);
@@ -247,9 +245,16 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     gl.uv = (2.0*fragCoord-iResolution.xy)/iResolution.y;
     vec3 rd = normalize(gl.uv.x*cam.x + gl.uv.y*cam.up + cam.fov*cam.dir);
     
-    gl.light1 = vec3(-1,1,0); // vy*(7.0+4.0*(sin(at))) + 5.0*vx;
-    gl.light2 = vec3( 1,1,0); // vy*(7.0+4.0*(sin(at))) + 5.0*vy;
-    gl.light3 = vy*(7.0+4.0*(sin(at))) + 5.0*vz;
+    vec3 t1 = sin(at)*vx*8.0+cos(at)*vz*8.0;
+    vec3 t2 = 2.0*sin(at)*vz;
+    tanks = Tank[2](
+        Tank(TANK1, t1, vy, -cross(normalize(t1),vy), -cross(normalize(t1),vy), vec2(25,15)),
+        Tank(TANK2, t2, vy, vz, normalize(cos(at)*vz+sin(at)*vx+(sin(at)*0.5+0.5)*vy), vec2(sin(at),sin(at)))
+        ); 
+    
+    gl.light1 = t1+15.0*vy; // vy*(7.0+4.0*(sin(at))) + 5.0*vx;
+    gl.light2 = t2+15.0*vy; // vy*(7.0+4.0*(sin(at))) + 5.0*vy;
+    gl.light3 = vy*20.0;
     
     gl.march = true;
     float d = march(cam.pos, rd);
@@ -269,7 +274,7 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     else
     {
         col = getLight(p, n, mat, d);
-        if (foggy) col = mix(col, vec3(0.07), smoothstep(MAX_DIST*0.1, MAX_DIST*0.5, d));
+        if (foggy) col = mix(col, vec3(0.5), smoothstep(MAX_DIST*0.5, MAX_DIST*0.75, d));
     }
         
     #ifndef TOY

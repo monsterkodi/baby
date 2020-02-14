@@ -35,9 +35,10 @@ class Shader
             """
         
         fragSource = slash.readText "#{__dirname}/../shader/tank.frag"
-        # fragSource    = slash.readText "#{__dirname}/../shader/krap.frag"
+        # fragSource    = slash.readText "#{__dirname}/../shader/voronoy.frag"
         if @buffer then bufferSource = slash.readText "#{__dirname}/../shader/eye_buffer.frag"
         @commonSource = slash.readText "#{__dirname}/../shader/common.frag"
+        # @commonSource = slash.readText "#{__dirname}/../shader/voronoy_common.frag"
         # @commonSource = ""
         
         Effect.ShadersStore.mainVertexShader   = @vertexShader

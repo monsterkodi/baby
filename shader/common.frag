@@ -1,4 +1,4 @@
-#define TOY
+// #define TOY
 #define PI   3.141592653589
 #define PI2  1.570796326795
 #define TAU  6.283185307178
@@ -59,6 +59,7 @@ struct SDF {
 
 struct _gl {
     vec2  uv;
+    vec3  tuv;
     vec2  frag;
     vec2  mouse;
     vec2  mp;
@@ -239,9 +240,9 @@ float gradientNoise(vec2 v)
 // 000   000       000  000      
 // 000   000  0000000   0000000  
 
-vec3 hsl2rgb(vec3 c)
+vec3 hsl2rgb( in vec3 c )
 {
-    vec3 rgb = clamp(abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0);
+    vec3 rgb = clamp( abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0 );
     return c.z + c.y * (rgb-0.5)*(1.0-abs(2.0*c.z-1.0));
 }
 
@@ -427,6 +428,16 @@ vec3 posOnPlane(vec3 p, vec3 a, vec3 n)
     return p-dot(p-a,n)*n;
 }
 
+vec3 posOnPlane(vec3 p, vec3 n)
+{
+    return p-dot(p,n)*n;
+}
+
+vec3 posOnRay(vec3 p, vec3 n)
+{
+    return max(0.0, dot(p, n) / dot(n, n)) * n;
+}
+
 vec3 posOnRay(vec3 ro, vec3 rd, vec3 p)
 {
     return ro + max(0.0, dot(p - ro, rd) / dot(rd, rd)) * rd;
@@ -583,33 +594,36 @@ float sdHexagon(vec3 a, vec3 r) // r: (radius, height, bevel)
     return sdHexagon(sdf.pos, a, r);
 }
 
-vec3 posOnPlane(vec3 p, vec3 n)
-{
-    return p-dot(p,n)*n;
-}
-
 float sdTorus(vec3 p, vec3 a, vec3 n, float rl, float rs)
 {
     vec3 q = p-a;
     return length(vec2(length(posOnPlane(q, n))-rl,abs(dot(n, q))))-rs;
 }
 
-float sdLink(vec3 p, float le, float r1, float r2)
-{
-    vec3 q = vec3(p.x, max(abs(p.y)-le,0.0), p.z);
-    return length(vec2(length(q.xy)-r1,q.z)) - r2;
-}
-
-float sdLink(vec3 a, vec3 b, vec3 n, vec3 r)
-{
-    vec3 p = sdf.pos - (b+a)*0.5;
-    p -= n*clamp(p,-r.y, r.y);
-    
-    // float le = length(a-b);
-    // vec3 q = vec3( p.x, max(abs(p.y)-le,0.0), p.z );
-    vec3 lv = a-b;
-    vec3 q = max(abs(p)-lv*0.5, 0.0); 
-    return length(vec2(length(q.xy)-r.x,q.z)) - r.z;
+float sdLink(vec3 p, float le, float r1, float r2)
+{
+    vec3 q = vec3(p.x, max(abs(p.y)-le,0.0), p.z);
+    return length(vec2(length(q.xy)-r1,q.z)) - r2;
+}
+
+float sdLink(vec3 a, vec3 b, vec3 n, vec3 r, float uvz)
+{
+    vec3 ab = normalize(b-a);
+    float lab = length(ab);
+    vec3 p = sdf.pos - (b+a)*0.5; // center
+    p *= mat3(cross(n, ab), ab, n); // orientate
+    p -= vec3(0,0,clamp(p.z,-r.y, r.y)); // elongate
+    vec3 q = vec3(p.x, max(abs(p.y)-lab,0.0), p.z); // stretch up
+    float d = length(vec2(length(q.xy)-r.x,q.z)) - r.z;
+    if (d < sdf.dist && gl.march) 
+    {
+        float uvy = abs(length(q.xy)-r.x)/r.z;
+        if (q.y == 0.0)
+            gl.tuv = vec3(fract(sign(p.x)*p.y/lab), uvy, uvz);
+        else
+            gl.tuv = vec3(fract(sign(p.x)*sign(p.y)*(1.0-acos(dot(normalize(q.xy), vec2(0,1)))/PI2)), uvy, uvz);
+    }
+    return d;
 }
 
 // 000   000   0000000   000   0000000  00000000  
