@@ -7,13 +7,69 @@ bool keyState(int key) { return keys(key, 2).x < 0.5; }
 bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 
 int  id = -1;
-int  num = 0;
 
+#define ZERO min(iFrame,0)
 #define SPEED    0.05
 #define DAMP     0.5
 
-vec2 hash(int n) { return fract(sin(vec2(float(n),float(n)*7.))*43758.5); }
+#define MAX_STEPS  128
+#define MIN_DIST   0.005
+#define MAX_DIST   100.0
 
+#define NONE   0
+#define FLOOR  1
+#define TANK1  2
+#define TANK2  4
+
+// 00000000  000       0000000    0000000   00000000   
+// 000       000      000   000  000   000  000   000  
+// 000000    000      000   000  000   000  0000000    
+// 000       000      000   000  000   000  000   000  
+// 000       0000000   0000000    0000000   000   000  
+
+float floorDist()
+{
+    float d = sdPlane(vec3(0,0,0), vy);
+    d = opDiff(d, sdSphere(vx*2.0+vy*2.0, 4.0), 1.5);
+    return d;
+}
+
+vec3 floorNormal(vec3 p)
+{
+    vec3 n = v0;
+    for (int i=ZERO; i<4; i++) {
+        vec3 e = 0.5773*(2.0*vec3((((i+3)>>1)&1),((i>>1)&1),(i&1))-1.0);
+        sdf.pos = p+e*0.0001;
+        n += e*floorDist(); }
+    return normalize(n);
+}
+
+float floorHeight(vec3 p, out vec3 n)
+{
+    float t = 0.0, d;
+    sdf = SDF(MAX_DIST, p, NONE);
+    for (int i = ZERO; i < MAX_STEPS; i++)
+    {
+        sdf.pos = p-vy*t;
+        d = floorDist();
+        t += d;
+        if (d < MIN_DIST) 
+        {
+            n = floorNormal(sdf.pos);
+            return t;
+        }
+        if (t > MAX_DIST) break;
+    }
+    return min(t, MAX_DIST);
+}
+
+//  0000000   000000000  000000000  00000000    0000000    0000000  000000000  
+// 000   000     000        000     000   000  000   000  000          000     
+// 000000000     000        000     0000000    000000000  000          000     
+// 000   000     000        000     000   000  000   000  000          000     
+// 000   000     000        000     000   000  000   000   0000000     000     
+
+vec2 hash(int n) { return fract(sin(vec2(float(n),float(n)*7.))*43758.5); }
 vec3 attract(vec3 tankpos, vec3 target, float dist, float a, float s2, float s3)
 {
     vec3  w = target-tankpos;
@@ -27,13 +83,33 @@ vec3 attract(vec3 tankpos, vec3 target, float dist, float a, float s2, float s3)
     return w*f;
 }
 
+// 00000000   00000000  00000000   000   000  000       0000000  00000000  
+// 000   000  000       000   000  000   000  000      000       000       
+// 0000000    0000000   00000000   000   000  000      0000000   0000000   
+// 000   000  000       000        000   000  000           000  000       
+// 000   000  00000000  000         0000000   0000000  0000000   00000000  
+
 vec3 repulse(vec3 tankpos, vec3 target, float dist, float a)
 {
     vec3 w = target-tankpos;
     float x = length(w);
-    if (x < EPS) return a*0.5*(hash31(float(id))-vec3(0.5)).xyz;
+    if (x < EPS) return a*0.5*(hash31(float(id))-vec3(0.5));
     return w*a*(smoothstep(0.0, dist, x)-1.0)/x;
 }
+
+/*
+000000000   0000000   000   000  000   000  
+   000     000   000  0000  000  000  000   
+   000     000000000  000 0 000  0000000    
+   000     000   000  000  0000  000  000   
+   000     000   000  000   000  000   000  
+*/
+
+// 000       0000000    0000000   0000000    
+// 000      000   000  000   000  000   000  
+// 000      000   000  000000000  000   000  
+// 000      000   000  000   000  000   000  
+// 0000000   0000000   000   000  0000000    
 
 Tank loadTank(int i)
 {
@@ -47,6 +123,12 @@ Tank loadTank(int i)
     return t;
 }
 
+//  0000000   0000000   000   000  00000000  
+// 000       000   000  000   000  000       
+// 0000000   000000000   000 000   0000000   
+//      000  000   000     000     000       
+// 0000000   000   000      0      00000000  
+
 void saveTank(int i, Tank t)
 {
     save2(i, 1, vec4(t.pos,   0));
@@ -57,52 +139,77 @@ void saveTank(int i, Tank t)
     save2(i, 6, vec4(t.track, 0,0));
 }
 
-void tank()
+// 000  000   000  000  000000000  
+// 000  0000  000  000     000     
+// 000  000 0 000  000     000     
+// 000  000  0000  000     000     
+// 000  000   000  000     000     
+
+void initTank(int i)
+{
+   Tank t;
+   t.pos    = vec3(i*5,2,0);
+   t.dir    = vx;
+   t.up     = vy;
+   t.turret = vx;
+   t.track = vec2(0);
+   saveTank(i, t);
+}
+
+//  0000000   0000000   000       0000000  
+// 000       000   000  000      000       
+// 000       000000000  000      000       
+// 000       000   000  000      000       
+//  0000000  000   000  0000000   0000000  
+
+void calcTank()
 {
     Tank t = loadTank(id);
     
     float d, v, a;
     vec3 acc, vel, w;
     
-    /*
-    for (int i = 1; i <= num; i++) 
+    for (int i = 1; i <= 2; i++) 
     {
         if (i == id) continue;
         Tank to = loadTank(i);
-        acc += repulse(t.pos, to.pos, 0.55, 4.0);
+        acc += repulse(t.pos, to.pos, 5.0, 100.0);
 	}
-
-    acc += attract(t.pos, v0, 5.0, 0.9, 0.2, 0.1);
-    acc += repulse(t.pos, v0, 15.5, 10.0);
-    */
+    
+    if (iMouse.z > 0.0)
+    {
+        acc += attract(t.pos, v0, 3.0, 3.0, 6.0, 9.0);
+    }
     
     if (id == 1)
     {
-        acc += keyDown(KEY_UP)   ? t.dir* 10.0 : v0;
-        acc += keyDown(KEY_DOWN) ? t.dir*-10.0 : v0;
+        float accel = 40.0;
+        acc += keyDown(KEY_UP)   ? t.dir* accel : v0;
+        acc += keyDown(KEY_DOWN) ? t.dir*-0.5*accel : v0;
+        
+        float rotSpeed = 4.0;
+        t.dir = rotAxisAngle(t.dir, t.up, keyDown(KEY_LEFT) ? -rotSpeed : keyDown(KEY_RIGHT) ? rotSpeed : 0.0);
+    }
+    else 
+    {
+        t.track = vec2(1,-1);
+        t.dir = normalize(mix(t.dir, t.vel, 0.02));
     }
     
     t.vel += acc*SPEED;
     t.vel *= pow(DAMP, SPEED);
+    t.vel = mix(t.vel, t.dir, 0.1);
     
     w = t.pos+t.vel*SPEED;
     
-    t.pos.x  = clamp(w.x, -20.0, 20.0);
-    t.pos.y  = 0.0;
-    t.pos.z  = clamp(w.z, -20.0, 20.0);
+    t.pos = vec3(clamp(w.x, -20.0, 20.0), 0.0, clamp(w.z, -20.0, 20.0));
+    
+    t.pos -= floorHeight(t.pos, t.up)*vy;
+    
+    t.track.x = dot(t.vel, t.dir)*length(t.vel);
+    t.track.y = dot(t.vel, t.dir)*length(t.vel);
     
     saveTank(id, t);
-}
-
-void initTank(int i)
-{
-   Tank t;
-   t.pos    = vec3(5,2,5);
-   t.dir    = vx;
-   t.up     = vy;
-   t.turret = vx;
-   t.track = vec2(0);
-   saveTank(i, t);
 }
 
 // 00     00   0000000   000  000   000  
@@ -115,9 +222,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
     initGlobal(fragCoord, iResolution, iMouse, iTime);
     
-    if (iFrame < 10)
+    if (iFrame < 30)
     {
-        save(0,vec4(2,0,0,0));
+        save(0,vec4(30.1,0,0,0));
         initTank(1);
         initTank(2);
         fragColor = gl.color;
@@ -127,15 +234,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     ivec2 mem = ivec2(fragCoord);
     id = mem.x;
 
-	num = int(load(0).x);
-    
     if (id == 0 && mem.y == 0)
     {
-        save(id,vec4(3,0,0,0));
+        save(id,vec4(load(0).x+0.1,0,0,0));
     }
-    else if (id > 0 && id <= num) // && mem.y < 7)
+    else if (id > 0 && id < int(load(0).x) && mem.y <= 7)
     {
-        tank();
+        calcTank();
     }
     else
     {

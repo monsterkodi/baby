@@ -134,7 +134,7 @@ float map(vec3 p)
     for (int i = ZERO; i < 2; i++)
         tank(i);
         
-    if (gl.march) { 
+    if (false && gl.march) { 
         sdMat(GLOW, sdSphere(gl.light3, 0.1));
         sdMat(GLOW, sdSphere(gl.light2, 0.1));
         sdMat(GLOW, sdSphere(gl.light1, 0.1));
@@ -302,27 +302,18 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
     vec3 rd = normalize(gl.uv.x*cam.x + gl.uv.y*cam.up + cam.fov*cam.dir);
     
     int num = int(load(0).x);
-    vec3 t1, t2;
-    t1 = sin(at)*vx*8.0+cos(at)*vz*8.0;
-    t2 = 6.0*sin(at)*vz;
-    vec3 t2n;
-    t2 -= floorHeight(t2, t2n)*vy;
     
-    tanks[0] = loadTank(1);
-    tanks[0].mat     = TANK1; 
-    tanks[0].up      = vy; 
-    tanks[0].dir     = -cross(normalize(t1),vy); 
-    tanks[0].turret  = -cross(normalize(t1),vy); 
+    // t2 -= floorHeight(t2, t2n)*vy;
     
-    tanks[1] = loadTank(2);
-    tanks[1].pos = t2;
-    tanks[1].mat     = TANK2;
-    tanks[1].up      = t2n; 
-    tanks[1].dir     = vz; 
-    tanks[1].turret  = normalize(cos(at)*vz+sin(at)*vx+(sin(at)*0.5+0.5)*vy); 
+    for (int i = ZERO; i < num; i++)
+    {
+        tanks[i] = loadTank(i+1);
+        tanks[i].mat = TANK1+i*2;
+        tanks[i].turret = normalize(tanks[i].dir*0.1+normalize(tanks[i].vel))*clamp(length(tanks[i].vel), 0.75, 1.0); 
+    }
 
-    gl.light1 = t1+15.0*vy;
-    gl.light2 = t2+15.0*vy;
+    gl.light1 = tanks[0].pos+15.0*vy;
+    gl.light2 = tanks[1].pos+15.0*vy;
     gl.light3 = vy*20.0;
     
     gl.march = true;
@@ -348,8 +339,8 @@ void mainImage( out vec4 fragColor, in vec2 fragCoord )
         
     #ifndef TOY
     col += vec3(print(0,0,vec3(iFrameRate, iTime, float(num))));
-    col += vec3(print(0,2,tanks[0].pos));
-    col += vec3(print(0,1,tanks[1].pos));
+    // col += vec3(print(0,2,tanks[0].pos));
+    // col += vec3(print(0,1,tanks[1].pos));
     #endif    
 
     fragColor = postProc(col, dither, true, true);
