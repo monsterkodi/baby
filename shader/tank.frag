@@ -42,31 +42,32 @@ float at;
 Tank loadTank(int id)
 {
     Tank t;
-    t.mat    = int(load2(id, 0).x);
-    t.pos    = load2(id, 1).xyz;
-    t.up     = load2(id, 2).xyz;
-    t.dir    = load2(id, 3).xyz;
-    t.vel    = load2(id, 4).xyz;
-    t.turret = load2(id, 5).xyz;
-    t.track  = load2(id, 6).xy;
+    int i = id+1;
+    t.mat    = int(load2(i, 0).x);
+    t.pos    = load2(i, 1).xyz;
+    t.up     = load2(i, 2).xyz;
+    t.dir    = load2(i, 3).xyz;
+    t.rgt    = load2(i, 4).xyz;
+    t.vel    = load2(i, 5).xyz;
+    t.turret = load2(i, 6).xyz;
+    t.track  = load2(i, 7).xy;
     return t;
 }
 
 Bullet loadBullet(int id)
 {
     Bullet b;
-    b.mat    = int(load2(id+2, 0).x);
-    b.pos    = load2(id+2, 1).xyz;
-    b.dir    = load2(id+2, 2).xyz;
+    int i = id+3;
+    b.mat    = int(load2(i, 0).x);
+    b.pos    = load2(i, 1).xyz;
+    b.dir    = load2(i, 2).xyz;
     return b;
 }
 
 void renderTank(int id)
 {
-    Tank t = tanks[id-1];
-    vec3 p = t.pos + 1.39*t.up;
-    vec3 tr = normalize(cross(t.up, t.dir));
-    vec3 td = normalize(cross(t.up, tr));
+    Tank t  = tanks[id];
+    vec3 p  = t.pos + 1.39*t.up;
     
     float d = sdHalfSphere(p, t.up, 1.5, 0.4);
     
@@ -79,8 +80,8 @@ void renderTank(int id)
     d = opUnion(d, sdHalfSphere(p+tt*2.8, -tt, 0.7, 0.1), 0.1);
     d = opDiff (d, sdCapsule(p+tt, p+tt*3.5, 0.15), 0.2);
     sdMat(t.mat, d);
-    sdMat(t.mat+1, sdLink(t.pos-td*0.5+0.9*t.up+1.3*tr, t.pos+td*0.5+0.9*t.up+1.3*tr, tr, vec3(0.7, 0.3, 0.2), -1.0));
-    sdMat(t.mat+1, sdLink(t.pos-td*0.5+0.9*t.up-1.3*tr, t.pos+td*0.5+0.9*t.up-1.3*tr, tr, vec3(0.7, 0.3, 0.2),  1.0));
+    sdMat(t.mat+1, sdLink(t.pos-t.dir*0.5+0.9*t.up+1.3*t.rgt, t.pos+t.dir*0.5+0.9*t.up+1.3*t.rgt, t.rgt, vec3(0.7, 0.3, 0.2), -1.0));
+    sdMat(t.mat+1, sdLink(t.pos-t.dir*0.5+0.9*t.up-1.3*t.rgt, t.pos+t.dir*0.5+0.9*t.up-1.3*t.rgt, t.rgt, vec3(0.7, 0.3, 0.2),  1.0));
 }
 
 // 00000000  000       0000000    0000000   00000000   
@@ -109,7 +110,7 @@ float map(vec3 p)
     
     floorDist();
         
-    for (int id = 1+ZERO; id <= 2; id++)
+    for (int id = ZERO; id < 2; id++)
         renderTank(id);
         
     if (false && gl.march) { 
@@ -220,7 +221,10 @@ vec3 getLight(vec3 p, vec3 n, int mat, float d)
     if (mat == TANK2+1 || mat == TANK1+1)
     {
         float s = tanks[mat/2-1].track[gl.tuv.z > 0.0 ? 0 : 1];
-        bn = normalize(bn+vec3(sin(TAU*gl.tuv.x*3.0+fract(at)*s*TAU)*gl.tuv.y,0,0));
+        float tux = fract(gl.tuv.x+s);
+        float ss = sin(TAU*tux*3.0)*gl.tuv.y;
+        bn = normalize(bn+vec3(ss,0,0));
+        col *= 1.0+ss*0.5;
     }
     
     float dl1 = dot(bn,normalize(gl.light1-p));
@@ -282,10 +286,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     gl.uv = (2.0*fragCoord-iResolution.xy)/iResolution.y;
     vec3 rd = normalize(gl.uv.x*cam.x + gl.uv.y*cam.up + cam.fov*cam.dir);
     
-    for (int i = 1+ZERO; i <= 2; i++)
+    for (int i = ZERO; i < 2; i++)
     {
-        tanks[i-1]   = loadTank(i);
-        bullets[i-1] = loadBullet(i);        
+        tanks[i]   = loadTank(i);
+        bullets[i] = loadBullet(i);        
     }
 
     gl.light1 = bullets[0].pos;
@@ -315,8 +319,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         
     #ifndef TOY
     col += vec3(print(0,0,vec3(iFrameRate, iTime, bullets[0].mat)));
-    // col += vec3(print(0,2,bullets[0].pos));
-    // col += vec3(print(0,1,bullets[0].mat));
+    col += vec3(print(0,2,tanks[0].track));
+    col += vec3(print(0,1,tanks[1].track));
     #endif    
 
     fragColor = postProc(col, dither, true, true);

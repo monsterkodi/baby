@@ -15,8 +15,8 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 #define MAX_DIST   100.0
 
 #define NONE    0
-#define TANK    0
-#define BULLET  5
+#define TANK    2
+#define BULLET  6
 
 // 00000000  000       0000000    0000000   00000000   
 // 000       000      000   000  000   000  000   000  
@@ -108,25 +108,28 @@ vec3 repulse(vec3 tankpos, vec3 target, float dist, float a)
 // 000      000   000  000   000  000   000  
 // 0000000   0000000   000   000  0000000    
 
-Tank loadTank(int i)
+Tank loadTank(int id)
 {
     Tank t;
+    int i = id+1;
     t.mat    = int(load2(i, 0).x);
     t.pos    = load2(i, 1).xyz;
     t.up     = load2(i, 2).xyz;
     t.dir    = load2(i, 3).xyz;
-    t.vel    = load2(i, 4).xyz;
-    t.turret = load2(i, 5).xyz;
-    t.track  = load2(i, 6).xy;
+    t.rgt    = load2(i, 4).xyz;
+    t.vel    = load2(i, 5).xyz;
+    t.turret = load2(i, 6).xyz;
+    t.track  = load2(i, 7).xy;
     return t;
 }
 
-Bullet loadBullet(int i)
+Bullet loadBullet(int id)
 {
     Bullet b;
-    b.mat    = int(load2(i+2, 0).x);
-    b.pos    = load2(i+2, 1).xyz;
-    b.dir    = load2(i+2, 2).xyz;
+    int i = id+3;
+    b.mat    = int(load2(i, 0).x);
+    b.pos    = load2(i, 1).xyz;
+    b.dir    = load2(i, 2).xyz;
     return b;
 }
 
@@ -136,22 +139,25 @@ Bullet loadBullet(int i)
 //      000  000   000     000     000       
 // 0000000   000   000      0      00000000  
 
-void saveTank(int i, Tank t)
+void saveTank(int id, Tank t)
 {
+    int i = id+1;
     save2(i, 0, vec4(float(t.mat)));
     save2(i, 1, vec4(t.pos,   0));
     save2(i, 2, vec4(t.up,    0));
     save2(i, 3, vec4(t.dir,   0));
-    save2(i, 4, vec4(t.vel,   0));
-    save2(i, 5, vec4(t.turret,0));
-    save2(i, 6, vec4(t.track, 0,0));
+    save2(i, 4, vec4(t.rgt,   0));
+    save2(i, 5, vec4(t.vel,   0));
+    save2(i, 6, vec4(t.turret,0));
+    save2(i, 7, vec4(t.track, 0,0));
 }
 
-void saveBullet(int i, Bullet b)
+void saveBullet(int id, Bullet b)
 {
-    save2(i+2, 0, vec4(float(b.mat)));
-    save2(i+2, 1, vec4(b.pos, 0));
-    save2(i+2, 2, vec4(b.dir, 0));
+    int i = id+3;
+    save2(i, 0, vec4(float(b.mat)));
+    save2(i, 1, vec4(b.pos, 0));
+    save2(i, 2, vec4(b.dir, 0));
 }
 
 // 000  000   000  000  000000000  
@@ -164,9 +170,10 @@ void initTank(int id)
 {
    Tank t;
    t.mat    = TANK+id*2;
-   t.pos    = vec3((id-1)*7,2,0);
+   t.pos    = vec3(id*7,2,0);
    t.dir    = vx;
    t.up     = vy;
+   t.rgt    = vz;
    t.turret = vx;
    t.track  = vec2(0);
    saveTank(id, t);
@@ -194,7 +201,7 @@ void calcTank(int id)
     float d, v, a;
     vec3 acc, vel;
     
-    for (int i = 1; i <= 2; i++) 
+    for (int i = ZERO; i < 2; i++) 
     {
         if (i == id) continue;
         Tank to = loadTank(i);
@@ -206,9 +213,9 @@ void calcTank(int id)
         acc += attract(t.pos, v0, 3.0, 3.0, 6.0, 9.0);
     }
     
-    if (id == 1)
+    if (id == 0)
     {
-        float accel = 40.0;
+        float accel = 10.0;
         acc += keyDown(KEY_UP)   ? t.dir* accel : v0;
         acc += keyDown(KEY_DOWN) ? t.dir*-0.5*accel : v0;
         
@@ -216,29 +223,39 @@ void calcTank(int id)
         t.dir = rotAxisAngle(t.dir, t.up, keyDown(KEY_LEFT) ? -rotSpeed : keyDown(KEY_RIGHT) ? rotSpeed : 0.0);        
         t.dir = normalize(t.dir);
     }
-    else 
-    {
-        t.track = vec2(10,-10);
-    }
-    
-    t.dir = normalize(mix(t.dir, t.vel, 0.02));
     
     t.vel += acc*SPEED;
     t.vel *= pow(DAMP, SPEED);
-    t.vel = mix(t.vel, t.dir, 0.1);
+    
+    vec3 oldPosR = t.pos + 1.3*t.rgt;
+    vec3 oldPosL = t.pos - 1.3*t.rgt;
     
     t.pos += t.vel*SPEED;
-    t.pos -= floorHeight(t.pos, t.up)*vy;
+    t.pos -= floorHeight(t.pos, t.up)*vy; // this sets up
     
-    t.track.x = dot(t.vel, t.dir)*length(t.vel);
-    t.track.y = dot(t.vel, t.dir)*length(t.vel);
+    t.rgt = normalize(cross(t.dir, t.up));
+    t.dir = normalize(cross(t.up, t.rgt));
     
-    t.turret = normalize(t.dir*0.1+normalize(t.vel))*clamp(length(t.vel), 0.75, 1.0); 
+    vec3 deltaR = (t.pos + 1.3*t.rgt)-oldPosR;
+    vec3 deltaL = (t.pos - 1.3*t.rgt)-oldPosL;
+    float dr = length(deltaR);
+    float dl = length(deltaL);
+    if (dl > EPS)
+    {
+        t.track.x = fract(t.track.x-dot(normalize(deltaL), t.dir)*dl);
+    }
+    if (dr > EPS)
+    {
+        t.track.y = fract(t.track.y-dot(normalize(deltaR), t.dir)*dr);
+    }
+    
+    t.turret = normalize(mix(t.turret, t.vel + t.dir, 0.1))*clamp(length(t.vel), 0.75, 1.0);
     if (dot(t.turret, t.up) < 0.0) 
     {
         t.turret = normalize(posOnPlane(t.pos+t.turret, t.pos, t.up)-t.pos);
     }
     
+    tanks[id] = t;
     saveTank(id, t);
 }
 
@@ -265,12 +282,12 @@ void calcBullet(int id)
 {
     Bullet b = loadBullet(id);
     
-    if (id == 1 && keyDown(KEY_SPACE) && b.mat == NONE)  
+    if (id == 0 && keyDown(KEY_SPACE) && b.mat == NONE)  
     {
         shoot(id, b);
     }
 
-    Tank t = loadTank(id);
+    Tank t = tanks[id];
     
     if (b.mat != NONE)
     {
@@ -303,10 +320,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     if (iFrame < 30)
     {
         save(0,vec4(30.1,0,0,0));
+        initTank(0);
         initTank(1);
-        initTank(2);
+        initBullet(0);
         initBullet(1);
-        initBullet(2);
         fragColor = gl.color;
         return;
     }
@@ -318,15 +335,16 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     {
         save(id,vec4(load(0).x+0.1,0,0,0));
     }
-    else if (mem.y < 7)
+    else if (mem.y < 8)
     {
         if (id >= 1 && id <= 2)
         {
-            calcTank(id);
+            calcTank(id-1);
         }
         else if (id >= 3 && id <= 4)
         {
-            calcBullet(id-2);
+            calcTank(id-3);
+            calcBullet(id-3);
         }
         else
         {

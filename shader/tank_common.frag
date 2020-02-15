@@ -56,6 +56,7 @@ struct Tank {
     vec3 pos;
     vec3 up;
     vec3 dir;
+    vec3 rgt;
     vec3 vel;
     vec3 turret;
     vec2 track;
