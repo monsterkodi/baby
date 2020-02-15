@@ -19,7 +19,7 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 
 Mat[NMAT] material = Mat[NMAT](
     //  hue   sat  lum    shiny  glossy
-    Mat(0.5,  1.0,  1.0,   0.0,   0.0 ),
+    Mat(0.5,  0.0,  1.0,   0.0,   1.0 ),
     Mat(0.0,  1.0,  0.6,   0.1,   0.7 ), // TANK1
     Mat(0.0,  1.0,  0.6,   0.1,   0.2 ),
     Mat(0.6,  1.0,  0.6,   0.1,   0.7 ), // TANK2
@@ -38,9 +38,6 @@ float at;
 //    000     000000000  000 0 000  0000000    
 //    000     000   000  000  0000  000  000   
 //    000     000   000  000   000  000   000  
-
-Tank[2] tanks;
-Bullet[2] bullets;
 
 Tank loadTank(int id)
 {
@@ -82,7 +79,6 @@ void renderTank(int id)
     d = opUnion(d, sdHalfSphere(p+tt*2.8, -tt, 0.7, 0.1), 0.1);
     d = opDiff (d, sdCapsule(p+tt, p+tt*3.5, 0.15), 0.2);
     sdMat(t.mat, d);
-    
     sdMat(t.mat+1, sdLink(t.pos-td*0.5+0.9*t.up+1.3*tr, t.pos+td*0.5+0.9*t.up+1.3*tr, tr, vec3(0.7, 0.3, 0.2), -1.0));
     sdMat(t.mat+1, sdLink(t.pos-td*0.5+0.9*t.up-1.3*tr, t.pos+td*0.5+0.9*t.up-1.3*tr, tr, vec3(0.7, 0.3, 0.2),  1.0));
 }
@@ -100,36 +96,7 @@ float floorDist()
     if (cam.pos.y > 0.0) sdMat(FLOOR, d);
     return d;
 }
-
-vec3 floorNormal(vec3 p)
-{
-    vec3 n = v0;
-    for (int i=ZERO; i<4; i++) {
-        vec3 e = 0.5773*(2.0*vec3((((i+3)>>1)&1),((i>>1)&1),(i&1))-1.0);
-        sdf.pos = p+e*0.0001;
-        n += e*floorDist(); }
-    return normalize(n);
-}
-
-float floorHeight(vec3 p, out vec3 n)
-{
-    float t = 0.0, d;
-    sdf = SDF(MAX_DIST, p, NONE);
-    for (int i = ZERO; i < MAX_STEPS; i++)
-    {
-        sdf.pos = p-vy*t;
-        d = floorDist();
-        t += d;
-        if (d < MIN_DIST) 
-        {
-            n = floorNormal(sdf.pos);
-            return t;
-        }
-        if (t > MAX_DIST) break;
-    }
-    return min(t, MAX_DIST);
-}
-
+ 
 // 00     00   0000000   00000000   
 // 000   000  000   000  000   000  
 // 000000000  000000000  00000000   
@@ -142,7 +109,7 @@ float map(vec3 p)
     
     floorDist();
         
-    for (int id = 1; id <= 2; id++)
+    for (int id = 1+ZERO; id <= 2; id++)
         renderTank(id);
         
     if (false && gl.march) { 
@@ -150,10 +117,10 @@ float map(vec3 p)
         sdMat(GLOW, sdSphere(gl.light2, 0.1));
         sdMat(GLOW, sdSphere(gl.light1, 0.1));
     }
-    
-    sdMat(GLOW, sdSphere(bullets[0].pos, 0.5));
-    sdMat(GLOW, sdSphere(bullets[1].pos, 0.5));
-    
+    if (gl.march) { 
+        sdMat(GLOW, sdSphere(bullets[0].pos, 0.5));
+        sdMat(GLOW, sdSphere(bullets[1].pos, 0.5));
+    }
     return sdf.dist;
 }
 
@@ -258,17 +225,17 @@ vec3 getLight(vec3 p, vec3 n, int mat, float d)
     
     float dl1 = dot(bn,normalize(gl.light1-p));
     float dl2 = dot(bn,normalize(gl.light2-p));
-    float dl3 = dot(bn,normalize(gl.light3-p));
+    // float dl3 = dot(bn,normalize(gl.light3-p));
+    float dl3 = 0.5*dot(bn,vy); //directional
     float dnl = max(max(dl1, dl2), dl3);
-    float dsl = mix(dnl, clamp01(dl1 + dl2 + dl3), 0.85);
+    float dsl = mix(dnl, clamp01(dl1 + dl2 + dl3), 0.5);
     
     col  = (light) ? gray(col) : col;
     
     col += pow(m.glossy, 3.0)*vec3(pow(smoothstep(0.0+m.glossy*0.9, 1.0, dsl), 1.0+40.0*m.glossy));
     col *= clamp(pow(dnl, 1.0+m.shiny*20.0), gl.ambient, 1.0) * getOcclusion(p, n);
-    col *= softShadow(p, gl.light1, 2.0); 
-    col *= softShadow(p, gl.light2, 2.0); 
-    col *= softShadow(p, gl.light3, 5.0); 
+    // col *= softShadow(p, gl.light3, 5.0); 
+    col *= softShadow(p, vec3(p.x,gl.light3.y,p.z), 5.0); 
 
     return clamp01(col);
 }
@@ -315,15 +282,15 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     gl.uv = (2.0*fragCoord-iResolution.xy)/iResolution.y;
     vec3 rd = normalize(gl.uv.x*cam.x + gl.uv.y*cam.up + cam.fov*cam.dir);
     
-    for (int i = 1; i <= 2; i++)
+    for (int i = 1+ZERO; i <= 2; i++)
     {
         tanks[i-1]   = loadTank(i);
         bullets[i-1] = loadBullet(i);        
     }
 
-    gl.light1 = tanks[0].pos+15.0*vy;
-    gl.light2 = tanks[1].pos+15.0*vy;
-    gl.light3 = bullets[0].mat != NONE ? bullets[0].pos : -vy*10.0;
+    gl.light1 = bullets[0].pos;
+    gl.light2 = bullets[1].pos;
+    gl.light3 = vy*10.0;
     
     gl.march = true;
     float d = march(cam.pos, rd);
@@ -348,8 +315,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         
     #ifndef TOY
     col += vec3(print(0,0,vec3(iFrameRate, iTime, bullets[0].mat)));
-    col += vec3(print(0,2,bullets[0].pos));
-    col += vec3(print(0,1,bullets[0].mat));
+    // col += vec3(print(0,2,bullets[0].pos));
+    // col += vec3(print(0,1,bullets[0].mat));
     #endif    
 
     fragColor = postProc(col, dither, true, true);

@@ -164,7 +164,7 @@ void initTank(int id)
 {
    Tank t;
    t.mat    = TANK+id*2;
-   t.pos    = vec3(id*5,2,0);
+   t.pos    = vec3((id-1)*7,2,0);
    t.dir    = vx;
    t.up     = vy;
    t.turret = vx;
