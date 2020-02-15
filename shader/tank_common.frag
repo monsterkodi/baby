@@ -88,6 +88,12 @@ struct SDF {
     int   mat;
 } sdf;
 
+float floorSinus()
+{
+    vec2 sp = sin(sdf.pos.xz*0.2);
+    return sdf.pos.y - (sp.x+sp.y);
+}
+
 struct _gl {
     vec2  uv;
     vec3  tuv;

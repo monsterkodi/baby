@@ -10,7 +10,7 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 #define SPEED    0.05
 #define DAMP     0.5
 
-#define MAX_STEPS  128
+#define MAX_STEPS  32
 #define MIN_DIST   0.005
 #define MAX_DIST   100.0
 
@@ -26,8 +26,25 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 
 float floorDist()
 {
-    float d = sdPlane(vec3(0,0,0), vy);
-    d = opDiff(d, sdSphere(vx*2.0+vy*2.0, 4.0), 1.5);
+    float d = floorSinus(); 
+    
+    vec3  fpos = floor(mod(sdf.pos, 256.0));
+    vec3  frct = fract(sdf.pos);
+    ivec2 ipos = ivec2(fpos.xz);
+    
+    float sx = frct.x>=0.5?1.0:-1.0;
+    float sz = frct.z>=0.5?1.0:-1.0;
+    
+    vec4  p0 = load2(ipos.x, ipos.y);
+    vec4  px = load2((ipos.x + int(sx)) % 256, ipos.y);    
+    vec4  pz = load2(ipos.x, (ipos.y + int(sz)) % 256);
+    
+    float hx = mix(p0.w, px.w, abs(frct.x-0.5)*2.0);
+    float hz = mix(p0.w, pz.w, abs(frct.z-0.5)*2.0);
+    float ph = mix(hx, hz, 0.5);
+    
+    d -= ph;
+    
     return d;
 }
 
@@ -208,18 +225,20 @@ void calcTank(int id)
         acc += repulse(t.pos, to.pos, 5.0, 100.0);
 	}
     
+    float td = iTimeDelta*60.0;
+    
     if (iMouse.z > 0.0)
     {
-        acc += attract(t.pos, v0, 3.0, 3.0, 6.0, 9.0);
+        // acc += attract(t.pos, v0, 3.0, 3.0, 6.0, 9.0);
     }
     
     if (id == 0)
     {
-        float accel = 10.0;
+        float accel = 10.0*td;
         acc += keyDown(KEY_UP)   ? t.dir* accel : v0;
         acc += keyDown(KEY_DOWN) ? t.dir*-0.5*accel : v0;
         
-        float rotSpeed = 4.0;
+        float rotSpeed = 4.0*td;
         t.dir = rotAxisAngle(t.dir, t.up, keyDown(KEY_LEFT) ? -rotSpeed : keyDown(KEY_RIGHT) ? rotSpeed : 0.0);        
         t.dir = normalize(t.dir);
     }
@@ -249,14 +268,30 @@ void calcTank(int id)
         t.track.y = fract(t.track.y-dot(normalize(deltaR), t.dir)*dr);
     }
     
-    t.turret = normalize(mix(t.turret, t.vel + t.dir, 0.1))*clamp(length(t.vel), 0.75, 1.0);
-    if (dot(t.turret, t.up) < 0.0) 
-    {
-        t.turret = normalize(posOnPlane(t.pos+t.turret, t.pos, t.up)-t.pos);
-    }
+    t.turret = normalize(mix(t.turret, t.dir, 0.1))*(0.75+0.25*smoothstep(0.0, 3.0, length(t.vel)));
     
     tanks[id] = t;
     saveTank(id, t);
+}
+
+// 000   000   0000000   000      00000000  
+// 000   000  000   000  000      000       
+// 000000000  000   000  000      0000000   
+// 000   000  000   000  000      000       
+// 000   000   0000000   0000000  00000000  
+
+void calcHole(int x, int y)
+{
+    vec4 h = load2(x,y);
+    save2(x, y, h);
+}
+
+void initHole(int x, int y)
+{
+    vec4 h1 = vec4(normalize(vec3(-cos(float(x)*0.2), 1, 0)), 2.0*sin(float(x)*0.2));
+    vec4 h2 = vec4(normalize(vec3(0, 1, -cos(float(y)*0.5))), 1.0*sin(float(y)*0.5));
+    vec4 h = mix(h1, h2, 0.5);
+    save2(x, y, h);
 }
 
 //  0000000  000   000   0000000    0000000   000000000  
@@ -291,10 +326,11 @@ void calcBullet(int id)
     
     if (b.mat != NONE)
     {
-        b.pos += b.dir*0.4;
-        b.dir -= 0.01*vy;
-        
-        if (b.pos.y < 0.0)
+        float td = iTimeDelta*60.0;
+        b.pos += b.dir*td;
+        b.dir -= 0.01*vy*td;
+        sdf.pos = b.pos;
+        if (floorSinus() < 0.0)
         {
             b.mat = NONE;
             b.pos = muzzleTip(t);
@@ -316,44 +352,55 @@ void calcBullet(int id)
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
     initGlobal(fragCoord, iResolution, iMouse, iTime);
-    
-    if (iFrame < 30)
-    {
-        save(0,vec4(30.1,0,0,0));
-        initTank(0);
-        initTank(1);
-        initBullet(0);
-        initBullet(1);
-        fragColor = gl.color;
-        return;
-    }
 
     ivec2 mem = ivec2(fragCoord);
     int id = mem.x;
+    
+    if (iFrame < 30)
+    {
+        if (id == 0 && mem.y == 0)
+        {
+            save(0,vec4(30.1,0,0,0));
+        }
+        else
+        {
+            if (id >= 1 && id <= 2 && mem.y < 8)
+            {
+                initTank(id-1);
+            }
+            else if (id >= 3 && id <= 4 && mem.y < 3)
+            {
+                initBullet(id-3);
+            }
+            else
+            {
+                initHole(mem.x, mem.y);
+            }
+        }
+        
+        fragColor = gl.color;
+        return;
+    }
 
     if (id == 0 && mem.y == 0)
     {
         save(id,vec4(load(0).x+0.1,0,0,0));
     }
-    else if (mem.y < 8)
+    else
     {
-        if (id >= 1 && id <= 2)
+        if (id >= 1 && id <= 2 && mem.y < 8)
         {
             calcTank(id-1);
         }
-        else if (id >= 3 && id <= 4)
+        else if (id >= 3 && id <= 4 && mem.y < 3)
         {
             calcTank(id-3);
             calcBullet(id-3);
         }
         else
         {
-            return;
+            calcHole(mem.x, mem.y);
         }
-    }
-    else
-    {
-        return;
     }
     
     fragColor = gl.color;

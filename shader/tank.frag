@@ -6,9 +6,9 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 
 #define ZERO min(iFrame,0)
 #define CAM_DIST   6.0
-#define MAX_STEPS  256
+#define MAX_STEPS  128
 #define MIN_DIST   0.001
-#define MAX_DIST   100.0
+#define MAX_DIST   200.0
 
 #define NONE   0
 #define FLOOR  1
@@ -92,8 +92,25 @@ void renderTank(int id)
 
 float floorDist()
 {
-    float d = sdPlane(vec3(0,0,0), vy);
-    d = opDiff(d, sdSphere(vx*2.0+vy*2.0, 4.0), 1.5);
+    float d = floorSinus(); 
+    
+    vec3  fpos = floor(mod(sdf.pos, 256.0));
+    vec3  frct = fract(sdf.pos);
+    ivec2 ipos = ivec2(fpos.xz);
+    
+    float sx = frct.x>=0.5?1.0:-1.0;
+    float sz = frct.z>=0.5?1.0:-1.0;
+    
+    vec4  p0 = load2(ipos.x, ipos.y);
+    vec4  px = load2((ipos.x + int(sx)) % 256, ipos.y);    
+    vec4  pz = load2(ipos.x, (ipos.y + int(sz)) % 256);
+    
+    float hx = mix(p0.w, px.w, abs(frct.x-0.5)*2.0);
+    float hz = mix(p0.w, pz.w, abs(frct.z-0.5)*2.0);
+    float ph = mix(hx, hz, 0.5);
+    
+    d -= ph;
+    
     if (cam.pos.y > 0.0) sdMat(FLOOR, d);
     return d;
 }
@@ -209,7 +226,7 @@ float softShadow(vec3 ro, vec3 lp, float k)
 
 vec3 getLight(vec3 p, vec3 n, int mat, float d)
 {
-    if (mat == NONE) return vec3(0.06);
+    if (mat == NONE) return vec3(0.5);
     if (mat == GLOW) return white;
     
     Mat m = material[mat-1];
@@ -220,11 +237,14 @@ vec3 getLight(vec3 p, vec3 n, int mat, float d)
     
     if (mat == TANK2+1 || mat == TANK1+1)
     {
-        float s = tanks[mat/2-1].track[gl.tuv.z > 0.0 ? 0 : 1];
-        float tux = fract(gl.tuv.x+s);
-        float ss = sin(TAU*tux*3.0)*gl.tuv.y;
+        float ts = tanks[mat/2-1].track[gl.tuv.z > 0.0 ? 0 : 1];
+        float ss = sin(TAU*fract(gl.tuv.x+ts)*3.0)*gl.tuv.y;
         bn = normalize(bn+vec3(ss,0,0));
         col *= 1.0+ss*0.5;
+    }
+    else if (mat == FLOOR)
+    {
+        col *= 1.0+p.y*0.25;
     }
     
     float dl1 = dot(bn,normalize(gl.light1-p));
@@ -238,7 +258,6 @@ vec3 getLight(vec3 p, vec3 n, int mat, float d)
     
     col += pow(m.glossy, 3.0)*vec3(pow(smoothstep(0.0+m.glossy*0.9, 1.0, dsl), 1.0+40.0*m.glossy));
     col *= clamp(pow(dnl, 1.0+m.shiny*20.0), gl.ambient, 1.0) * getOcclusion(p, n);
-    // col *= softShadow(p, gl.light3, 5.0); 
     col *= softShadow(p, vec3(p.x,gl.light3.y,p.z), 5.0); 
 
     return clamp01(col);
@@ -291,7 +310,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         tanks[i]   = loadTank(i);
         bullets[i] = loadBullet(i);        
     }
-
+    
     gl.light1 = bullets[0].pos;
     gl.light2 = bullets[1].pos;
     gl.light3 = vy*10.0;
@@ -314,14 +333,40 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     else
     {
         col = getLight(p, n, mat, d);
-        if (foggy) col = mix(col, vec3(0.5), smoothstep(MAX_DIST*0.5, MAX_DIST*0.75, d));
+        if (foggy) col = mix(col, vec3(0.5), smoothstep(MAX_DIST*0.8, MAX_DIST*0.95, d));
     }
         
     #ifndef TOY
-    col += vec3(print(0,0,vec3(iFrameRate, iTime, bullets[0].mat)));
-    col += vec3(print(0,2,tanks[0].track));
-    col += vec3(print(0,1,tanks[1].track));
-    #endif    
-
+    if (true)
+    {
+        col += vec3(print(0,0,vec3(iFrameRate, iTime, bullets[0].mat)));
+        col += vec3(print(0,2,tanks[0].vel));
+        col += vec3(print(0,1,tanks[1].vel));
+    }
+    else
+    {
+        if (gl.frag.x < 256.0 && gl.frag.y < 256.0)
+        {
+            vec4 h = load2(int(gl.frag.x), int(gl.frag.y));
+            col = vec3(h.w * 0.25 + 0.5);
+        }
+        else if (gl.frag.x < 512.0 && gl.frag.y < 256.0)
+        {
+            vec4 h = load2(int(gl.frag.x)-256, int(gl.frag.y));
+            col = vec3(h.x * 0.25 + 0.5);
+        }
+        else if (gl.frag.x < 768.0 && gl.frag.y < 256.0)
+        {
+            vec4 h = load2(int(gl.frag.x)-512, int(gl.frag.y));
+            col = vec3(h.y * 0.25 + 0.5);
+        }
+        else if (gl.frag.x < 1024.0 && gl.frag.y < 256.0)
+        {
+            vec4 h = load2(int(gl.frag.x)-768, int(gl.frag.y));
+            col = vec3(h.z * 0.25 + 0.5);
+        }
+    }
+    #endif  
+    
     fragColor = postProc(col, dither, true, true);
 }

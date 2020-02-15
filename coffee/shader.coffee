@@ -15,7 +15,7 @@ class Shader
     @: (@world) ->
 
         @scene = @world.scene
-        @bufferSize = width:512, height:16
+        @bufferSize = width:256, height:256
         @frameRates = []
 
         @buffer = true
@@ -58,12 +58,14 @@ class Shader
         
         @shaderMaterial = @material 'main'
         @shaderMaterial.onCompiled = => 
+            @iFrame = 0
             @compileTime = parseInt performance.now()-@shaderStart
             klog "shader compileTime #{@compileTime/1000}s" 
 
         if @buffer
             @bufferMaterial = @material 'buffer'
             @bufferMaterial.onCompiled = => 
+                @iFrame = 0
                 compileTime = parseInt performance.now()-@shaderStart
                 klog "buffer compileTime #{compileTime/1000}s" 
 
