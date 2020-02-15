@@ -244,7 +244,7 @@ vec3 getLight(vec3 p, vec3 n, int mat, float d)
     }
     else if (mat == FLOOR)
     {
-        col *= 1.0+p.y*0.25;
+        col *= 1.0+p.y*0.2;
     }
     
     float dl1 = dot(bn,normalize(gl.light1-p));
@@ -284,20 +284,15 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     normal = !keyState(KEY_X);
     depthb = !keyState(KEY_Z);
     light  = !keyState(KEY_L);
-    space  =  keyState(KEY_T);
+    space  = !keyState(KEY_T);
     foggy  =  keyState(KEY_F);
     
     if (anim) at = 0.9*iTime;
     
     initCam(CAM_DIST, vec2(0));
     
-    lookAtFrom(vec3(0.5*0.25,-0.5*0.25,0), vec3(0,3.0,CAM_DIST));
-    if (rotate)
-        orbitYaw(-at*10.0);
-            
-    if (iMouse.z > 0.0)
-        lookAtFrom(vec3(0.5*0.25,-0.5*0.25,0), rotAxisAngle(vec3(0,3.0,CAM_DIST-2.5*gl.mp.y), vy, gl.mp.x*90.0));
-        
+    lookAtFrom(load2(0,1).xyz, load2(0,2).xyz);
+
     #ifndef TOY
     if (space) lookAtFrom(iCenter, iCamera);
     #endif
@@ -337,7 +332,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     }
         
     #ifndef TOY
-    if (true)
+    if (false)
     {
         col += vec3(print(0,0,vec3(iFrameRate, iTime, bullets[0].mat)));
         col += vec3(print(0,2,tanks[0].vel));
@@ -349,21 +344,6 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         {
             vec4 h = load2(int(gl.frag.x), int(gl.frag.y));
             col = vec3(h.w * 0.25 + 0.5);
-        }
-        else if (gl.frag.x < 512.0 && gl.frag.y < 256.0)
-        {
-            vec4 h = load2(int(gl.frag.x)-256, int(gl.frag.y));
-            col = vec3(h.x * 0.25 + 0.5);
-        }
-        else if (gl.frag.x < 768.0 && gl.frag.y < 256.0)
-        {
-            vec4 h = load2(int(gl.frag.x)-512, int(gl.frag.y));
-            col = vec3(h.y * 0.25 + 0.5);
-        }
-        else if (gl.frag.x < 1024.0 && gl.frag.y < 256.0)
-        {
-            vec4 h = load2(int(gl.frag.x)-768, int(gl.frag.y));
-            col = vec3(h.z * 0.25 + 0.5);
         }
     }
     #endif  

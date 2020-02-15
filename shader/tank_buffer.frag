@@ -205,11 +205,27 @@ void initBullet(int id)
    saveBullet(id, b);
 }
 
-//  0000000   0000000   000       0000000  
-// 000       000   000  000      000       
-// 000       000000000  000      000       
-// 000       000   000  000      000       
-//  0000000  000   000  0000000   0000000  
+void initHole(int x, int y)
+{
+    vec4 h1 = vec4(normalize(vec3(-cos(float(x)*0.2), 1, 0)), 2.0*sin(float(x)*0.2));
+    vec4 h2 = vec4(normalize(vec3(0, 1, -cos(float(y)*0.5))), 1.0*sin(float(y)*0.5));
+    vec4 h = mix(h1, h2, 0.5);
+    save2(x, y, h);
+}
+
+void initCamera()
+{
+    save2(0,1,vec4(0));
+    save2(0,2,vec4(0,10,20,0));
+}
+
+/*
+ 0000000   0000000   000       0000000  
+000       000   000  000      000       
+000       000000000  000      000       
+000       000   000  000      000       
+ 0000000  000   000  0000000   0000000  
+*/
 
 void calcTank(int id)
 {
@@ -283,15 +299,34 @@ void calcTank(int id)
 void calcHole(int x, int y)
 {
     vec4 h = load2(x,y);
+    
+    Tank t = loadTank(0);
+    
+    h.w -= 0.4*(1.0-smoothstep(0.0,6.0,length(mod(t.pos,256.0).xz - vec2(x,y))))*clamp01((length(t.vel.xz)-3.0)/10.0);
+    h.w = max(h.w, -4.0);
+    
     save2(x, y, h);
 }
 
-void initHole(int x, int y)
+//  0000000   0000000   00     00  00000000  00000000    0000000   
+// 000       000   000  000   000  000       000   000  000   000  
+// 000       000000000  000000000  0000000   0000000    000000000  
+// 000       000   000  000 0 000  000       000   000  000   000  
+//  0000000  000   000  000   000  00000000  000   000  000   000  
+
+void calcCamera()
 {
-    vec4 h1 = vec4(normalize(vec3(-cos(float(x)*0.2), 1, 0)), 2.0*sin(float(x)*0.2));
-    vec4 h2 = vec4(normalize(vec3(0, 1, -cos(float(y)*0.5))), 1.0*sin(float(y)*0.5));
-    vec4 h = mix(h1, h2, 0.5);
-    save2(x, y, h);
+    vec4 tgt = load2(0,1);
+    vec4 pos = load2(0,2);
+    
+    float td = iTimeDelta*60.0;
+    Tank t = loadTank(0);
+    
+    tgt.xyz = mix(tgt.xyz, t.pos, 0.2);
+    pos.xyz = mix(pos.xyz, tgt.xyz - 15.0*t.dir + 5.0*t.up, 0.02);
+    pos.y = max(pos.y, 8.0);
+    save2(0,1,tgt);
+    save2(0,2,pos);
 }
 
 //  0000000  000   000   0000000    0000000   000000000  
@@ -364,7 +399,11 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         }
         else
         {
-            if (id >= 1 && id <= 2 && mem.y < 8)
+            if (id == 0 && mem.y < 3)
+            {
+                initCamera();
+            }
+            else if (id >= 1 && id <= 2 && mem.y < 8)
             {
                 initTank(id-1);
             }
@@ -388,7 +427,11 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     }
     else
     {
-        if (id >= 1 && id <= 2 && mem.y < 8)
+        if (id == 0 && mem.y < 3)
+        {
+            calcCamera();
+        }
+        else if (id >= 1 && id <= 2 && mem.y < 8)
         {
             calcTank(id-1);
         }
