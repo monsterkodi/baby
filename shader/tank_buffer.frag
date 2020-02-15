@@ -15,7 +15,7 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 #define MAX_DIST   100.0
 
 #define NONE    0
-#define TANK    1
+#define TANK    0
 #define BULLET  5
 
 // 00000000  000       0000000    0000000   00000000   
@@ -192,7 +192,7 @@ void calcTank(int id)
     Tank t = loadTank(id);
     
     float d, v, a;
-    vec3 acc, vel, w;
+    vec3 acc, vel;
     
     for (int i = 1; i <= 2; i++) 
     {
@@ -218,22 +218,26 @@ void calcTank(int id)
     }
     else 
     {
-        t.track = vec2(1,-1);
-        t.dir = normalize(mix(t.dir, t.vel, 0.02));
+        t.track = vec2(10,-10);
     }
+    
+    t.dir = normalize(mix(t.dir, t.vel, 0.02));
     
     t.vel += acc*SPEED;
     t.vel *= pow(DAMP, SPEED);
     t.vel = mix(t.vel, t.dir, 0.1);
     
-    w = t.pos+t.vel*SPEED;
-    
-    t.pos = vec3(clamp(w.x, -20.0, 20.0), 0.0, clamp(w.z, -20.0, 20.0));
-    
+    t.pos += t.vel*SPEED;
     t.pos -= floorHeight(t.pos, t.up)*vy;
     
     t.track.x = dot(t.vel, t.dir)*length(t.vel);
     t.track.y = dot(t.vel, t.dir)*length(t.vel);
+    
+    t.turret = normalize(t.dir*0.1+normalize(t.vel))*clamp(length(t.vel), 0.75, 1.0); 
+    if (dot(t.turret, t.up) < 0.0) 
+    {
+        t.turret = normalize(posOnPlane(t.pos+t.turret, t.pos, t.up)-t.pos);
+    }
     
     saveTank(id, t);
 }
@@ -244,11 +248,16 @@ void calcTank(int id)
 //      000  000   000  000   000  000   000     000     
 // 0000000   000   000   0000000    0000000      000     
 
+vec3 muzzleTip(Tank t)
+{
+    return t.pos + 2.09*t.up + t.turret*2.8;
+}
+
 void shoot(int id, inout Bullet b)
 {
     Tank t = loadTank(id);
     b.mat = BULLET+id;
-    b.pos = t.pos+t.up*2.0+t.turret*3.0;
+    b.pos = muzzleTip(t);
     b.dir = t.turret;
 }
 
@@ -256,17 +265,27 @@ void calcBullet(int id)
 {
     Bullet b = loadBullet(id);
     
-    if (keyDown(KEY_SPACE) && b.mat == NONE)  
+    if (id == 1 && keyDown(KEY_SPACE) && b.mat == NONE)  
     {
         shoot(id, b);
     }
+
+    Tank t = loadTank(id);
     
-    b.pos += b.dir*0.1;
-    b.pos -= 0.01*vy;
-    
-    if (b.pos.y < 0.0)
+    if (b.mat != NONE)
     {
-        b.mat == NONE;
+        b.pos += b.dir*0.4;
+        b.dir -= 0.01*vy;
+        
+        if (b.pos.y < 0.0)
+        {
+            b.mat = NONE;
+            b.pos = muzzleTip(t);
+        }
+    }
+    else
+    {
+        b.pos = muzzleTip(t);
     }
     saveBullet(id, b);
 }
