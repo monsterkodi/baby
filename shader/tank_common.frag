@@ -88,6 +88,8 @@ struct SDF {
     int   mat;
 } sdf;
 
+#define HOLE_SCALE 4.0
+
 float floorSinus()
 {
     vec2 sp = sin(sdf.pos.xz*0.2);

@@ -7,8 +7,6 @@ bool keyState(int key) { return keys(key, 2).x < 0.5; }
 bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 
 #define ZERO min(iFrame,0)
-#define SPEED    0.05
-#define DAMP     0.5
 
 #define MAX_STEPS  32
 #define MIN_DIST   0.005
@@ -24,28 +22,17 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 // 000       000      000   000  000   000  000   000  
 // 000       0000000   0000000    0000000   000   000  
 
+float getHeight(vec3 p)
+{
+    vec2  q = mod(p.xz, 512.0);
+    ivec2 s = ivec2(q);
+    ivec2 m = s/2;
+    return load2(m.x, m.y)[(s.x%2)*2+(s.y%2)];
+}
+
 float floorDist()
 {
-    float d = floorSinus(); 
-    
-    vec3  fpos = floor(mod(sdf.pos, 256.0));
-    vec3  frct = fract(sdf.pos);
-    ivec2 ipos = ivec2(fpos.xz);
-    
-    float sx = frct.x>=0.5?1.0:-1.0;
-    float sz = frct.z>=0.5?1.0:-1.0;
-    
-    vec4  p0 = load2(ipos.x, ipos.y);
-    vec4  px = load2((ipos.x + int(sx)) % 256, ipos.y);    
-    vec4  pz = load2(ipos.x, (ipos.y + int(sz)) % 256);
-    
-    float hx = mix(p0.w, px.w, abs(frct.x-0.5)*2.0);
-    float hz = mix(p0.w, pz.w, abs(frct.z-0.5)*2.0);
-    float ph = mix(hx, hz, 0.5);
-    
-    d -= ph;
-    
-    return d;
+    return floorSinus() - getHeight(sdf.pos*HOLE_SCALE);
 }
 
 vec3 floorNormal(vec3 p)
@@ -58,23 +45,10 @@ vec3 floorNormal(vec3 p)
     return normalize(n);
 }
 
-float floorHeight(vec3 p, out vec3 n)
+float floorHeight(vec3 p)
 {
-    float t = 0.0, d;
-    sdf = SDF(MAX_DIST, p, NONE);
-    for (int i = ZERO; i < MAX_STEPS; i++)
-    {
-        sdf.pos = p-vy*t;
-        d = floorDist();
-        t += d;
-        if (d < MIN_DIST) 
-        {
-            n = floorNormal(sdf.pos);
-            return t;
-        }
-        if (t > MAX_DIST) break;
-    }
-    return min(t, MAX_DIST);
+    sdf.pos = p;
+    return floorDist();
 }
 
 //  0000000   000000000  000000000  00000000    0000000    0000000  000000000  
@@ -187,7 +161,7 @@ void initTank(int id)
 {
    Tank t;
    t.mat    = TANK+id*2;
-   t.pos    = vec3(id*7,2,0);
+   t.pos    = vec3((id+1)*7,5,(id+1)*7);
    t.dir    = vx;
    t.up     = vy;
    t.rgt    = vz;
@@ -207,10 +181,7 @@ void initBullet(int id)
 
 void initHole(int x, int y)
 {
-    vec4 h1 = vec4(normalize(vec3(-cos(float(x)*0.2), 1, 0)), 2.0*sin(float(x)*0.2));
-    vec4 h2 = vec4(normalize(vec3(0, 1, -cos(float(y)*0.5))), 1.0*sin(float(y)*0.5));
-    vec4 h = mix(h1, h2, 0.5);
-    save2(x, y, h);
+    save2(x, y, vec4(0));
 }
 
 void initCamera()
@@ -234,42 +205,52 @@ void calcTank(int id)
     float d, v, a;
     vec3 acc, vel;
     
-    for (int i = ZERO; i < 2; i++) 
-    {
-        if (i == id) continue;
-        Tank to = loadTank(i);
-        acc += repulse(t.pos, to.pos, 5.0, 100.0);
-	}
-    
-    float td = iTimeDelta*60.0;
-    
-    if (iMouse.z > 0.0)
-    {
-        // acc += attract(t.pos, v0, 3.0, 3.0, 6.0, 9.0);
+    acc = v0;
+    if (false) {
+        for (int i = ZERO; i < 2; i++) 
+        {
+            if (i == id) continue;
+            Tank to = loadTank(i);
+            acc += repulse(t.pos, to.pos, 5.0, 100.0);
+        }
     }
-    
-    if (id == 0)
-    {
-        float accel = 10.0*td;
-        acc += keyDown(KEY_UP)   ? t.dir* accel : v0;
-        acc += keyDown(KEY_DOWN) ? t.dir*-0.5*accel : v0;
-        
-        float rotSpeed = 4.0*td;
-        t.dir = rotAxisAngle(t.dir, t.up, keyDown(KEY_LEFT) ? -rotSpeed : keyDown(KEY_RIGHT) ? rotSpeed : 0.0);        
-        t.dir = normalize(t.dir);
-    }
-    
-    t.vel += acc*SPEED;
-    t.vel *= pow(DAMP, SPEED);
-    
+
     vec3 oldPosR = t.pos + 1.3*t.rgt;
     vec3 oldPosL = t.pos - 1.3*t.rgt;
     
-    t.pos += t.vel*SPEED;
-    t.pos -= floorHeight(t.pos, t.up)*vy; // this sets up
+    float td = iTimeDelta*60.0;
+        
+    if (id == 0)
+    {
+        float rotSpeed = 4.0*td;
+        t.dir = rotAxisAngle(t.dir, t.up, keyDown(KEY_LEFT) ? -rotSpeed : keyDown(KEY_RIGHT) ? rotSpeed : 0.0);        
+        t.dir = normalize(t.dir);
+        
+        float accel = 0.02*td;
+        acc += keyDown(KEY_UP)   ?      accel*t.dir : v0;
+        acc -= keyDown(KEY_DOWN) ? (0.9*accel*t.dir) : v0;
+    }
+        
+    t.vel += acc;
+    
+    // t.pos = mod(t.pos, 512.0/HOLE_SCALE);
+    t.pos += t.vel*td;
+    // t.pos.y -= floorHeight(t.pos);
+    // t.up     = floorNormal(t.pos);
     
     t.rgt = normalize(cross(t.dir, t.up));
     t.dir = normalize(cross(t.up, t.rgt));
+    
+    //t.vel = t.dir*dot(t.vel,t.dir);
+    t.vel = mix(t.vel, t.dir*length(t.vel), 0.01);
+    if (length(t.vel) > 0.01)
+    {
+        t.vel -= normalize(t.vel)*0.01;
+    }
+    else
+    {
+        t.vel = v0;
+    }
     
     vec3 deltaR = (t.pos + 1.3*t.rgt)-oldPosR;
     vec3 deltaL = (t.pos - 1.3*t.rgt)-oldPosL;
@@ -299,12 +280,19 @@ void calcTank(int id)
 void calcHole(int x, int y)
 {
     vec4 h = load2(x,y);
-    
     Tank t = loadTank(0);
     
-    h.w -= 0.4*(1.0-smoothstep(0.0,6.0,length(mod(t.pos,256.0).xz - vec2(x,y))))*clamp01((length(t.vel.xz)-3.0)/10.0);
-    h.w = max(h.w, -4.0);
+    vec3 p = t.pos*HOLE_SCALE;
+    vec2 q = mod(p.xz, 512.0);
     
+    float speedFactor = clamp01(length(t.vel)-0.1);
+    
+    for (int i = 0; i < 4; i++)
+    {
+        vec2 o = vec2(x,y)*2.0+vec2(0.5*mod(float(i/2),2.0),0.5*mod(float(i),2.0));
+        h[i] -= 0.2*(1.0-smoothstep(9.0,10.0,length(q-o)))*speedFactor;
+    }
+    h = max(h, -4.0);
     save2(x, y, h);
 }
 
@@ -321,10 +309,15 @@ void calcCamera()
     
     float td = iTimeDelta*60.0;
     Tank t = loadTank(0);
-    
+        
     tgt.xyz = mix(tgt.xyz, t.pos, 0.2);
     pos.xyz = mix(pos.xyz, tgt.xyz - 15.0*t.dir + 5.0*t.up, 0.02);
+    
     pos.y = max(pos.y, 8.0);
+    
+    // tgt.xyz = mod(tgt.xyz, 512.0/HOLE_SCALE);
+    // pos.xyz = mod(pos.xyz, 512.0/HOLE_SCALE);
+    
     save2(0,1,tgt);
     save2(0,2,pos);
 }
@@ -391,7 +384,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     ivec2 mem = ivec2(fragCoord);
     int id = mem.x;
     
-    if (iFrame < 30)
+    if (iFrame < 10)
     {
         if (id == 0 && mem.y == 0)
         {
@@ -403,7 +396,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
             {
                 initCamera();
             }
-            else if (id >= 1 && id <= 2 && mem.y < 8)
+            else if (id >= 1 && id <= 1 && mem.y < 8)
             {
                 initTank(id-1);
             }
@@ -431,7 +424,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         {
             calcCamera();
         }
-        else if (id >= 1 && id <= 2 && mem.y < 8)
+        else if (id >= 1 && id <= 1 && mem.y < 8)
         {
             calcTank(id-1);
         }
@@ -440,7 +433,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
             calcTank(id-3);
             calcBullet(id-3);
         }
-        else
+        else if (mem.x < 256 && mem.y < 256)
         {
             calcHole(mem.x, mem.y);
         }

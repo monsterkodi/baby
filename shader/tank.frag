@@ -33,6 +33,30 @@ mat2  rot2(float a) { vec2 v = sin(vec2(1.570796, 0) + a); return mat2(v, -v.y, 
 
 float at;
 
+// 00000000  000       0000000    0000000   00000000   
+// 000       000      000   000  000   000  000   000  
+// 000000    000      000   000  000   000  0000000    
+// 000       000      000   000  000   000  000   000  
+// 000       0000000   0000000    0000000   000   000  
+
+float getHeight(vec3 p)
+{
+    vec2  q = mod(p.xz, 512.0);
+    ivec2 s = ivec2(q);
+    ivec2 m = s/2;
+    return load2(m.x, m.y)[(s.x%2)*2+(s.y%2)];
+}
+
+float floorDist()
+{
+    float d = floorSinus(); 
+    
+    d -= getHeight(sdf.pos*HOLE_SCALE);
+    
+    if (cam.pos.y > 0.0) sdMat(FLOOR, d);
+    return d;
+}
+
 // 000000000   0000000   000   000  000   000  
 //    000     000   000  0000  000  000  000   
 //    000     000000000  000 0 000  0000000    
@@ -83,37 +107,6 @@ void renderTank(int id)
     sdMat(t.mat+1, sdLink(t.pos-t.dir*0.5+0.9*t.up+1.3*t.rgt, t.pos+t.dir*0.5+0.9*t.up+1.3*t.rgt, t.rgt, vec3(0.7, 0.3, 0.2), -1.0));
     sdMat(t.mat+1, sdLink(t.pos-t.dir*0.5+0.9*t.up-1.3*t.rgt, t.pos+t.dir*0.5+0.9*t.up-1.3*t.rgt, t.rgt, vec3(0.7, 0.3, 0.2),  1.0));
 }
-
-// 00000000  000       0000000    0000000   00000000   
-// 000       000      000   000  000   000  000   000  
-// 000000    000      000   000  000   000  0000000    
-// 000       000      000   000  000   000  000   000  
-// 000       0000000   0000000    0000000   000   000  
-
-float floorDist()
-{
-    float d = floorSinus(); 
-    
-    vec3  fpos = floor(mod(sdf.pos, 256.0));
-    vec3  frct = fract(sdf.pos);
-    ivec2 ipos = ivec2(fpos.xz);
-    
-    float sx = frct.x>=0.5?1.0:-1.0;
-    float sz = frct.z>=0.5?1.0:-1.0;
-    
-    vec4  p0 = load2(ipos.x, ipos.y);
-    vec4  px = load2((ipos.x + int(sx)) % 256, ipos.y);    
-    vec4  pz = load2(ipos.x, (ipos.y + int(sz)) % 256);
-    
-    float hx = mix(p0.w, px.w, abs(frct.x-0.5)*2.0);
-    float hz = mix(p0.w, pz.w, abs(frct.z-0.5)*2.0);
-    float ph = mix(hx, hz, 0.5);
-    
-    d -= ph;
-    
-    if (cam.pos.y > 0.0) sdMat(FLOOR, d);
-    return d;
-}
  
 // 00     00   0000000   00000000   
 // 000   000  000   000  000   000  
@@ -130,12 +123,12 @@ float map(vec3 p)
     for (int id = ZERO; id < 2; id++)
         renderTank(id);
         
-    if (false && gl.march) { 
-        sdMat(GLOW, sdSphere(gl.light3, 0.1));
-        sdMat(GLOW, sdSphere(gl.light2, 0.1));
-        sdMat(GLOW, sdSphere(gl.light1, 0.1));
+    if (true && gl.march) { 
+        sdMat(GLOW, sdSphere(gl.light3, 0.5));
+        sdMat(GLOW, sdSphere(gl.light2, 0.5));
+        sdMat(GLOW, sdSphere(gl.light1, 0.5));
     }
-    if (gl.march) { 
+    if (false && gl.march) { 
         sdMat(GLOW, sdSphere(bullets[0].pos, 0.5));
         sdMat(GLOW, sdSphere(bullets[1].pos, 0.5));
     }
@@ -300,14 +293,14 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     gl.uv = (2.0*fragCoord-iResolution.xy)/iResolution.y;
     vec3 rd = normalize(gl.uv.x*cam.x + gl.uv.y*cam.up + cam.fov*cam.dir);
     
-    for (int i = ZERO; i < 2; i++)
+    for (int i = ZERO; i < 1; i++)
     {
         tanks[i]   = loadTank(i);
         bullets[i] = loadBullet(i);        
     }
     
     gl.light1 = bullets[0].pos;
-    gl.light2 = bullets[1].pos;
+    gl.light2 = tanks[0].pos + tanks[0].up*3.0 + tanks[0].vel*35.0;
     gl.light3 = vy*10.0;
     
     gl.march = true;
@@ -332,18 +325,25 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     }
         
     #ifndef TOY
-    if (false)
-    {
-        col += vec3(print(0,0,vec3(iFrameRate, iTime, bullets[0].mat)));
-        col += vec3(print(0,2,tanks[0].vel));
-        col += vec3(print(0,1,tanks[1].vel));
-    }
-    else
+    col *= vec3(1.0-10.0*print(5,4,vec3(tanks[0].up  )));
+    col *= vec3(1.0-10.0*print(5,3,vec3(mod(tanks[0].pos, 128.0))));
+    col *= vec3(1.0-10.0*print(5,2,vec3(tanks[0].pos )));
+    col *= vec3(1.0-10.0*print(5,1,vec4(tanks[0].vel, length(tanks[0].vel))));
+    col *= vec3(1.0-10.0*print(5,0,vec3(iFrameRate, iTime, iTimeDelta*60.0)));
+        
+    if (true)
     {
         if (gl.frag.x < 256.0 && gl.frag.y < 256.0)
         {
-            vec4 h = load2(int(gl.frag.x), int(gl.frag.y));
-            col = vec3(h.w * 0.25 + 0.5);
+            col = load2(int(gl.frag.x), int(gl.frag.y)).xyz * 0.25 + 0.5;
+        }
+    }
+    else
+    {
+        if (gl.frag.x < 512.0 && gl.frag.y < 512.0)
+        {
+            float h = getHeight(vec3(gl.frag.x, 0, gl.frag.y));
+            col = vec3(h * 0.25 + 0.5);
         }
     }
     #endif  
