@@ -22,12 +22,24 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 // 000       000      000   000  000   000  000   000  
 // 000       0000000   0000000    0000000   000   000  
 
-float getHeight(vec3 p)
+float getHeight2(vec3 p)
 {
     vec2  q = mod(p.xz, 512.0);
     ivec2 s = ivec2(q);
     ivec2 m = s/2;
     return load2(m.x, m.y)[(s.x%2)*2+(s.y%2)];
+}
+
+float getHeight(vec3 p)
+{
+    vec2  q = mod(p.xz, 512.0);
+    ivec2 s = ivec2(q);
+    ivec2 m = s/2;
+    vec4  h = load2(m.x, m.y);
+    vec2  f = fract(q/2.0);
+    float mx = mix(h[0], h[2], f.x);
+    float my = mix(h[0], h[1], f.y);
+    return (mx+my)/2.0;
 }
 
 float floorDist()
@@ -49,26 +61,6 @@ float floorHeight(vec3 p)
 {
     sdf.pos = p;
     return floorDist();
-}
-
-//  0000000   000000000  000000000  00000000    0000000    0000000  000000000  
-// 000   000     000        000     000   000  000   000  000          000     
-// 000000000     000        000     0000000    000000000  000          000     
-// 000   000     000        000     000   000  000   000  000          000     
-// 000   000     000        000     000   000  000   000   0000000     000     
-
-vec2 hash(int n) { return fract(sin(vec2(float(n),float(n)*7.))*43758.5); }
-vec3 attract(vec3 tankpos, vec3 target, float dist, float a, float s2, float s3)
-{
-    vec3  w = target-tankpos;
-    float x = length(w);
-    float k = dist+s2;
-    float d = (2.0*dist+s2)*0.5;
-    float xkd = (x-d)/(k-d);
-    float l = min(max(-1.0, -abs(x-d)/(k-d)), xkd*exp(1.0+xkd));
-    float r = max(-1.0, xkd*exp(1.0-xkd)-max(0.0,(1.0-s3)*(1.0-exp(1.0-x/k))));
-    float f = a*max(r,l)*0.5+0.5;
-    return w*f;
 }
 
 // 00000000   00000000  00000000   000   000  000       0000000  00000000  
@@ -181,7 +173,19 @@ void initBullet(int id)
 
 void initHole(int x, int y)
 {
-    save2(x, y, vec4(0));
+    if (false)
+    {
+        float t1 = sin(float(x)*0.1);
+        float t2 = sin((float(x)+0.5)*0.1);
+        save2(x, y, 3.0*vec4(t1 + float(x)/256.0       +  float(y)/256.0, 
+                             t1 + float(x)/256.0       + (float(y)+0.5)/256.0, 
+                             t2 + (float(x)+0.5)/256.0 +  float(y)/256.0, 
+                             t2 + (float(x)+0.5)/256.0 + (float(y)+0.5)/256.0));
+    }
+    else
+    {
+        save2(x, y, vec4(2.0));
+    }
 }
 
 void initCamera()
@@ -235,8 +239,8 @@ void calcTank(int id)
     
     // t.pos = mod(t.pos, 512.0/HOLE_SCALE);
     t.pos += t.vel*td;
-    // t.pos.y -= floorHeight(t.pos);
-    // t.up     = floorNormal(t.pos);
+    t.pos.y -= floorHeight(t.pos);
+    t.up     = floorNormal(t.pos);
     
     t.rgt = normalize(cross(t.dir, t.up));
     t.dir = normalize(cross(t.up, t.rgt));

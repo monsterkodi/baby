@@ -42,9 +42,34 @@ float at;
 float getHeight(vec3 p)
 {
     vec2  q = mod(p.xz, 512.0);
-    ivec2 s = ivec2(q);
-    ivec2 m = s/2;
-    return load2(m.x, m.y)[(s.x%2)*2+(s.y%2)];
+    ivec2 m = ivec2(q)/2;
+    vec4  h = load2(m.x, m.y);
+    vec2  f = fract(q/2.0);
+    float mx;
+    vec4  n;
+    if (f.x < 0.5 && f.y < 0.5)
+    {
+        mx = mix(mix(h[0], h[2], f.x*2.0), mix(h[1], h[3], f.x*2.0), f.y*2.0);
+    }
+    else if (f.x >= 0.5 && f.y < 0.5)
+    {
+        n  = load2((m.x+1)%256, m.y);
+        mx = mix(mix(h[2], n[0], (f.x-0.5)*2.0), mix(h[3], n[1], (f.x-0.5)*2.0), f.y*2.0);
+    }
+    else if (f.x < 0.5 && f.y >= 0.5)
+    {
+        n  = load2(m.x, (m.y+1)%256);
+        mx = mix(mix(h[1], h[3], f.x*2.0), mix(n[0], n[2], f.x*2.0), (f.y-0.5)*2.0);
+    }
+    else
+    {
+        n       = load2((m.x+1)%256, (m.y+1)%256);
+        vec4 nx = load2((m.x+1)%256, m.y);
+        vec4 ny = load2(m.x, (m.y+1)%256);
+        mx = mix(mix(h[3], nx[1], (f.x-0.5)*2.0), mix(ny[2], n[0], (f.x-0.5)*2.0), (f.y-0.5)*2.0);
+    }
+    
+    return mx;
 }
 
 float floorDist()
@@ -120,7 +145,7 @@ float map(vec3 p)
     
     floorDist();
         
-    for (int id = ZERO; id < 2; id++)
+    for (int id = ZERO; id < 1; id++)
         renderTank(id);
         
     if (true && gl.march) { 
@@ -277,7 +302,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     normal = !keyState(KEY_X);
     depthb = !keyState(KEY_Z);
     light  = !keyState(KEY_L);
-    space  = !keyState(KEY_T);
+    space  =  keyState(KEY_T);
     foggy  =  keyState(KEY_F);
     
     if (anim) at = 0.9*iTime;
