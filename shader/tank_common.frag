@@ -550,10 +550,19 @@ float sdHalfSphere(vec3 a, vec3 n, float r, float k)
     return opInter(sdPlane(a, -n), sdSphere(a, r), k);
 }
 
-float sdBox(vec3 a, vec3 b, float r)
+float sdBox(vec3 a, vec3 b, float r) // axis aligned, b: dimensions
 {
   vec3 q = abs(sdf.pos-a)-b;
   return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0) - r;
+}
+
+float sdBox(vec3 a, vec3 up, vec3 dir, vec3 dim)
+{
+  vec3  q = sdf.pos-a;
+  float x = abs(dot(cross(dir, up), q))-dim.x;
+  float y = abs(dot(up,  q))-dim.y;
+  float z = abs(dot(dir, q))-dim.z;
+  return max(x,max(y,z));
 }
 
 float sdEllipsoid(vec3 a, vec3 r)

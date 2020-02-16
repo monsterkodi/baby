@@ -6,24 +6,22 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 
 #define ZERO min(iFrame,0)
 #define CAM_DIST   6.0
-#define MAX_STEPS  128
+#define MAX_STEPS  256
 #define MIN_DIST   0.001
 #define MAX_DIST   200.0
 
 #define NONE   0
 #define FLOOR  1
-#define TANK1  2
-#define TANK2  4
-#define NMAT   5
+#define TANK   2
+#define NMAT   4
 #define GLOW   100
 
 Mat[NMAT] material = Mat[NMAT](
     //  hue   sat  lum    shiny  glossy
-    Mat(0.5,  0.0,  1.0,   0.0,   1.0 ),
-    Mat(0.0,  1.0,  0.6,   0.1,   0.7 ), // TANK1
-    Mat(0.0,  1.0,  0.6,   0.1,   0.2 ),
-    Mat(0.6,  1.0,  0.6,   0.1,   0.7 ), // TANK2
-    Mat(0.6,  1.0,  0.6,   0.1,   0.2 )
+    Mat(0.5,  0.0,  1.0,   0.0,  0.4 ), // SNOW
+    Mat(0.5,  0.0,  1.0,   0.0,  1.0 ), // TANK
+    Mat(0.5,  0.0,  0.01,  0.1,  0.5 ), // WHEEL
+    Mat(0.5,  0.0,  0.01,  0.0,  0.9 )  // WINDOW
 );
 
 bool space, anim, soft, occl, light, dither, foggy, rotate, normal, depthb;
@@ -132,6 +130,39 @@ void renderTank(int id)
     sdMat(t.mat+1, sdLink(t.pos-t.dir*0.5+0.9*t.up+1.3*t.rgt, t.pos+t.dir*0.5+0.9*t.up+1.3*t.rgt, t.rgt, vec3(0.7, 0.3, 0.2), -1.0));
     sdMat(t.mat+1, sdLink(t.pos-t.dir*0.5+0.9*t.up-1.3*t.rgt, t.pos+t.dir*0.5+0.9*t.up-1.3*t.rgt, t.rgt, vec3(0.7, 0.3, 0.2),  1.0));
 }
+
+//  0000000   0000000   00000000   
+// 000       000   000  000   000  
+// 000       000000000  0000000    
+// 000       000   000  000   000  
+//  0000000  000   000  000   000  
+
+void renderCar(int id)
+{
+    Tank t  = tanks[id];
+    vec3 p  = t.pos + 2.0*t.up;
+    
+    float dc  = sdCapsule(p+t.dir*0.4, p-t.dir*0.4, 1.2);
+    float d = dc;
+    
+    if (d > sdf.dist+1.5) return;
+    
+    p += 0.7*t.up;
+    
+    d = opUnion(d, sdLink(t.pos-t.dir*0.5+1.0*t.up+1.0*t.rgt, t.pos+t.dir*0.5+1.0*t.up+1.0*t.rgt, t.rgt, vec3(1.0, 0.4, 0.2), -1.0), 0.1);
+    d = opUnion(d, sdLink(t.pos-t.dir*0.5+1.0*t.up-1.0*t.rgt, t.pos+t.dir*0.5+1.0*t.up-1.0*t.rgt, t.rgt, vec3(1.0, 0.4, 0.2),  1.0), 0.1);
+    
+    d = opUnion(d, sdCapsule   (p, p-t.turret*2.5, 0.3), 0.02);
+    d = opUnion(d, sdHalfSphere(p-t.turret*2.8, t.turret, 0.7, 0.1), 0.1);
+    d = opInter(d, sdPlane(t.pos + 1.5*t.up, -t.up), 0.3);
+    d = opDiff (d, sdBox(p+t.dir*0.66, t.up, t.dir, vec3(1.5,0.15,0.8)), 0.2);
+    
+    sdMat(t.mat, d);
+    sdMat(t.mat+1, sdLink(t.pos-t.dir*0.5+0.9*t.up+1.2*t.rgt, t.pos+t.dir*0.5+0.9*t.up+1.2*t.rgt, t.rgt, vec3(0.7, 0.6, 0.2), -1.0));
+    sdMat(t.mat+1, sdLink(t.pos-t.dir*0.5+0.9*t.up-1.2*t.rgt, t.pos+t.dir*0.5+0.9*t.up-1.2*t.rgt, t.rgt, vec3(0.7, 0.6, 0.2),  1.0));    
+    
+    sdMat(t.mat+2, opInter(dc+0.05, sdBox(p+t.dir*0.66, t.up, t.dir, vec3(1.2,0.2,0.8)), 0.05));
+}
  
 // 00     00   0000000   00000000   
 // 000   000  000   000  000   000  
@@ -146,17 +177,22 @@ float map(vec3 p)
     floorDist();
         
     for (int id = ZERO; id < 1; id++)
-        renderTank(id);
+    {
+        //renderTank(id);
+        renderCar(id);
+    }
         
     if (true && gl.march) { 
-        sdMat(GLOW, sdSphere(gl.light3, 0.5));
+        // sdMat(GLOW, sdSphere(gl.light3, 0.5));
         sdMat(GLOW, sdSphere(gl.light2, 0.5));
         sdMat(GLOW, sdSphere(gl.light1, 0.5));
     }
+    /*
     if (false && gl.march) { 
         sdMat(GLOW, sdSphere(bullets[0].pos, 0.5));
         sdMat(GLOW, sdSphere(bullets[1].pos, 0.5));
     }
+    */
     return sdf.dist;
 }
 
@@ -253,7 +289,7 @@ vec3 getLight(vec3 p, vec3 n, int mat, float d)
 
     vec3  col = hsl(m.hue, m.sat, m.lum);
     
-    if (mat == TANK2+1 || mat == TANK1+1)
+    if (mat == TANK+1)
     {
         float ts = tanks[mat/2-1].track[gl.tuv.z > 0.0 ? 0 : 1];
         float ss = sin(TAU*fract(gl.tuv.x+ts)*3.0)*gl.tuv.y;
@@ -267,10 +303,9 @@ vec3 getLight(vec3 p, vec3 n, int mat, float d)
     
     float dl1 = dot(bn,normalize(gl.light1-p));
     float dl2 = dot(bn,normalize(gl.light2-p));
-    // float dl3 = dot(bn,normalize(gl.light3-p));
     float dl3 = 0.5*dot(bn,vy); //directional
     float dnl = max(max(dl1, dl2), dl3);
-    float dsl = mix(dnl, clamp01(dl1 + dl2 + dl3), 0.5);
+    float dsl = mix(dnl, clamp01(dl1 + dl2 + dl3), 0.0);
     
     col  = (light) ? gray(col) : col;
     
@@ -291,8 +326,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
     initGlobal(fragCoord, iResolution, iMouse, iTime);
     gl.zero = ZERO;
-    gl.shadow = 0.5;
-    gl.ambient = 0.25;
+    gl.shadow = 0.2;
+    gl.ambient = 0.15;
     for (int i = KEY_1; i <= KEY_9; i++) { if (keyDown(i)) { gl.option = i-KEY_1+1; break; } }
     
     rotate =  keyState(KEY_R);
@@ -302,7 +337,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     normal = !keyState(KEY_X);
     depthb = !keyState(KEY_Z);
     light  = !keyState(KEY_L);
-    space  =  keyState(KEY_T);
+    space  = !keyState(KEY_T);
     foggy  =  keyState(KEY_F);
     
     if (anim) at = 0.9*iTime;
@@ -321,12 +356,12 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     for (int i = ZERO; i < 1; i++)
     {
         tanks[i]   = loadTank(i);
-        bullets[i] = loadBullet(i);        
+        // bullets[i] = loadBullet(i);        
     }
     
-    gl.light1 = bullets[0].pos;
-    gl.light2 = tanks[0].pos + tanks[0].up*3.0 + tanks[0].vel*35.0;
-    gl.light3 = vy*10.0;
+    gl.light1 = tanks[0].pos + tanks[0].up*2.7 - tanks[0].turret*2.8;
+    gl.light2 = cam.pos + cam.up - cam.x;
+    gl.light3 = vy*100.0;
     
     gl.march = true;
     float d = march(cam.pos, rd);
@@ -350,20 +385,22 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
     }
         
     #ifndef TOY
-    col *= vec3(1.0-10.0*print(5,4,vec3(tanks[0].up  )));
-    col *= vec3(1.0-10.0*print(5,3,vec3(mod(tanks[0].pos, 128.0))));
-    col *= vec3(1.0-10.0*print(5,2,vec3(tanks[0].pos )));
-    col *= vec3(1.0-10.0*print(5,1,vec4(tanks[0].vel, length(tanks[0].vel))));
-    col *= vec3(1.0-10.0*print(5,0,vec3(iFrameRate, iTime, iTimeDelta*60.0)));
-        
-    if (true)
+    if (false)
+    {
+        col *= vec3(1.0-10.0*print(5,4,vec3(tanks[0].up  )));
+        col *= vec3(1.0-10.0*print(5,3,vec3(mod(tanks[0].pos, 128.0))));
+        col *= vec3(1.0-10.0*print(5,2,vec3(tanks[0].pos )));
+        col *= vec3(1.0-10.0*print(5,1,vec4(tanks[0].vel, length(tanks[0].vel))));
+        col *= vec3(1.0-10.0*print(5,0,vec3(iFrameRate, iTime, iTimeDelta*60.0)));
+    }   
+    if (false)
     {
         if (gl.frag.x < 256.0 && gl.frag.y < 256.0)
         {
             col = load2(int(gl.frag.x), int(gl.frag.y)).xyz * 0.25 + 0.5;
         }
     }
-    else
+    if (false)
     {
         if (gl.frag.x < 512.0 && gl.frag.y < 512.0)
         {

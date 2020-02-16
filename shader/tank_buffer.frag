@@ -22,24 +22,37 @@ bool keyDown(int key)  { return keys(key, 0).x > 0.5; }
 // 000       000      000   000  000   000  000   000  
 // 000       0000000   0000000    0000000   000   000  
 
-float getHeight2(vec3 p)
-{
-    vec2  q = mod(p.xz, 512.0);
-    ivec2 s = ivec2(q);
-    ivec2 m = s/2;
-    return load2(m.x, m.y)[(s.x%2)*2+(s.y%2)];
-}
-
 float getHeight(vec3 p)
 {
     vec2  q = mod(p.xz, 512.0);
-    ivec2 s = ivec2(q);
-    ivec2 m = s/2;
+    ivec2 m = ivec2(q)/2;
     vec4  h = load2(m.x, m.y);
     vec2  f = fract(q/2.0);
-    float mx = mix(h[0], h[2], f.x);
-    float my = mix(h[0], h[1], f.y);
-    return (mx+my)/2.0;
+    float mx;
+    vec4  n;
+    if (f.x < 0.5 && f.y < 0.5)
+    {
+        mx = mix(mix(h[0], h[2], f.x*2.0), mix(h[1], h[3], f.x*2.0), f.y*2.0);
+    }
+    else if (f.x >= 0.5 && f.y < 0.5)
+    {
+        n  = load2((m.x+1)%256, m.y);
+        mx = mix(mix(h[2], n[0], (f.x-0.5)*2.0), mix(h[3], n[1], (f.x-0.5)*2.0), f.y*2.0);
+    }
+    else if (f.x < 0.5 && f.y >= 0.5)
+    {
+        n  = load2(m.x, (m.y+1)%256);
+        mx = mix(mix(h[1], h[3], f.x*2.0), mix(n[0], n[2], f.x*2.0), (f.y-0.5)*2.0);
+    }
+    else
+    {
+        n       = load2((m.x+1)%256, (m.y+1)%256);
+        vec4 nx = load2((m.x+1)%256, m.y);
+        vec4 ny = load2(m.x, (m.y+1)%256);
+        mx = mix(mix(h[3], nx[1], (f.x-0.5)*2.0), mix(ny[2], n[0], (f.x-0.5)*2.0), (f.y-0.5)*2.0);
+    }
+    
+    return mx;
 }
 
 float floorDist()
@@ -173,19 +186,11 @@ void initBullet(int id)
 
 void initHole(int x, int y)
 {
-    if (false)
-    {
-        float t1 = sin(float(x)*0.1);
-        float t2 = sin((float(x)+0.5)*0.1);
-        save2(x, y, 3.0*vec4(t1 + float(x)/256.0       +  float(y)/256.0, 
-                             t1 + float(x)/256.0       + (float(y)+0.5)/256.0, 
-                             t2 + (float(x)+0.5)/256.0 +  float(y)/256.0, 
-                             t2 + (float(x)+0.5)/256.0 + (float(y)+0.5)/256.0));
-    }
-    else
-    {
-        save2(x, y, vec4(2.0));
-    }
+   float x1 = -cos((float(x)/256.0-0.5)*TAU);
+   float x2 = -cos(((float(x)+0.5)/256.0-0.5)*TAU);
+   float y1 = -cos((float(y)/256.0-0.5)*TAU);
+   float y2 = -cos(((float(y)+0.5)/256.0-0.5)*TAU);
+   save2(x, y, 2.0+2.0*vec4( x1+y1, x1+y2, x2+y1, x2+y2));
 }
 
 void initCamera()
@@ -237,15 +242,14 @@ void calcTank(int id)
         
     t.vel += acc;
     
-    // t.pos = mod(t.pos, 512.0/HOLE_SCALE);
     t.pos += t.vel*td;
-    t.pos.y -= floorHeight(t.pos);
-    t.up     = floorNormal(t.pos);
+    
+    t.pos.y -= (floorHeight(t.pos+t.dir*2.0) + floorHeight(t.pos-t.dir*2.0) + floorHeight(t.pos+t.rgt*2.0) + floorHeight(t.pos-t.rgt*2.0))/4.0; 
+    t.up     = mix(t.up, (floorNormal(t.pos+t.dir*2.0) + floorNormal(t.pos-t.dir*2.0) + floorNormal(t.pos+t.rgt*2.0) + floorNormal(t.pos-t.rgt*2.0))/4.0, 0.5);
     
     t.rgt = normalize(cross(t.dir, t.up));
     t.dir = normalize(cross(t.up, t.rgt));
     
-    //t.vel = t.dir*dot(t.vel,t.dir);
     t.vel = mix(t.vel, t.dir*length(t.vel), 0.01);
     if (length(t.vel) > 0.01)
     {
@@ -283,18 +287,29 @@ void calcTank(int id)
 
 void calcHole(int x, int y)
 {
+    if (keyDown(KEY_R)) 
+    {
+        initHole(x, y);
+        return;
+    }
+    
     vec4 h = load2(x,y);
     Tank t = loadTank(0);
     
     vec3 p = t.pos*HOLE_SCALE;
-    vec2 q = mod(p.xz, 512.0);
+    vec2 q1 = mod(p.xz, 512.0)*0.5;
+    vec2 q2 = q1+vec2(256.0,0);// there must be a simpler solution to this!?
+    vec2 q3 = q1-vec2(256.0,0);
+    vec2 q4 = q1+vec2(0,256.0);
+    vec2 q5 = q1-vec2(0,256.0);
     
     float speedFactor = clamp01(length(t.vel)-0.1);
     
-    for (int i = 0; i < 4; i++)
+    for (float i = 0.0; i < 4.0; i++)
     {
-        vec2 o = vec2(x,y)*2.0+vec2(0.5*mod(float(i/2),2.0),0.5*mod(float(i),2.0));
-        h[i] -= 0.2*(1.0-smoothstep(9.0,10.0,length(q-o)))*speedFactor;
+        vec2 o = vec2(x,y)+vec2(0.5*mod(floor(i/2.0),2.0),0.5*mod(i,2.0));
+        float d = min (min( min(length(q1-o), length(q2-o)), min(length(q3-o), length(q4-o))), length(q5-o));
+        h[int(i)] -= 0.2*(1.0-smoothstep(4.0,5.0,d))*speedFactor;
     }
     h = max(h, -4.0);
     save2(x, y, h);
@@ -315,12 +330,9 @@ void calcCamera()
     Tank t = loadTank(0);
         
     tgt.xyz = mix(tgt.xyz, t.pos, 0.2);
-    pos.xyz = mix(pos.xyz, tgt.xyz - 15.0*t.dir + 5.0*t.up, 0.02);
+    pos.xyz = mix(pos.xyz, tgt.xyz - 15.0*t.dir + 15.0*t.up, 0.005);
     
     pos.y = max(pos.y, 8.0);
-    
-    // tgt.xyz = mod(tgt.xyz, 512.0/HOLE_SCALE);
-    // pos.xyz = mod(pos.xyz, 512.0/HOLE_SCALE);
     
     save2(0,1,tgt);
     save2(0,2,pos);
@@ -403,11 +415,11 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
             else if (id >= 1 && id <= 1 && mem.y < 8)
             {
                 initTank(id-1);
-            }
+            } /*
             else if (id >= 3 && id <= 4 && mem.y < 3)
             {
                 initBullet(id-3);
-            }
+            } */
             else
             {
                 initHole(mem.x, mem.y);
@@ -432,11 +444,12 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         {
             calcTank(id-1);
         }
+        /*
         else if (id >= 3 && id <= 4 && mem.y < 3)
         {
             calcTank(id-3);
             calcBullet(id-3);
-        }
+        }*/
         else if (mem.x < 256 && mem.y < 256)
         {
             calcHole(mem.x, mem.y);
