@@ -19,6 +19,7 @@
 #define KEY_D     68
 #define KEY_E     69
 #define KEY_F     70
+#define KEY_G     71
 #define KEY_L     76
 #define KEY_N     78
 #define KEY_O     79
@@ -26,6 +27,7 @@
 #define KEY_Q     81
 #define KEY_R     82
 #define KEY_S     83
+#define KEY_T     84
 #define KEY_W     87
 #define KEY_X     88
 #define KEY_Z     90
@@ -42,22 +44,28 @@ const vec3 white = vec3(1.0,1.0,1.0);
 const vec3 black = vec3(0.0,0.0,0.0);
 
 #define sdMat(m,d)  if (d < sdf.dist) { sdf.dist = d; sdf.mat = m; }
-    
+
+// 00     00   0000000   0000000    000  000      00000000  
+// 000   000  000   000  000   000  000  000      000       
+// 000000000  000   000  0000000    000  000      0000000   
+// 000 0 000  000   000  000   000  000  000      000       
+// 000   000   0000000   0000000    000  0000000  00000000  
+
+struct Mobile {
+    vec3 pos;
+    vec3 up;
+    vec3 dir;
+    vec3 rgt;
+    vec3 vel;
+    vec3 turret;
+    vec2 track;
+} mobile;
+
 //  0000000   000       0000000   0000000     0000000   000      
 // 000        000      000   000  000   000  000   000  000      
 // 000  0000  000      000   000  0000000    000000000  000      
 // 000   000  000      000   000  000   000  000   000  000      
 //  0000000   0000000   0000000   0000000    000   000  0000000  
-
-struct Tank {
-    int mat;
-    vec3 pos;
-    vec3 up;
-    vec3 dir;
-    vec3 vel;
-    vec3 turret;
-    vec2 track;
-};
 
 struct Text {
     ivec2 size;
@@ -69,6 +77,14 @@ struct SDF {
     vec3  pos;
     int   mat;
 } sdf;
+
+#define SNOW_SCALE 4.0
+
+float floorSinus()
+{
+    vec2 sp = sin(sdf.pos.xz*0.2);
+    return sdf.pos.y - (sp.x+sp.y);
+}
 
 struct _gl {
     vec2  uv;
@@ -209,39 +225,6 @@ float print(int x, int y, vec2 v)  { return print(ivec2(text.size.x*x,text.size.
 float print(int x, int y, ivec3 v) { return print(ivec2(text.size.x*x,text.size.y*y), vec3(v)); }
 #endif
 
-// 000   000   0000000    0000000  000   000  
-// 000   000  000   000  000       000   000  
-// 000000000  000000000  0000000   000000000  
-// 000   000  000   000       000  000   000  
-// 000   000  000   000  0000000   000   000  
-
-float hash11(float p)
-{
-    p = fract(p * 0.1031);
-    p *= p + 33.33;
-    p *= p + p;
-    return fract(p);
-}
-
-vec3 hash33(vec3 p3)
-{
-    p3 = fract(p3 * vec3(12.3,456.7,8912.3));
-    p3 += dot(p3, p3.yxz+33.33);
-    return fract((p3.xxy + p3.yxx)*p3.zyx);
-}
-
-vec3 hash31(float p)
-{
-   return hash33(vec3(p));
-}
-
-float hash12(vec2 p)
-{
-    vec3 p3  = fract(vec3(p.xyx) * .1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
-}
-
 float gradientNoise(vec2 v)
 {
     return fract(52.9829189 * fract(dot(v, vec2(0.06711056, 0.00583715))));
@@ -328,139 +311,6 @@ vec3 rotAxisAngle(vec3 position, vec3 axis, float angle)
     return m * position;
 }
 
-// 00000000    0000000   000       0000000   00000000   
-// 000   000  000   000  000      000   000  000   000  
-// 00000000   000   000  000      000000000  0000000    
-// 000        000   000  000      000   000  000   000  
-// 000         0000000   0000000  000   000  000   000  
-
-vec3 polar(vec3 v)
-{
-    float radius = length(v);
-    float phi    = atan(v.y, v.x);
-    float rho    = acos(v.z/radius);
-    return vec3(phi, rho, radius);
-}
-
-vec3 unpolar(vec3 v)
-{
-    float s = sin(v.y);
-    float x = s * cos(v.x);
-    float y = s * sin(v.x);
-    float z =     cos(v.y);
-    return vec3(x, y, z)*v.z;
-}
-
-vec3 polar2(vec3 v)
-{
-    float radius = length(v);
-    float phi    = atan(v.z, v.x);
-    float rho    = acos(v.y/radius);
-    return vec3(phi, rho, radius);
-}
-
-vec3 unpolar2(vec3 v)
-{
-    float s = sin(v.y);
-    float x = s * cos(v.x);
-    float z = s * sin(v.x);
-    float y =     cos(v.y);
-    return vec3(x, y, z)*v.z;
-}
-
-//  0000000   000   000   0000000   000000000  
-// 000   000  000   000  000   000     000     
-// 000 00 00  000   000  000000000     000     
-// 000 0000   000   000  000   000     000     
-//  00000 00   0000000   000   000     000     
-
-vec4 quatAxisAngle(vec3 axis, float angle)
-{ 
-    float half_angle = deg2rad(angle*0.5);
-    return vec4(axis*sin(half_angle), cos(half_angle));
-}
-
-vec4 quatConj(vec4 q)
-{ 
-    return vec4(-q.x, -q.y, -q.z, q.w); 
-}
-  
-vec4 quatMul(vec4 q1, vec4 q2)
-{ 
-    vec4 qr;
-    qr.x = (q1.w * q2.x) + (q1.x * q2.w) + (q1.y * q2.z) - (q1.z * q2.y);
-    qr.y = (q1.w * q2.y) - (q1.x * q2.z) + (q1.y * q2.w) + (q1.z * q2.x);
-    qr.z = (q1.w * q2.z) + (q1.x * q2.y) - (q1.y * q2.x) + (q1.z * q2.w);
-    qr.w = (q1.w * q2.w) - (q1.x * q2.x) - (q1.y * q2.y) - (q1.z * q2.z);
-    return qr;
-}
-
-vec3 rotAxisAngleQuat(vec3 p, vec3 axis, float angle)
-{ 
-    vec4 qr = quatAxisAngle(axis, angle);
-    return quatMul(quatMul(qr, vec4(p, 0)), quatConj(qr)).xyz;
-}
-
-vec3 rotRayAngle(vec3 p, vec3 ro, vec3 rd, float angle)
-{ 
-    return rotAxisAngle(p-ro, rd-ro, angle)+ro;
-}
-
-vec3 rotY(vec3 v, float d)
-{
-    float r = deg2rad(d);
-    float c = cos(r);
-    float s = sin(r);
-    return vec3(v.x*c+v.z*s, v.y, v.z*c+v.x*s);
-}
-
-vec3 rotX(vec3 v, float d)
-{
-    float r = deg2rad(d);
-    float c = cos(r);
-    float s = sin(r);
-    return vec3(v.x, v.y*c+v.z*s, v.z*c+v.y*s);
-}
-
-vec3 rotZ(vec3 v, float d)
-{
-    float r = deg2rad(d);
-    float c = cos(r);
-    float s = sin(r);
-    return vec3(v.x*c+v.y*s, v.y*c+v.x*s, v.z);
-}
-
-//  0000000   00000000   0000000   00     00    
-// 000        000       000   000  000   000    
-// 000  0000  0000000   000   000  000000000    
-// 000   000  000       000   000  000 0 000    
-//  0000000   00000000   0000000   000   000    
-
-vec3 posOnPlane(vec3 p, vec3 a, vec3 n)
-{
-    return p-dot(p-a,n)*n;
-}
-
-vec3 posOnPlane(vec3 p, vec3 n)
-{
-    return p-dot(p,n)*n;
-}
-
-vec3 posOnRay(vec3 p, vec3 n)
-{
-    return max(0.0, dot(p, n) / dot(n, n)) * n;
-}
-
-vec3 posOnRay(vec3 ro, vec3 rd, vec3 p)
-{
-    return ro + max(0.0, dot(p - ro, rd) / dot(rd, rd)) * rd;
-}
-
-bool rayIntersectsSphere(vec3 ro, vec3 rd, vec3 ctr, float r)
-{
-    return length(posOnRay(ro, rd, ctr) - ctr) < r;
-}
-
 //  0000000   00000000   
 // 000   000  000   000  
 // 000   000  00000000   
@@ -501,14 +351,6 @@ float sdSphere(vec3 a, float r)
     return length(sdf.pos-a)-r;
 }
 
-float sdPill(vec3 a, float r, vec3 n)
-{
-    vec3 p = sdf.pos-a;
-    float d = abs(dot(normalize(n),normalize(p)));
-    float f = smoothstep(0.0, 1.3, d);
-    return length(p) - r + f * length(n);
-}
-
 float sdPlane(vec3 a, vec3 n)
 {   
     return dot(n, sdf.pos-a);
@@ -524,47 +366,13 @@ float sdHalfSphere(vec3 a, vec3 n, float r, float k)
     return opInter(sdPlane(a, -n), sdSphere(a, r), k);
 }
 
-float sdBox(vec3 a, vec3 b, float r)
+float sdBox(vec3 a, vec3 up, vec3 dir, vec3 dim)
 {
-  vec3 q = abs(sdf.pos-a)-b;
-  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0) - r;
-}
-
-float sdEllipsoid(vec3 a, vec3 r)
-{
-    vec3 p = sdf.pos-a;
-    float k0 = length(p/r);
-    float k1 = length(p/(r*r));
-    return k0*(k0-1.0)/k1;
-}
-
-float sdCone(vec3 a, vec3 b, float r1, float r2)
-{
-    vec3 ab = b-a;
-    vec3 ap = sdf.pos-a;
-    float t = dot(ab,ap) / dot(ab,ab);
-    t = clamp(t, 0.0, 1.0);
-    vec3 c = a + t*ab;
-    return length(sdf.pos-c)-(t*r2+(1.0-t)*r1);      
-}
-
-float sdLine(vec3 a, vec3 n, float r)
-{
-    vec3 p = sdf.pos-a;
-    return length(p-n*dot(p,n))-r;
-}
-
-float sdLine(vec2 p, vec2 a, vec2 b)
-{
-    vec2 n = b-a;
-    vec2 nc = n.yx; nc.x *= -1.0;
-    return dot(p-a,nc) <= 0.0 ? 0.0 : length((p-a)-n*dot(p-a,n)/dot(n,n));
-}
-
-float sdLine2(vec2 p, vec2 a, vec2 b)
-{
-    vec2 n = b-a;
-    return length((p-a)-n*dot(p-a,n)/dot(n,n));
+  vec3  q = sdf.pos-a;
+  float x = abs(dot(cross(dir, up), q))-dim.x;
+  float y = abs(dot(up,  q))-dim.y;
+  float z = abs(dot(dir, q))-dim.z;
+  return max(x,max(y,z));
 }
 
 float sdCapsule(vec3 a, vec3 b, float r)
@@ -589,28 +397,6 @@ float sdCylinder(vec3 a, vec3 b, float r, float cr)
   float y2 = y*y*baba;
   float d = (max(x,y)<0.0)?-min(x2,y2):(((x>0.0)?x2:0.0)+((y>0.0)?y2:0.0));
   return sign(d)*sqrt(abs(d))/baba - cr;
-}
-
-float sdHexagon(vec3 p, vec3 a, vec3 r) // r: (radius, height, bevel)
-{
-    vec3 k = vec3(-0.8660254, 0.5, 0.57735);
-    p = abs(p - a);
-    p.xz -= 2.0*min(dot(k.xy, p.xz), 0.0)*k.xy;
-    float hr = r.x-r.z;
-    float hh = r.y-r.z;
-    vec2 d = vec2(length(p.xz-vec2(clamp(p.x,-k.z*hr,k.z*hr), hr))*sign(p.z-hr), p.y-hh);
-    return min(max(d.x,d.y),0.0) + length(max(d,0.0)) - r.z;
-}
-
-float sdHexagon(vec3 a, vec3 r) // r: (radius, height, bevel)
-{
-    return sdHexagon(sdf.pos, a, r);
-}
-
-float sdTorus(vec3 p, vec3 a, vec3 n, float rl, float rs)
-{
-    vec3 q = p-a;
-    return length(vec2(length(posOnPlane(q, n))-rl,abs(dot(n, q))))-rs;
 }
 
 float sdLink(vec3 p, float le, float r1, float r2)
@@ -690,29 +476,7 @@ vec3 bumpMap(vec3 p, vec3 nor, float factor)
                       bumpSurf(p - e.yxy, factor),
                       bumpSurf(p - e.yyx, factor))-bumpSurf(p, factor))/e.x;                     
     grad -= nor*dot(nor, grad);          
-    return normalize(nor - grad*factor * clamp01(1.0-length(cam.pos-p)/4.0));
-}
-
-// 0000000     0000000    0000000  000   0000000  
-// 000   000  000   000  000       000  000       
-// 0000000    000000000  0000000   000  0000000   
-// 000   000  000   000       000  000       000  
-// 0000000    000   000  0000000   000  0000000   
-
-void basis(vec3 n, out vec3 right, out vec3 front) 
-{
-    if (n.y < -0.999999)
-    {
-        right = -vz;
-        front = -vx;
-    } 
-    else 
-    {
-        float a = 1.0/(1.0+n.y);
-        float b = -n.x*n.z*a;
-        right = vec3(1.0-n.x*n.x*a,-n.x,b);
-        front = vec3(b,-n.z,1.0-n.z*n.z*a);
-    }
+    return normalize(nor - grad*0.3*factor*smoothstep(0.0,1.0,1.0-length(cam.pos-p)/30.0));
 }
 
 //  0000000   0000000   00     00  

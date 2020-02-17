@@ -57,7 +57,7 @@ float getHeight(vec3 p)
 
 float floorDist()
 {
-    return floorSinus() - getHeight(sdf.pos*HOLE_SCALE);
+    return floorSinus() - getHeight(sdf.pos*SNOW_SCALE);
 }
 
 vec3 floorNormal(vec3 p)
@@ -296,7 +296,7 @@ void calcHole(int x, int y)
     vec4 h = load2(x,y);
     Tank t = loadTank(0);
     
-    vec3 p = t.pos*HOLE_SCALE;
+    vec3 p = t.pos*SNOW_SCALE;
     vec2 q1 = mod(p.xz, 512.0)*0.5;
     vec2 q2 = q1+vec2(256.0,0);// there must be a simpler solution to this!?
     vec2 q3 = q1-vec2(256.0,0);

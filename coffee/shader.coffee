@@ -34,10 +34,10 @@ class Shader
             void main(void) { gl_Position = worldViewProjection * vec4(position, 1.0); }
             """
         
-        fragSource = slash.readText "#{__dirname}/../shader/tank.frag"
+        fragSource = slash.readText "#{__dirname}/../shader/snowmobile.frag"
         # fragSource    = slash.readText "#{__dirname}/../shader/voronoy.frag"
-        if @buffer then bufferSource = slash.readText "#{__dirname}/../shader/tank_buffer.frag"
-        @commonSource = slash.readText "#{__dirname}/../shader/tank_common.frag"
+        if @buffer then bufferSource = slash.readText "#{__dirname}/../shader/snow_buffer.frag"
+        @commonSource = slash.readText "#{__dirname}/../shader/snow_common.frag"
         # @commonSource = slash.readText "#{__dirname}/../shader/voronoy_common.frag"
         # @commonSource = ""
         
