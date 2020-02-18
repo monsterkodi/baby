@@ -358,11 +358,6 @@ Effect.prototype.ResetTime = function()
     }
 }
 
-Effect.prototype.RequestAnimationFrame = function (id)
-{
-    requestAnimationFrame(id);
-}
-
 Effect.prototype.Paint = function(time, dtime, fps, mouseOriX, mouseOriY, mousePosX, mousePosY, isPaused)
 {
     let wa = null;
@@ -517,7 +512,7 @@ Effect.prototype.newScriptJSON = function( passes )
 {
     var numPasses = passes.length;
 
-    if( numPasses<1 || numPasses>this.mMaxPasses )
+    if ( numPasses<1 || numPasses>this.mMaxPasses )
     {
         return { mFailed : true, mError : "Incorrect number of passes, wrong shader format", mShader:null };
     }
@@ -541,9 +536,9 @@ Effect.prototype.newScriptJSON = function( passes )
         
         for (var i = 0; i < numInputs; i++)
         {
-            var lid = rpass.inputs[i].channel;
+            var lid  = rpass.inputs[i].channel;
             var styp = rpass.inputs[i].type;
-            var sid = rpass.inputs[i].id;
+            var sid  = rpass.inputs[i].id;
             var ssrc = rpass.inputs[i].filepath;
             var psrc = rpass.inputs[i].previewfilepath;
             var samp = rpass.inputs[i].sampler;

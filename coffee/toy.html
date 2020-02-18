@@ -6,23 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
     <style>
-        
-        div#player
-        {
+
+        .container
+        {
+            overflow: hidden;
             position: absolute;
-            top: 0px;
-            left: 0px;
-            bottom: 0px;
-            right: 0px;
-            margin:4px;
-            border-radius: 4px;
-            background-color: #333;
+            top:      0px;
+            left:     0px;
+            bottom:   0px;
+            right:    0px;
         }
-        
-        .playerCanvas
+    
+        #glCanvas
         {
-            left:   0px;
-            top:    0px;
+            top:    0px;
+            left:   0px;
             width:  100%;
             height: 100%;
             cursor: pointer;
@@ -33,11 +31,11 @@
     <script src="renderer.js"></script>
     <script src="pass.js"></script>
     <script src="effect.js"></script>
-    <script src="toy.js"></script>
+    <script src="../js/toy.js"></script>
 </head>
-<body onload="watchInit();" onresize="watchResize();">
-    <div id="player">
-        <canvas id="demogl" class="playerCanvas"></canvas>
+<body onload="Toy.init();" onresize="Toy.resize();">
+    <div class="container">
+        <canvas id="glCanvas"></canvas>
     </div>
 </body>
 </html>
