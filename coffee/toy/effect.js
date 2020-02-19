@@ -684,8 +684,6 @@ Effect.prototype.exportToJSON = function()
         result.renderpass[j].type = this.mPasses[j].mType;
     }
 
-    result.flags = this.calcFlags();
-
     return result;
 }
 

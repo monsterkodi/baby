@@ -36,14 +36,14 @@ class Toy
         @mMousePosY = 0
         @mIsRendering = false
     
-        @mGLContext = piCreateGlContext @mCanvas
+        @mGLContext = Renderer.createGlContext @mCanvas
         
         if not @mGLContext
             log 'no gl context'
     
         @mErrors = new Array()
         
-        @mEffect = new Effect(@mGLContext, @mCanvas.width, @mCanvas.height, this)
+        @mEffect = new Effect @mGLContext, @mCanvas.width, @mCanvas.height
         if not @mEffect.mCreated
             log 'no effect'
             return
@@ -92,7 +92,7 @@ class Toy
             @mTf = ltime
         @mRestarted = false
 
-        @mEffect.Paint ltime/1000.0, dtime/1000.0, 60, @mMouseOriX, @mMouseOriY, @mMousePosX, @mMousePosY, @mIsPaused 
+        @mEffect.paint ltime/1000.0, dtime/1000.0, 60, @mMouseOriX, @mMouseOriY, @mMousePosX, @mMousePosY, @mIsPaused 
 
     # 00000000   00000000   0000000  000  0000000  00000000  
     # 000   000  000       000       000     000   000       
@@ -105,7 +105,7 @@ class Toy
         if @mCanvas
             @mCanvas.width  = @mCanvas.offsetWidth
             @mCanvas.height = @mCanvas.offsetHeight
-            @mEffect.SetSize @mCanvas.width, @mCanvas.height
+            @mEffect.setSize @mCanvas.width, @mCanvas.height
             @mForceFrame = true
 
     logErrors: (result) -> log result if result
@@ -118,36 +118,35 @@ class Toy
     
     setTexture: (slot, url) ->
 
-        res = @mEffect.NewTexture @mActiveDoc, slot, url
+        res = @mEffect.newTexture @mActiveDoc, slot, url
         if not res.mFailed
             @mPass[@mActiveDoc].mDirty = res.mNeedsShaderCompile
 
     getTexture: (slot) ->
-        @mEffect.GetTexture( @mActiveDoc, slot )
+        @mEffect.getTexture( @mActiveDoc, slot )
 
     setShaderFromEditor: (forceall) ->
 
         anyErrors = false
 
-        num = @mEffect.GetNumPasses()
+        num = @mEffect.getNumPasses()
 
         recompileAll = false
         for i in [0...num]
-            if @mEffect.GetPassType(i) == 'common' and (@mPass[i].mDirty or forceall)
+            if @mEffect.getPassType(i) == 'common' and (@mPass[i].mDirty or forceall)
                 recompileAll = true
                 break
 
-        for j in [0...5]
+        for j in [0...4]
             for i in [0...num]
-                if j == 0 and @mEffect.GetPassType(i) != 'common'   then continue
-                if j == 1 and @mEffect.GetPassType(i) != 'buffer'   then continue
-                if j == 2 and @mEffect.GetPassType(i) != 'cubemap'  then continue
-                if j == 3 and @mEffect.GetPassType(i) != 'image'    then continue
-                if j == 4 and @mEffect.GetPassType(i) != 'sound'    then continue
+                if j == 0 and @mEffect.getPassType(i) != 'common'   then continue
+                if j == 1 and @mEffect.getPassType(i) != 'buffer'   then continue
+                if j == 2 and @mEffect.getPassType(i) != 'cubemap'  then continue
+                if j == 3 and @mEffect.getPassType(i) != 'image'    then continue
 
                 if recompileAll or @mPass[i].mDirty or forceall
                     shaderCode = @mPass[i].mCode
-                    result = @mEffect.NewShader shaderCode, i
+                    result = @mEffect.newShader shaderCode, i
                     if result
                         anyErrors = true
                     @mPass[i].mError = result
@@ -175,7 +174,7 @@ class Toy
                 void mainImage( out vec4 fragColor, in vec2 fragCoord )
                 {
                     vec2 uv = fragCoord/iResolution.xy;
-                    vec3 col = 0.5 + 0.5*cos(iTime+uv.xyx+vec3(0,2,4));
+                    vec3 col = 0.15 + 0.15*cos(0.1*iTime+uv.xyx+vec3(0,2,4));
                     fragColor = vec4(col,1.0);
                 }
                 """
@@ -195,5 +194,5 @@ class Toy
         @logErrors @mPass[0].mError
         @startRendering()
         
-    @resize: -> @instance.resize()
-    @init:   -> @instance = new Toy document.getElementById 'glCanvas'
+    @resize: -> Toy.instance.resize()
+    @init:   -> Toy.instance = new Toy document.getElementById 'glCanvas'
