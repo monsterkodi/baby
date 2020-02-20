@@ -48,7 +48,7 @@ class Camera extends UniversalCamera
         @moveX      = 0
         @moveY      = 0
         @moveZ      = 0
-        @moveSpeed  = 3.0
+        @moveSpeed  = 123.0
         @quat       = quat()
         
         @mouse = 
