@@ -30,7 +30,7 @@ class Camera extends UniversalCamera
             dist:   12
             degree: 90 
             rotate: 0 
-            pos:    {x:0,y:0,z:0}
+            pos:    {x:0,y:5,z:12}
             center: {x:0,y:0,z:0}
             
         values = prefs.get 'camera' info
@@ -41,14 +41,14 @@ class Camera extends UniversalCamera
         @degree     = values.degree
         @rotate     = values.rotate
         @dist       = values.dist
-        @minDist    = 1
-        @maxDist    = 50
+        @minDist    = 300
+        @maxDist    = 3000
         @moveDist   = 0.1
         @wheelInert = 0
         @moveX      = 0
         @moveY      = 0
         @moveZ      = 0
-        @moveSpeed  = 123.0
+        @moveSpeed  = 1000.0
         @quat       = quat()
         
         @mouse = 
@@ -89,9 +89,9 @@ class Camera extends UniversalCamera
     
     reset: ->
         @center = vec()
-        @degree = 90
-        @rotate = 180
-        @dist   = 12
+        @degree = 120
+        @rotate = 40
+        @dist   = 1000
         @navigate()
         
     del: =>
@@ -106,11 +106,7 @@ class Camera extends UniversalCamera
     
     render: ->
         
-        if @world.space?
-            @speedFactor = @world.space.distFactor * 10000
-        else
-            # @speedFactor = 1000
-            @speedFactor = 1
+        @speedFactor = 1
         @speedFactor *= 4 if @fastSpeed
         
         if state = @gamepad.getState()
@@ -135,8 +131,7 @@ class Camera extends UniversalCamera
                 @dist   = @moveDist
                 @center = @getDir().mul(@dist).add @position
             
-            speed = 0.02
-            @moveRelative speed*state.left.x, 0, speed*state.left.y
+            @moveRelative 0.03*@moveSpeed*state.left.x, 0, 0.03*@moveSpeed*state.left.y
             
             @navigate()
                             
@@ -185,10 +180,10 @@ class Camera extends UniversalCamera
             @mouse.moved = true
         
         if event.buttons & 4
-            s = @speedFactor * 4
+            s = @moveSpeed * 4
             @pan @mouse.delta.x*2*s/@size.x, @mouse.delta.y*s/@size.y
             
-        if event.buttons & 3
+        if event.buttons & 2
             s = @dist == @moveDist and 500 or 2000
             @pivot s*@mouse.delta.x/@size.x, s*@mouse.delta.y/@size.y            
             

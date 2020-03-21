@@ -7,15 +7,12 @@
 ###
 
 { elem, prefs } = require 'kxk'
-{ Camera, Color3, DirectionalLight, Engine, HemisphericLight, MeshBuilder, Scene, Space, StandardMaterial, Vector3 } = require 'babylonjs'
+{ Camera, Color3, DirectionalLight, Engine, HemisphericLight, Mesh, MeshBuilder, Scene, StandardMaterial, Vector3 } = require 'babylonjs'
 { vec } = require './poly/math'
 generate = require './poly/generate'
 Vect     = require './vect'
 Camera   = require './camera'
 Scene    = require './scene'
-Space    = require './space'
-Tree     = require './tree'
-Shapes   = require './shapes'
 animate  = require './animate'
 
 ϕ = (Math.sqrt(5)-1)/2
@@ -34,7 +31,6 @@ class World
         @engine = new Engine @canvas
         
         @scene  = new Scene @
-        @shapes = new Shapes @scene
         @resized()
         
         a = 0.0 #0.065
@@ -77,12 +73,14 @@ class World
         window.addEventListener 'pointermove' @onMouseMove
         window.addEventListener 'pointerup'   @onMouseUp
   
-        if 0
-            @space = new Space @
-        else if 0
-            @tree = new Tree @
+        if true
+            poly = []
+            p = Mesh.CreatePolyhedron 'poly' {custom:poly}, @scene
+            @scene.showFaces p, poly
         else
-            @shapes.dah()
+            Shapes = require './shapes'
+            s = new Shapes @scene
+            s.dah()
             
     # 00     00   0000000   000   000   0000000  00000000  
     # 000   000  000   000  000   000  000       000       
@@ -99,7 +97,7 @@ class World
         
         @camera.onMouseDrag event
         if mesh = @pickedMesh()
-            # @highlight mesh    
+            @highlight mesh    
             @scene.legend.show mesh.name
         else
             @scene.legend.show @legendMesh
@@ -122,9 +120,9 @@ class World
           
     pickedMesh: ->
         
-        return null
-        
-        if result = @scene.pick(@scene.pointerX, @scene.pointerY, (m) -> m.name not in ['ground' 'cursor'])
+        # if result = @scene.pick(@scene.pointerX, @scene.pointerY, (m) -> m.name not in ['ground' 'cursor'])
+        # klog '@scene' @scene.pointerX, @scene.pointerY, @camera.mouse.pos
+        if result = @scene.pick(@camera.mouse.pos.x*0.5, @camera.mouse.pos.y*0.5, (m) -> m.name not in ['ground' 'cursor'])
             if result.pickedMesh?.name in ['faces''normals']
                 result.pickedMesh.parent
             else
@@ -164,9 +162,6 @@ class World
 
         if not @paused
                         
-            @space?.render()
-            @tree?.render()
-            @shader?.render()
             @camera.render()
             @scene.render()
             animate.tick @engine.getDeltaTime()/1000
